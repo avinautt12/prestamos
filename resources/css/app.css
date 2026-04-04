@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --fin-bg: #F8FAFC;
+    --fin-text: #1F2937;
+    --fin-text-muted: #6B7280;
+    --fin-border: #E5E7EB;
+    --fin-green: #1FA62D;
+    --fin-green-hover: #178A25;
+    --fin-blue: #2563EB;
+    --fin-blue-soft: #EFF6FF;
+    --fin-warn: #F59E0B;
+    --fin-ok: #10B981;
+    --fin-danger: #EF4444;
+}
+
+@layer base {
+    body {
+        background: var(--fin-bg);
+        color: var(--fin-text);
+    }
+}
+
+@layer components {
+    .fin-page {
+        @apply max-w-6xl mx-auto;
+    }
+
+    .fin-card {
+        background: #FFFFFF;
+        border: 1px solid var(--fin-border);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        @apply rounded-xl p-4;
+    }
+
+    .fin-title {
+        color: var(--fin-text);
+        @apply text-xl font-bold;
+    }
+
+    .fin-subtitle {
+        color: var(--fin-text-muted);
+        @apply text-sm;
+    }
+
+    .fin-stat-value {
+        color: #111827;
+        @apply text-2xl font-bold;
+    }
+
+    .fin-icon {
+        color: var(--fin-text-muted);
+    }
+
+    .fin-btn-primary {
+        background: var(--fin-green);
+        color: #FFFFFF;
+        @apply inline-flex items-center justify-center gap-2 px-4 py-3 font-medium rounded-lg transition-colors;
+    }
+
+    .fin-btn-primary:hover {
+        background: var(--fin-green-hover);
+    }
+
+    .fin-btn-secondary {
+        color: var(--fin-blue);
+        border: 1px solid var(--fin-blue);
+        background: #FFFFFF;
+        @apply inline-flex items-center justify-center gap-2 px-4 py-3 font-medium rounded-lg transition-colors;
+    }
+
+    .fin-btn-secondary:hover {
+        background: var(--fin-blue-soft);
+    }
+
+    .fin-badge {
+        @apply inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full;
+    }
+
+    .fin-badge-pending {
+        color: #92400E;
+        background: #FEF3C7;
+    }
+
+    .fin-badge-approved {
+        color: #065F46;
+        background: #D1FAE5;
+    }
+
+    .fin-badge-rejected {
+        color: #991B1B;
+        background: #FEE2E2;
+    }
+
+    .fin-input {
+        @apply w-full px-3 py-2 bg-white rounded-md;
+        border: 1px solid #D1D5DB;
+        color: var(--fin-text);
+    }
+
+    .fin-input:focus {
+        border-color: var(--fin-green);
+        box-shadow: 0 0 0 3px rgba(31, 166, 45, 0.15);
+        outline: none;
+    }
+
+    .fin-info {
+        color: #1E40AF;
+        background: var(--fin-blue-soft);
+        border: 1px solid #BFDBFE;
+        @apply rounded-lg p-4;
+    }
+
+    .tablet-form input,
+    .tablet-form select,
+    .tablet-form textarea,
+    .tablet-form button {
+        min-height: 44px;
+    }
+
+    .tablet-form label,
+    .tablet-form .text-gray-500 {
+        @apply text-gray-600;
+    }
+
+    .tablet-panel {
+        @apply bg-white rounded-xl border border-gray-200 shadow-sm;
+    }
+}
+
+#nprogress .bar {
+    height: 4px !important;
+}

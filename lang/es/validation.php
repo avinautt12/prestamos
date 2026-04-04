@@ -1,0 +1,67 @@
+<?php
+
+return [
+    'accepted' => 'Debes aceptar :attribute.',
+    'alpha_dash' => ':attribute solo debe contener letras, números, guiones y guiones bajos.',
+    'array' => ':attribute debe ser un arreglo.',
+    'between' => [
+        'array' => ':attribute debe tener entre :min y :max elementos.',
+        'file' => ':attribute debe pesar entre :min y :max kilobytes.',
+        'numeric' => ':attribute debe estar entre :min y :max.',
+        'string' => ':attribute debe tener entre :min y :max caracteres.',
+    ],
+    'boolean' => ':attribute debe ser verdadero o falso.',
+    'confirmed' => 'La confirmación de :attribute no coincide.',
+    'current_password' => 'La contraseña es incorrecta.',
+    'date' => ':attribute no es una fecha válida.',
+    'digits' => ':attribute debe tener :digits dígitos.',
+    'digits_between' => ':attribute debe tener entre :min y :max dígitos.',
+    'email' => ':attribute debe ser una dirección de correo válida.',
+    'exists' => ':attribute seleccionado no es válido.',
+    'image' => ':attribute debe ser una imagen válida.',
+    'in' => ':attribute seleccionado no es válido.',
+    'integer' => ':attribute debe ser un número entero.',
+    'max' => [
+        'array' => ':attribute no debe tener más de :max elementos.',
+        'file' => ':attribute no debe pesar más de :max kilobytes.',
+        'numeric' => ':attribute no debe ser mayor que :max.',
+        'string' => ':attribute no debe tener más de :max caracteres.',
+    ],
+    'min' => [
+        'array' => ':attribute debe tener al menos :min elementos.',
+        'file' => ':attribute debe pesar al menos :min kilobytes.',
+        'numeric' => ':attribute debe ser al menos :min.',
+        'string' => ':attribute debe tener al menos :min caracteres.',
+    ],
+    'mimes' => ':attribute debe ser un archivo de tipo: :values.',
+    'numeric' => ':attribute debe ser un número.',
+    'required' => 'El campo :attribute es obligatorio.',
+    'required_if' => 'El campo :attribute es obligatorio cuando :other es :value.',
+    'required_without' => 'El campo :attribute es obligatorio cuando :values no está presente.',
+    'string' => ':attribute debe ser una cadena de texto.',
+    'unique' => ':attribute ya ha sido tomado.',
+    'custom' => [
+        'nombre_usuario' => [
+            'required' => 'El nombre de usuario es obligatorio.',
+            'required_without' => 'El correo electrónico o el nombre de usuario son obligatorios.',
+        ],
+        'email' => [
+            'required_without' => 'El correo electrónico o el nombre de usuario son obligatorios.',
+        ],
+        'password' => [
+            'required' => 'La contraseña es obligatoria.',
+        ],
+    ],
+    'attributes' => [
+        'nombre_usuario' => 'nombre de usuario',
+        'password' => 'contraseña',
+        'curp' => 'CURP',
+        'rfc' => 'RFC',
+        'telefono_celular' => 'teléfono celular',
+        'limite_credito_solicitado' => 'límite de crédito solicitado',
+        'foto_fachada' => 'foto de fachada',
+        'foto_ine_con_persona' => 'foto de INE con persona',
+        'foto_comprobante' => 'foto de comprobante',
+        'observaciones' => 'observaciones',
+    ],
+];
