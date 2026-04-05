@@ -41,6 +41,8 @@ class HandleInertiaRequests extends Middleware
                 ->first();
 
             $sucursalId = $rolPrincipal?->pivot?->sucursal_id;
+            
+            $usuario->rol_nombre = $rolPrincipal?->nombre; 
         }
 
         return [

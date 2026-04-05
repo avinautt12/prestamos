@@ -4,8 +4,13 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 
 export default function AdminLayout({ children, title = 'Prestamo Fácil' }) {
     const { auth } = usePage().props;
+
+    console.log("Datos de Auth:", auth.user);
+
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [toasts, setToasts] = useState([]);
+
+    const rolUsuario = auth?.user?.rol_nombre?.toUpperCase();
 
     const agregarToast = (titulo, mensaje) => {
         const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -26,13 +31,13 @@ export default function AdminLayout({ children, title = 'Prestamo Fácil' }) {
 
         const sucursalChannel = window.Echo.private(`sucursal.${sucursalId}`);
 
-        if (rol === 'gerente') {
+        if (rolUsuario === 'GERENTE') {
             sucursalChannel.listen('.SolicitudListaParaAprobacion', (payload) => {
                 agregarToast('Solicitud lista para aprobación', `${payload.cliente_nombre} (folio #${payload.solicitud_id})`);
             });
         }
 
-        if (rol === 'gerente' || rol === 'cajera') {
+        if (rolUsuario === 'GERENTE' || rolUsuario === 'CAJERA') {
             sucursalChannel.listen('.AlertaMorosidad', (payload) => {
                 agregarToast('Alerta de morosidad', payload.cliente_nombre || 'Se detectó una cuenta morosa');
             });
@@ -41,9 +46,9 @@ export default function AdminLayout({ children, title = 'Prestamo Fácil' }) {
         return () => {
             window.Echo.leave(`sucursal.${sucursalId}`);
         };
-    }, [auth?.user?.id, auth?.user?.rol_nombre, auth?.sucursal_id]);
+    }, [auth?.user?.id, rolUsuario, auth?.sucursal_id]);
 
-    const navigation = auth.user?.rol_nombre === 'gerente' ? [
+    const navigation = rolUsuario === 'GERENTE' ? [
         { name: 'Dashboard', href: route('gerente.dashboard'), icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
         { name: 'Reportes', href: route('gerente.reportes'), icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
         { name: 'Sucursales', href: route('gerente.sucursales'), icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
