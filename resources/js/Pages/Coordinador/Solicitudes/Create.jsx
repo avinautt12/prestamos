@@ -23,7 +23,7 @@ import {
 const TabButton = ({ active, index, onClick, children }) => (
     <button
         onClick={onClick}
-        className={`flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-center transition-colors rounded-lg ${active
+        className={`flex items-center justify-center w-full gap-2 px-3 py-3 text-sm font-medium text-center transition-colors rounded-xl ${active
             ? 'text-blue-700 bg-blue-50 border border-blue-200'
             : 'text-gray-600 bg-white border border-transparent hover:border-gray-200 hover:bg-gray-50'
             }`}
@@ -318,28 +318,39 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
             <Head title="Nueva Solicitud" />
 
             <div className="max-w-6xl mx-auto tablet-form">
-                <div className="mb-4">
-                    <div className="flex items-center gap-2">
-                        <FontAwesomeIcon icon={faFileCirclePlus} className="text-blue-600" />
-                        <h1 className="text-xl font-bold text-gray-900">
-                            {isEditing ? 'Editar Solicitud' : 'Nueva Pre-solicitud'}
-                        </h1>
+                <div className="mb-4 overflow-hidden bg-white border border-gray-200 shadow-sm rounded-2xl">
+                    <div className="flex flex-col gap-4 p-4 md:flex-row md:items-start md:justify-between md:p-5">
+                        <div className="flex items-start gap-3">
+                            <div className="inline-flex items-center justify-center text-blue-600 w-11 h-11 rounded-xl bg-blue-50">
+                                <FontAwesomeIcon icon={faFileCirclePlus} />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold text-gray-900">
+                                    {isEditing ? 'Editar Solicitud' : 'Nueva Pre-solicitud'}
+                                </h1>
+                                <p className="mt-1 text-sm text-gray-500">Completa todos los campos requeridos</p>
+                                <p className="mt-2 text-xs text-gray-500">
+                                    Sucursal: <span className="font-medium text-gray-700">{sucursal?.nombre || 'No asignada'}</span> ·
+                                    Coordinador: <span className="font-medium text-gray-700">{usuario?.persona?.primer_nombre} {usuario?.persona?.apellido_paterno}</span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
-                    <p className="text-sm text-gray-500">Completa todos los campos requeridos</p>
                 </div>
 
-                {/* Tabs */}
-                <div className="grid grid-cols-2 gap-2 mb-4 md:grid-cols-3 lg:grid-cols-6">
-                    {tabs.map((tab, index) => (
-                        <TabButton
-                            key={index}
-                            index={index}
-                            active={activeTab === index}
-                            onClick={() => setActiveTab(index)}
-                        >
-                            {tab.name}
-                        </TabButton>
-                    ))}
+                <div className="sticky z-20 mb-4 border border-gray-200 shadow-sm top-3 rounded-2xl bg-white/95 backdrop-blur">
+                    <div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-3 lg:grid-cols-6">
+                        {tabs.map((tab, index) => (
+                            <TabButton
+                                key={index}
+                                index={index}
+                                active={activeTab === index}
+                                onClick={() => setActiveTab(index)}
+                            >
+                                {tab.name}
+                            </TabButton>
+                        ))}
+                    </div>
                 </div>
 
                 <div className="mb-4">
@@ -353,15 +364,15 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                 </div>
 
                 {/* Formulario */}
-                <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="tablet-panel">
+                <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="overflow-hidden bg-white border border-gray-200 shadow-sm tablet-panel rounded-2xl">
                     {errors.error && (
-                        <div className="p-3 mx-4 mt-4 text-sm text-red-700 border border-red-200 rounded-md bg-red-50">
+                        <div className="p-3 mx-4 mt-4 text-sm text-red-700 border border-red-200 rounded-xl bg-red-50">
                             {errors.error}
                         </div>
                     )}
 
                     {Object.keys(errors).length > 0 && !errors.error && (
-                        <div className="p-3 mx-4 mt-4 text-sm text-yellow-800 border border-yellow-200 rounded-md bg-yellow-50">
+                        <div className="p-3 mx-4 mt-4 text-sm text-yellow-800 border border-yellow-200 rounded-xl bg-yellow-50">
                             Hay campos pendientes o con formato incorrecto. Te llevamos automáticamente a la pestaña con el primer error.
                         </div>
                     )}
@@ -383,12 +394,12 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                     />
 
                     {/* Botones de navegación */}
-                    <div className="flex justify-between p-4 border-t border-gray-200">
+                    <div className="flex flex-col gap-3 p-4 border-t border-gray-200 md:flex-row md:items-center md:justify-between">
                         <button
                             type="button"
                             onClick={() => setActiveTab(activeTab - 1)}
                             disabled={activeTab === 0}
-                            className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 0
+                            className={`px-4 py-3 text-sm font-medium rounded-xl md:py-2 ${activeTab === 0
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
@@ -403,7 +414,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                             <button
                                 type="button"
                                 onClick={() => setActiveTab(activeTab + 1)}
-                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                className="px-4 py-3 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 md:py-2"
                             >
                                 <span className="inline-flex items-center gap-2">
                                     Siguiente
@@ -414,7 +425,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+                                className="px-4 py-3 text-sm font-medium text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:opacity-50 md:py-2"
                             >
                                 <span className="inline-flex items-center gap-2">
                                     <FontAwesomeIcon icon={processing ? faCircleInfo : (isEditing ? faFloppyDisk : faPaperPlane)} className={processing ? 'animate-pulse' : ''} />

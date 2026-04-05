@@ -15,20 +15,41 @@ use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class AprobacionController extends Controller
 {
     public function index(Request $request)
     {
-        $solicitudes = Solicitud::with(['persona', 'sucursal', 'coordinador.persona', 'verificacion'])
+        /** @var \App\Models\Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursalId = $this->obtenerSucursalActivaGerente($gerente)?->id;
+
+        $solicitudes = Solicitud::with(['persona', 'sucursal', 'coordinador.persona', 'verificacion.verificador.persona'])
             ->where('estado', Solicitud::ESTADO_VERIFICADA)
+            ->where('sucursal_id', $sucursalId)
             ->when($request->search, function ($query, $search) {
                 $query->whereHas('persona', function ($personaQuery) use ($search) {
                     $personaQuery->where('primer_nombre', 'like', "%{$search}%")
                         ->orWhere('apellido_paterno', 'like', "%{$search}%")
                         ->orWhere('curp', 'like', "%{$search}%");
                 });
+            })
+            ->when($request->filled('verificador'), function ($query) use ($request) {
+                $search = $request->string('verificador')->toString();
+
+                $query->whereHas('verificacion.verificador.persona', function ($personaQuery) use ($search) {
+                    $personaQuery->where('primer_nombre', 'like', "%{$search}%")
+                        ->orWhere('apellido_paterno', 'like', "%{$search}%")
+                        ->orWhere('apellido_materno', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->filled('fecha_desde'), function ($query) use ($request) {
+                $query->whereDate('revisada_en', '>=', $request->string('fecha_desde')->toString());
+            })
+            ->when($request->filled('fecha_hasta'), function ($query) use ($request) {
+                $query->whereDate('revisada_en', '<=', $request->string('fecha_hasta')->toString());
             })
             ->orderByDesc('revisada_en')
             ->orderByDesc('id')
@@ -37,12 +58,19 @@ class AprobacionController extends Controller
 
         return Inertia::render('Gerente/Distribuidoras/Index', [
             'solicitudes' => $solicitudes,
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'verificador', 'fecha_desde', 'fecha_hasta']),
+            'securityPolicy' => [
+                'requires_vpn' => (bool) config('security.gerente.require_vpn', false),
+            ],
         ]);
     }
 
     public function show(int $id)
     {
+        /** @var \App\Models\Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursalId = $this->obtenerSucursalActivaGerente($gerente)?->id;
+
         $solicitud = Solicitud::with([
             'persona',
             'sucursal',
@@ -50,6 +78,7 @@ class AprobacionController extends Controller
             'verificacion.verificador.persona',
         ])
             ->where('estado', Solicitud::ESTADO_VERIFICADA)
+            ->where('sucursal_id', $sucursalId)
             ->findOrFail($id);
 
         $solicitud->datos_familiares = $solicitud->datos_familiares_json ? json_decode($solicitud->datos_familiares_json, true) : null;
@@ -82,9 +111,11 @@ class AprobacionController extends Controller
         return DB::transaction(function () use ($request, $id) {
             /** @var \App\Models\Usuario $gerente */
             $gerente = auth()->user();
+            $sucursalId = $this->obtenerSucursalActivaGerente($gerente)?->id;
 
             $solicitud = Solicitud::query()
                 ->where('estado', Solicitud::ESTADO_VERIFICADA)
+                ->where('sucursal_id', $sucursalId)
                 ->findOrFail($id);
 
             $distribuidoraExistente = Distribuidora::query()
@@ -185,8 +216,13 @@ class AprobacionController extends Controller
 
     public function rechazar(RechazarDistribuidoraRequest $request, int $id)
     {
+        /** @var \App\Models\Usuario $gerente */
+        $gerente = auth()->user();
+        $sucursalId = $this->obtenerSucursalActivaGerente($gerente)?->id;
+
         $solicitud = Solicitud::query()
             ->where('estado', Solicitud::ESTADO_VERIFICADA)
+            ->where('sucursal_id', $sucursalId)
             ->findOrFail($id);
 
         $solicitud->update([
@@ -224,5 +260,14 @@ class AprobacionController extends Controller
         } catch (\Throwable $e) {
             return $disk->url($ruta);
         }
+    }
+
+    private function obtenerSucursalActivaGerente(Usuario $usuario)
+    {
+        return $usuario->sucursales()
+            ->wherePivotNull('revocado_en')
+            ->orderByDesc('usuario_rol.es_principal')
+            ->orderByDesc('usuario_rol.asignado_en')
+            ->first();
     }
 }

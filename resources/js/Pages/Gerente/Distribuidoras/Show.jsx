@@ -249,6 +249,7 @@ export default function Show({ solicitud, categorias }) {
                             </div>
 
                             {aprobarForm.errors.general && <p className="text-xs text-red-600">{aprobarForm.errors.general}</p>}
+                            {aprobarForm.errors.security && <p className="text-xs text-red-600">{aprobarForm.errors.security}</p>}
 
                             <button type="submit" disabled={aprobarForm.processing} className="fin-btn-primary w-full">
                                 {aprobarForm.processing ? 'Aprobando...' : 'Aprobar solicitud'}
@@ -273,6 +274,7 @@ export default function Show({ solicitud, categorias }) {
                                     className="fin-input mt-1"
                                 />
                                 {rechazarForm.errors.motivo_rechazo && <p className="text-xs text-red-600 mt-1">{rechazarForm.errors.motivo_rechazo}</p>}
+                                {rechazarForm.errors.security && <p className="text-xs text-red-600 mt-1">{rechazarForm.errors.security}</p>}
                             </div>
 
                             <button type="submit" disabled={rechazarForm.processing} className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 font-medium rounded-lg text-white bg-red-600 hover:bg-red-700">

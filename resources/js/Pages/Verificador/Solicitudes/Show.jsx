@@ -202,6 +202,9 @@ export default function Show({ solicitud }) {
     };
 
     const verificacion = solicitud.verificacion;
+    const datosFamiliares = solicitud.datos_familiares || {};
+    const afiliaciones = Array.isArray(solicitud.afiliaciones) ? solicitud.afiliaciones : [];
+    const vehiculos = Array.isArray(solicitud.vehiculos) ? solicitud.vehiculos : [];
 
     return (
         <TabletLayout title="Verificar Solicitud">
@@ -287,6 +290,68 @@ export default function Show({ solicitud }) {
                         <div>
                             <span className="text-gray-500">Fecha nacimiento:</span>
                             <p>{formatBirthDate(persona.fecha_nacimiento)}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Expediente capturado por Coordinador */}
+                <div className="p-4 mb-4 bg-white border border-gray-200 shadow-sm rounded-xl">
+                    <h2 className="mb-3 text-lg font-semibold text-gray-900">Expediente del Prospecto</h2>
+
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                        <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                            <h3 className="mb-2 text-sm font-semibold text-gray-800">Familiares</h3>
+                            <div className="space-y-2 text-sm text-gray-700">
+                                <p><span className="text-gray-500">Cónyuge:</span> {datosFamiliares?.conyuge?.nombre || 'No registrado'}</p>
+                                <p><span className="text-gray-500">Teléfono:</span> {datosFamiliares?.conyuge?.telefono || 'No registrado'}</p>
+                                <p><span className="text-gray-500">Ocupación:</span> {datosFamiliares?.conyuge?.ocupacion || 'No registrada'}</p>
+                                <div>
+                                    <p className="text-gray-500">Hijos:</p>
+                                    {Array.isArray(datosFamiliares?.hijos) && datosFamiliares.hijos.length > 0 ? (
+                                        <ul className="mt-1 space-y-1 list-disc list-inside">
+                                            {datosFamiliares.hijos.map((hijo, index) => (
+                                                <li key={index}>{hijo.nombre || 'Sin nombre'}{hijo.edad ? `, ${hijo.edad} años` : ''}</li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-gray-700">Sin hijos registrados</p>
+                                    )}
+                                </div>
+                                <p><span className="text-gray-500">Madre:</span> {datosFamiliares?.padres?.madre?.nombre || 'No registrada'}</p>
+                                <p><span className="text-gray-500">Padre:</span> {datosFamiliares?.padres?.padre?.nombre || 'No registrado'}</p>
+                            </div>
+                        </div>
+
+                        <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                            <h3 className="mb-2 text-sm font-semibold text-gray-800">Afiliaciones</h3>
+                            {afiliaciones.length > 0 ? (
+                                <ul className="space-y-2 text-sm text-gray-700">
+                                    {afiliaciones.map((afiliacion, index) => (
+                                        <li key={index} className="p-2 bg-white border border-gray-200 rounded-md">
+                                            <p className="font-medium">{afiliacion.nombre || afiliacion.institucion || 'Afiliación'}</p>
+                                            <p className="text-xs text-gray-500">{afiliacion.tipo || 'Sin tipo'}{afiliacion.cargo ? ` · ${afiliacion.cargo}` : ''}</p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-sm text-gray-700">No hay afiliaciones registradas.</p>
+                            )}
+                        </div>
+
+                        <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                            <h3 className="mb-2 text-sm font-semibold text-gray-800">Vehículos</h3>
+                            {vehiculos.length > 0 ? (
+                                <ul className="space-y-2 text-sm text-gray-700">
+                                    {vehiculos.map((vehiculo, index) => (
+                                        <li key={index} className="p-2 bg-white border border-gray-200 rounded-md">
+                                            <p className="font-medium">{vehiculo.marca || 'Marca no registrada'} {vehiculo.modelo || ''}</p>
+                                            <p className="text-xs text-gray-500">{vehiculo.tipo || 'Tipo no registrado'}{vehiculo.placas ? ` · ${vehiculo.placas}` : ''}</p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-sm text-gray-700">No hay vehículos registrados.</p>
+                            )}
                         </div>
                     </div>
                 </div>

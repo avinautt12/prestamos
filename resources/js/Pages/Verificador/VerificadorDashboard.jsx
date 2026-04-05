@@ -33,6 +33,13 @@ export default function VerificadorDashboard({ stats, usuario, solicitudesDispon
             icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
             variant: 'secondary'
         },
+        {
+            title: 'Mapa de Ruta',
+            description: 'Abrir los puntos de visita por cercanía',
+            href: route('verificador.mapa-ruta'),
+            icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z',
+            variant: 'secondary'
+        },
     ];
 
     const statCards = [

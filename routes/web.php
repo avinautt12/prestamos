@@ -31,8 +31,12 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
     Route::get('/sucursales', [App\Http\Controllers\Gerente\DashboardController::class, 'sucursales'])->name('sucursales');
     Route::get('/distribuidoras', [App\Http\Controllers\Gerente\AprobacionController::class, 'index'])->name('distribuidoras');
     Route::get('/distribuidoras/{id}', [App\Http\Controllers\Gerente\AprobacionController::class, 'show'])->name('distribuidoras.show');
-    Route::post('/distribuidoras/{id}/aprobar', [App\Http\Controllers\Gerente\AprobacionController::class, 'aprobar'])->name('distribuidoras.aprobar');
-    Route::post('/distribuidoras/{id}/rechazar', [App\Http\Controllers\Gerente\AprobacionController::class, 'rechazar'])->name('distribuidoras.rechazar');
+    Route::post('/distribuidoras/{id}/aprobar', [App\Http\Controllers\Gerente\AprobacionController::class, 'aprobar'])
+        ->middleware('gerente.secure-action')
+        ->name('distribuidoras.aprobar');
+    Route::post('/distribuidoras/{id}/rechazar', [App\Http\Controllers\Gerente\AprobacionController::class, 'rechazar'])
+        ->middleware('gerente.secure-action')
+        ->name('distribuidoras.rechazar');
 });
 
 // ============================================================
