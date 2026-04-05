@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Gerente;
 
 use App\Http\Controllers\Controller;
+use App\Models\Distribuidora;
+use App\Models\Sucursal;
+use App\Models\Vale;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -10,12 +13,30 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        $totalSucursales = Sucursal::query()
+            ->where('activo', true)
+            ->count();
+
+        $totalDistribuidoras = Distribuidora::query()
+            ->where('estado', Distribuidora::ESTADO_ACTIVA)
+            ->count();
+
+        $valesActivosQuery = Vale::query()
+            ->whereIn('estado', [
+                Vale::ESTADO_ACTIVO,
+                Vale::ESTADO_PAGO_PARCIAL,
+            ]);
+
+        $totalValesActivos = (clone $valesActivosQuery)->count();
+
+        $montoPrestado = (float) ((clone $valesActivosQuery)->sum('monto_principal') ?? 0);
+
         return Inertia::render('Gerente/GerenteDashboard', [
             'stats' => [
-                'total_sucursales' => 0,
-                'total_distribuidoras' => 0,
-                'total_vales_activos' => 0,
-                'monto_prestado' => 0,
+                'total_sucursales' => $totalSucursales,
+                'total_distribuidoras' => $totalDistribuidoras,
+                'total_vales_activos' => $totalValesActivos,
+                'monto_prestado' => $montoPrestado,
             ]
         ]);
     }

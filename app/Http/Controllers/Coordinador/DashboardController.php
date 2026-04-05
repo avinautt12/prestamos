@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Coordinador;
 use App\Http\Controllers\Controller;
 use App\Models\Solicitud;
 use App\Models\Distribuidora;
-use App\Models\Cliente;
 use App\Models\Vale;
 use App\Models\Sucursal;
 use Inertia\Inertia;
@@ -19,11 +18,9 @@ class DashboardController extends Controller
         /** @var \App\Models\Usuario $usuario */
         $usuario = Auth::user();
 
-        // Obtener la sucursal activa del coordinador usando la misma lógica del alta de solicitudes
         $sucursal = $this->obtenerSucursalActivaCoordinador($usuario);
         $sucursalId = $sucursal?->id;
 
-        // Solicitudes pendientes asignadas al coordinador o a su sucursal activa
         $solicitudesPendientes = Solicitud::whereIn('estado', [Solicitud::ESTADO_PRE, Solicitud::ESTADO_EN_REVISION])
             ->where(function ($query) use ($usuario, $sucursalId) {
                 $query->where('coordinador_usuario_id', $usuario->id);
@@ -34,7 +31,6 @@ class DashboardController extends Controller
             })
             ->count();
 
-        // Distribuidoras activas vinculadas al coordinador o a su sucursal activa
         $distribuidorasBase = Distribuidora::where('estado', Distribuidora::ESTADO_ACTIVA)
             ->where(function ($query) use ($usuario, $sucursalId) {
                 $query->where('coordinador_usuario_id', $usuario->id);
@@ -46,7 +42,6 @@ class DashboardController extends Controller
 
         $distribuidorasActivas = $distribuidorasBase->count();
 
-        // Clientes activos de sus distribuidoras
         $clientesActivos = 0;
         $distribuidorasIds = (clone $distribuidorasBase)
             ->pluck('id');
@@ -58,10 +53,21 @@ class DashboardController extends Controller
                 ->count();
         }
 
-        // Vales activos de sus distribuidoras
         $valesActivos = Vale::whereIn('distribuidora_id', $distribuidorasIds)
             ->whereIn('estado', [Vale::ESTADO_ACTIVO, Vale::ESTADO_PAGO_PARCIAL])
             ->count();
+
+        $estatusSolicitudes = Solicitud::query()
+            ->where(function ($query) use ($usuario, $sucursalId) {
+                $query->where('coordinador_usuario_id', $usuario->id);
+
+                if ($sucursalId) {
+                    $query->orWhere('sucursal_id', $sucursalId);
+                }
+            })
+            ->selectRaw('estado, COUNT(*) as total')
+            ->groupBy('estado')
+            ->pluck('total', 'estado');
 
         return Inertia::render('Coordinador/CoordinadorDashboard', [
             'stats' => [
@@ -69,6 +75,13 @@ class DashboardController extends Controller
                 'distribuidoras_activas' => $distribuidorasActivas,
                 'clientes_activos' => $clientesActivos,
                 'vales_activos' => $valesActivos,
+                'estatus_solicitudes' => [
+                    'pre_solicitud' => (int) ($estatusSolicitudes['PRE'] ?? 0),
+                    'en_verificacion' => (int) ($estatusSolicitudes['EN_REVISION'] ?? 0),
+                    'verificada' => (int) ($estatusSolicitudes['VERIFICADA'] ?? 0),
+                    'activa' => (int) ($estatusSolicitudes['APROBADA'] ?? 0),
+                    'rechazada' => (int) ($estatusSolicitudes['RECHAZADA'] ?? 0),
+                ],
             ],
             'usuario' => $usuario
         ]);
