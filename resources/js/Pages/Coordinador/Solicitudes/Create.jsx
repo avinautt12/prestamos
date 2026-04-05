@@ -62,7 +62,62 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         longitud: 2,
         afiliaciones: 3,
         vehiculos: 4,
+        ine_frente: 5,
+        ine_reverso: 5,
+        comprobante_domicilio: 5,
+        reporte_buro: 5,
     }), []);
+
+    const comprimirImagen = (file, maxDimension = 1600, quality = 0.82) => new Promise((resolve) => {
+        if (!file || !file.type?.startsWith('image/')) {
+            resolve(file);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                let { width, height } = img;
+
+                if (width > height && width > maxDimension) {
+                    height = Math.round((height * maxDimension) / width);
+                    width = maxDimension;
+                } else if (height >= width && height > maxDimension) {
+                    width = Math.round((width * maxDimension) / height);
+                    height = maxDimension;
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext('2d');
+
+                if (!context) {
+                    resolve(file);
+                    return;
+                }
+
+                context.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        resolve(file);
+                        return;
+                    }
+
+                    const nombreBase = (file.name || 'imagen').replace(/\.[^/.]+$/, '');
+                    resolve(new File([blob], `${nombreBase}.jpg`, { type: 'image/jpeg' }));
+                }, 'image/jpeg', quality);
+            };
+
+            img.onerror = () => resolve(file);
+            img.src = event.target?.result;
+        };
+
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+    });
 
     const parseMaybeJson = (value, fallback) => {
         if (value === null || value === undefined || value === '') {
@@ -92,7 +147,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         telefono_personal: formData?.telefono_personal ?? '',
         telefono_celular: formData?.telefono_celular ?? '',
         correo_electronico: formData?.correo_electronico ?? '',
-        limite_credito_solicitado: formData?.limite_credito_solicitado ?? '',
+        limite_credito_solicitado: 0,
         familiares: parseMaybeJson(formData?.familiares, {
             conyuge: {
                 nombre: '',
@@ -116,7 +171,15 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         longitud: formData?.longitud ?? null,
         afiliaciones: parseMaybeJson(formData?.afiliaciones, []),
         vehiculos: parseMaybeJson(formData?.vehiculos, []),
-        observaciones: formData?.observaciones ?? ''
+        observaciones: formData?.observaciones ?? '',
+        ine_frente: null,
+        ine_reverso: null,
+        comprobante_domicilio: null,
+        reporte_buro: null,
+        ine_frente_path: formData?.ine_frente_path ?? null,
+        ine_reverso_path: formData?.ine_reverso_path ?? null,
+        comprobante_domicilio_path: formData?.comprobante_domicilio_path ?? null,
+        reporte_buro_path: formData?.reporte_buro_path ?? null,
     }), [formData]);
 
     // Configuración del formulario
@@ -124,12 +187,23 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         ...initialData
     });
 
+    const handleDocumentoChange = async (field, file, optimizar = true) => {
+        if (!file) {
+            setData(field, null);
+            return;
+        }
+
+        const archivoFinal = optimizar ? await comprimirImagen(file) : file;
+        setData(field, archivoFinal);
+    };
+
     // Manejadores para cada pestaña
     const handleSubmit = (e) => {
         e.preventDefault();
 
         if (isEditing && solicitud) {
             put(route('coordinador.solicitudes.update', solicitud.id), {
+                forceFormData: true,
                 onError: (submitErrors) => {
                     const firstErrorKey = Object.keys(submitErrors || {})[0];
                     const errorTab = fieldTabMap[firstErrorKey];
@@ -140,6 +214,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
             });
         } else {
             post(route('coordinador.solicitudes.store'), {
+                forceFormData: true,
                 onError: (submitErrors) => {
                     const firstErrorKey = Object.keys(submitErrors || {})[0];
                     const errorTab = fieldTabMap[firstErrorKey];
@@ -303,6 +378,8 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                         removeAfiliacion={removeAfiliacion}
                         addVehiculo={addVehiculo}
                         removeVehiculo={removeVehiculo}
+                        handleDocumentoChange={handleDocumentoChange}
+                        isEditing={isEditing}
                     />
 
                     {/* Botones de navegación */}
@@ -962,7 +1039,7 @@ function DomicilioTab({ data, setData, errors }) {
                     Este mapa solo sirve para corroborar y ajustar el punto exacto del domicilio.
                     Mover el pin no cambia la direccion escrita; solo actualiza latitud y longitud internas.
                 </p>
-                <div className="mx-auto max-w-4xl">
+                <div className="max-w-4xl mx-auto">
                     <MapaUbicacion
                         initialPosition={initialPosition}
                         onPositionChange={handlePositionChange}
@@ -1142,30 +1219,75 @@ function VehiculosTab({ data, setData, addVehiculo, removeVehiculo }) {
 // ============================================
 // PESTAÑA 5: FINALIZAR
 // ============================================
-function FinalizarTab({ data, setData, errors }) {
+function FinalizarTab({ data, errors, handleDocumentoChange, isEditing }) {
     return (
         <div className="p-4 space-y-4">
             <h2 className="text-lg font-semibold">Finalizar Solicitud</h2>
 
-            {/* Nuevo campo: Límite de Crédito Solicitado */}
             <div className="p-4 border border-gray-200 rounded-lg">
-                <label className="block mb-1 text-sm font-medium text-gray-700">
-                    Límite de Crédito Solicitado (MXN) <span className="text-red-600">*</span>
-                </label>
-                <input
-                    type="number"
-                    step="0.01"
-                    value={data.limite_credito_solicitado}
-                    onChange={e => setData('limite_credito_solicitado', e.target.value)}
-                    placeholder="Ej: 50000.00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                    Monto de crédito que el prospecto distribuidora solicita para operar
+                <h3 className="mb-3 text-sm font-semibold text-gray-800">Documentos obligatorios</h3>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">INE frente <span className="text-red-600">*</span></label>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleDocumentoChange('ine_frente', e.target.files?.[0], true)}
+                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                        />
+                        {isEditing && data.ine_frente_path && !data.ine_frente && (
+                            <p className="mt-1 text-xs text-gray-500">Ya cargado previamente</p>
+                        )}
+                        {errors.ine_frente && <p className="mt-1 text-xs text-red-600">{errors.ine_frente}</p>}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">INE reverso <span className="text-red-600">*</span></label>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleDocumentoChange('ine_reverso', e.target.files?.[0], true)}
+                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                        />
+                        {isEditing && data.ine_reverso_path && !data.ine_reverso && (
+                            <p className="mt-1 text-xs text-gray-500">Ya cargado previamente</p>
+                        )}
+                        {errors.ine_reverso && <p className="mt-1 text-xs text-red-600">{errors.ine_reverso}</p>}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Comprobante de domicilio <span className="text-red-600">*</span></label>
+                        <input
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={(e) => handleDocumentoChange('comprobante_domicilio', e.target.files?.[0], true)}
+                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                        />
+                        {isEditing && data.comprobante_domicilio_path && !data.comprobante_domicilio && (
+                            <p className="mt-1 text-xs text-gray-500">Ya cargado previamente</p>
+                        )}
+                        {errors.comprobante_domicilio && <p className="mt-1 text-xs text-red-600">{errors.comprobante_domicilio}</p>}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Reporte de buró <span className="text-red-600">*</span></label>
+                        <input
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={(e) => handleDocumentoChange('reporte_buro', e.target.files?.[0], true)}
+                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                        />
+                        {isEditing && data.reporte_buro_path && !data.reporte_buro && (
+                            <p className="mt-1 text-xs text-gray-500">Ya cargado previamente</p>
+                        )}
+                        {errors.reporte_buro && <p className="mt-1 text-xs text-red-600">{errors.reporte_buro}</p>}
+                    </div>
+                </div>
+
+                <p className="mt-2 text-xs text-gray-500">
+                    Las imágenes se optimizan automáticamente antes del envío para reducir uso de datos en tablet.
                 </p>
-                {errors.limite_credito_solicitado && (
-                    <p className="mt-1 text-xs text-red-600">{errors.limite_credito_solicitado}</p>
-                )}
             </div>
 
             {/* Resumen existente */}
@@ -1176,7 +1298,8 @@ function FinalizarTab({ data, setData, errors }) {
                     <p><span className="font-medium">CURP:</span> {data.curp || 'No registrado'}</p>
                     <p><span className="font-medium">Teléfono:</span> {data.telefono_celular}</p>
                     <p><span className="font-medium">Domicilio:</span> {data.calle} {data.numero_exterior}, {data.colonia}</p>
-                    <p><span className="font-medium">Límite solicitado:</span> ${data.limite_credito_solicitado ? Number(data.limite_credito_solicitado).toLocaleString() : 'No especificado'}</p>
+                    <p><span className="font-medium">Categoría inicial:</span> Cobre (3%)</p>
+                    <p><span className="font-medium">Límite crédito:</span> Se define en Gerencia</p>
                     <p><span className="font-medium">Vehículos:</span> {data.vehiculos.length}</p>
                     <p><span className="font-medium">Referencias:</span> {data.afiliaciones.length}</p>
                 </div>

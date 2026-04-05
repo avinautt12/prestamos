@@ -14,6 +14,7 @@ use App\Models\Solicitud;
 use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class AprobacionController extends Controller
@@ -60,17 +61,9 @@ class AprobacionController extends Controller
         }
 
         if ($solicitud->verificacion) {
-            $spacesUrl = rtrim((string) config('filesystems.disks.spaces.url'), '/');
-
-            $solicitud->verificacion->foto_fachada_url = $solicitud->verificacion->foto_fachada
-                ? $spacesUrl . '/' . ltrim($solicitud->verificacion->foto_fachada, '/')
-                : null;
-            $solicitud->verificacion->foto_ine_con_persona_url = $solicitud->verificacion->foto_ine_con_persona
-                ? $spacesUrl . '/' . ltrim($solicitud->verificacion->foto_ine_con_persona, '/')
-                : null;
-            $solicitud->verificacion->foto_comprobante_url = $solicitud->verificacion->foto_comprobante
-                ? $spacesUrl . '/' . ltrim($solicitud->verificacion->foto_comprobante, '/')
-                : null;
+            $solicitud->verificacion->foto_fachada_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_fachada);
+            $solicitud->verificacion->foto_ine_con_persona_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_ine_con_persona);
+            $solicitud->verificacion->foto_comprobante_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_comprobante);
         }
 
         $categorias = CategoriaDistribuidora::query()
@@ -110,6 +103,19 @@ class AprobacionController extends Controller
                 ->where('solicitud_id', $solicitud->id)
                 ->first();
 
+            $categoriaCobre = CategoriaDistribuidora::query()
+                ->where('codigo', 'COBRE')
+                ->where('activo', true)
+                ->first();
+
+            if (!$request->categoria_id && !$categoriaCobre) {
+                return back()->withErrors([
+                    'general' => 'No existe una categoría Cobre activa configurada.',
+                ]);
+            }
+
+            $categoriaId = $request->categoria_id ?: $categoriaCobre?->id;
+
             $montoAnterior = (float) ($distribuidoraActual?->limite_credito ?? 0);
             $montoNuevo = (float) $request->limite_credito;
 
@@ -119,7 +125,7 @@ class AprobacionController extends Controller
                     'persona_id' => $solicitud->persona_solicitante_id,
                     'sucursal_id' => $solicitud->sucursal_id,
                     'coordinador_usuario_id' => $solicitud->coordinador_usuario_id,
-                    'categoria_id' => $request->categoria_id,
+                    'categoria_id' => $categoriaId,
                     'numero_distribuidora' => $distribuidoraActual?->numero_distribuidora ?? $numeroDistribuidora,
                     'estado' => Distribuidora::ESTADO_ACTIVA,
                     'limite_credito' => $request->limite_credito,
@@ -201,5 +207,22 @@ class AprobacionController extends Controller
         } while (Distribuidora::query()->where('numero_distribuidora', $numero)->exists());
 
         return $numero;
+    }
+
+    private function generarUrlEvidencia(?string $ruta): ?string
+    {
+        if (!$ruta) {
+            return null;
+        }
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('spaces');
+        $expiraEnMinutos = (int) config('filesystems.disks.spaces.signed_url_ttl', 15);
+
+        try {
+            return $disk->temporaryUrl($ruta, now()->addMinutes($expiraEnMinutos));
+        } catch (\Throwable $e) {
+            return $disk->url($ruta);
+        }
     }
 }

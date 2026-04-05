@@ -3,10 +3,9 @@
 namespace App\Http\Requests\Coordinador;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 use App\Models\Usuario;
-use Illuminate\Support\Facades\Auth;
-
+use App\Models\Solicitud;
+use Illuminate\Validation\Rule;
 
 class PreSolicitudRequest extends FormRequest
 {
@@ -19,6 +18,17 @@ class PreSolicitudRequest extends FormRequest
 
     public function rules(): array
     {
+        $solicitudId = $this->route('id');
+        $personaId = null;
+
+        if ($solicitudId) {
+            $personaId = Solicitud::query()
+                ->whereKey($solicitudId)
+                ->value('persona_solicitante_id');
+        }
+
+        $esEdicion = $this->isMethod('PUT') || $this->isMethod('PATCH');
+
         return [
             // Datos Personales
             'primer_nombre' => 'required|string|max:100',
@@ -27,8 +37,20 @@ class PreSolicitudRequest extends FormRequest
             'apellido_materno' => 'required|string|max:100',
             'sexo' => 'required|in:M,F,OTRO',
             'fecha_nacimiento' => 'required|date|before:today',
-            'curp' => 'required|string|size:18|regex:/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/',
-            'rfc' => 'required|string|size:13|regex:/^[A-Z]{4}\d{6}[A-Z0-9]{3}$/',
+            'curp' => [
+                'required',
+                'string',
+                'size:18',
+                'regex:/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/',
+                Rule::unique('personas', 'curp')->ignore($personaId),
+            ],
+            'rfc' => [
+                'required',
+                'string',
+                'size:13',
+                'regex:/^[A-Z]{4}\d{6}[A-Z0-9]{3}$/',
+                Rule::unique('personas', 'rfc')->ignore($personaId),
+            ],
             'telefono_personal' => 'required|string|max:30',
             'telefono_celular' => 'required|string|max:30',
             'correo_electronico' => 'nullable|email|max:150',
@@ -71,6 +93,12 @@ class PreSolicitudRequest extends FormRequest
             'vehiculos.*.modelo' => 'required_with:vehiculos|string',
             'vehiculos.*.placas' => 'required_with:vehiculos|string',
             'vehiculos.*.anio' => 'nullable|integer|between:1900,' . date('Y'),
+
+            // Documentos
+            'ine_frente' => [($esEdicion ? 'nullable' : 'required'), 'file', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'ine_reverso' => [($esEdicion ? 'nullable' : 'required'), 'file', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'comprobante_domicilio' => [($esEdicion ? 'nullable' : 'required'), 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:6144'],
+            'reporte_buro' => [($esEdicion ? 'nullable' : 'required'), 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:8192'],
         ];
     }
 
@@ -78,13 +106,19 @@ class PreSolicitudRequest extends FormRequest
     {
         return [
             'curp.regex' => 'El formato del CURP no es válido',
+            'curp.unique' => 'El CURP ya existe en el sistema',
             'rfc.regex' => 'El formato del RFC no es válido',
+            'rfc.unique' => 'El RFC ya existe en el sistema',
             'fecha_nacimiento.before' => 'La fecha de nacimiento debe ser anterior a hoy',
             'familiares.required' => 'Debes capturar los datos familiares para continuar',
             'familiares.hijos.*.nombre.required_with' => 'Cada hijo debe tener nombre',
             'familiares.hijos.*.edad.required_with' => 'Cada hijo debe tener edad',
             'familiares.padres.madre.nombre.required' => 'Debes capturar el nombre de la madre',
             'familiares.padres.padre.nombre.required' => 'Debes capturar el nombre del padre',
+            'ine_frente.required' => 'Debes cargar INE frente',
+            'ine_reverso.required' => 'Debes cargar INE reverso',
+            'comprobante_domicilio.required' => 'Debes cargar comprobante de domicilio',
+            'reporte_buro.required' => 'Debes cargar reporte de buró de crédito',
         ];
     }
 }
