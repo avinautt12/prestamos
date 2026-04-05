@@ -134,8 +134,9 @@ class AprobacionController extends Controller
             $solicitud->update([
                 'estado' => Solicitud::ESTADO_APROBADA,
                 'decidida_en' => now(),
+                'resultado_buro' => $request->resultado_buro,
             ]);
-
+    
             BitacoraDecisionGerente::create([
                 'gerente_usuario_id' => $gerente->id,
                 'solicitud_id' => $solicitud->id,

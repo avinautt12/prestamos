@@ -11,13 +11,13 @@ class DashboardController extends Controller
     public function index()
     {
         return Inertia::render('Gerente/GerenteDashboard', [
-            'stats' => [
-                'total_sucursales' => 0,
-                'total_distribuidoras' => 0,
-                'total_vales_activos' => 0,
-                'monto_prestado' => 0,
-            ]
-        ]);
+        'stats' => [
+            'total_sucursales' => \App\Models\Sucursal::where('activo', true)->count(),
+            'total_distribuidoras' => \App\Models\Distribuidora::where('estado', 'ACTIVA')->count(),
+            'total_vales_activos' => \App\Models\Vale::whereIn('estado', ['ACTIVO', 'PAGO_PARCIAL'])->count(),
+            'monto_prestado' => \App\Models\Vale::where('estado', '!=', 'CANCELADO')->sum('monto_principal'),
+        ]
+    ]);
     }
 
     public function reportes()

@@ -20,6 +20,7 @@ export default function Show({ solicitud, categorias }) {
     const aprobarForm = useForm({
         limite_credito: solicitud.limite_credito_solicitado || '',
         categoria_id: '',
+        resultado_buro: '',
     });
 
     const rechazarForm = useForm({
@@ -212,6 +213,24 @@ export default function Show({ solicitud, categorias }) {
                                 {aprobarForm.errors.limite_credito && <p className="text-xs text-red-600 mt-1">{aprobarForm.errors.limite_credito}</p>}
                             </div>
 
+                            {/* CAMPO 2: Buró de Crédito */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Resultado Buró de Crédito <span className="text-red-600">*</span></label>
+                                <select
+                                    value={aprobarForm.data.resultado_buro}
+                                    onChange={(event) => aprobarForm.setData('resultado_buro', event.target.value)}
+                                    className="fin-input mt-1"
+                                >
+                                    <option value="">Selecciona el dictamen</option>
+                                    <option value="Apto / Excelente historial">Apto / Excelente historial</option>
+                                    <option value="Apto / Buen historial">Apto / Buen historial</option>
+                                    <option value="Apto / Sin historial previo">Apto / Sin historial previo</option>
+                                    <option value="Riesgo Medio / Aprobado por excepción">Riesgo Medio / Aprobado por excepción</option>
+                                </select>
+                                {aprobarForm.errors.resultado_buro && <p className="text-xs text-red-600 mt-1">{aprobarForm.errors.resultado_buro}</p>}
+                            </div>
+
+                            {/* CAMPO 3: Categoría */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Categoría <span className="text-red-600">*</span></label>
                                 <select
