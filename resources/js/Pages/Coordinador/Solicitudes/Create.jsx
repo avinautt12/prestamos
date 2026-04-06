@@ -16,8 +16,10 @@ import {
     faCircleInfo,
     faUser,
     faCarSide,
+    faCamera,
+    faFileUpload,
+    faCheckCircle
 } from '@fortawesome/free-solid-svg-icons';
-
 
 // Componentes de pestañas
 const TabButton = ({ active, index, onClick, children }) => (
@@ -35,37 +37,15 @@ const TabButton = ({ active, index, onClick, children }) => (
     </button>
 );
 
-
 export default function Create({ sucursal, usuario, solicitud, formData, isEditing = false }) {
     const [activeTab, setActiveTab] = useState(0);
 
     const fieldTabMap = useMemo(() => ({
-        primer_nombre: 0,
-        segundo_nombre: 0,
-        apellido_paterno: 0,
-        apellido_materno: 0,
-        sexo: 0,
-        fecha_nacimiento: 0,
-        curp: 0,
-        rfc: 0,
-        telefono_personal: 0,
-        telefono_celular: 0,
-        correo_electronico: 0,
-        calle: 2,
-        numero_exterior: 2,
-        numero_interior: 2,
-        colonia: 2,
-        ciudad: 2,
-        estado: 2,
-        codigo_postal: 2,
-        latitud: 2,
-        longitud: 2,
-        afiliaciones: 3,
-        vehiculos: 4,
-        ine_frente: 5,
-        ine_reverso: 5,
-        comprobante_domicilio: 5,
-        reporte_buro: 5,
+        primer_nombre: 0, segundo_nombre: 0, apellido_paterno: 0, apellido_materno: 0,
+        sexo: 0, fecha_nacimiento: 0, curp: 0, rfc: 0, telefono_personal: 0, telefono_celular: 0, correo_electronico: 0,
+        calle: 2, numero_exterior: 2, numero_interior: 2, colonia: 2, ciudad: 2, estado: 2, codigo_postal: 2, latitud: 2, longitud: 2,
+        afiliaciones: 3, vehiculos: 4,
+        ine_frente: 5, ine_reverso: 5, comprobante_domicilio: 5, reporte_buro: 5,
     }), []);
 
     const comprimirImagen = (file, maxDimension = 1600, quality = 0.82) => new Promise((resolve) => {
@@ -783,64 +763,33 @@ function DatosFamiliaresTab({ data, updateFamiliares, addHijo, removeHijo, updat
 // ============================================
 // PESTAÑA 2: DOMICILIO CON MAPA INTERACTIVO
 // ============================================
-async function geocodeEstructurado({ street = '', city = '', state = '' }) {
-    const streetValue = normalize(street);
-    const cityValue = normalize(city);
-    const stateValue = normalize(state);
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-    if (!cityValue && !stateValue && !streetValue) {
-        return null;
-    }
+async function geocodeGoogleMaps(direccionCompleta) {
+    if (!direccionCompleta) return null;
 
     const params = new URLSearchParams({
-        format: 'json',
-        country: 'Mexico',
-        limit: '1',
-        addressdetails: '1',
+        address: direccionCompleta,
+        key: GOOGLE_MAPS_API_KEY,
+        region: 'mx' // Obliga a Google a dar prioridad a resultados en México
     });
 
-    if (streetValue) params.set('street', streetValue);
-    if (cityValue) params.set('city', cityValue);
-    if (stateValue) params.set('state', stateValue);
+    try {
+        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`);
+        const data = await response.json();
 
-    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
-    const resultados = await response.json();
-
-    if (!Array.isArray(resultados) || resultados.length === 0) {
+        if (data.status === 'OK' && data.results.length > 0) {
+            const location = data.results[0].geometry.location;
+            return {
+                lat: location.lat,
+                lng: location.lng
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error("Error con Google Geocoding:", error);
         return null;
     }
-
-    return {
-        lat: parseFloat(resultados[0].lat),
-        lng: parseFloat(resultados[0].lon),
-    };
-}
-
-async function geocodeAproximadoPorColonia({ colonia = '', ciudad = '', estado = '' }) {
-    const q = normalize(`${colonia}, ${ciudad}, ${estado}, Mexico`);
-    if (!q) {
-        return null;
-    }
-
-    const params = new URLSearchParams({
-        format: 'json',
-        q,
-        limit: '1',
-        countrycodes: 'mx',
-        addressdetails: '1',
-    });
-
-    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
-    const resultados = await response.json();
-
-    if (!Array.isArray(resultados) || resultados.length === 0) {
-        return null;
-    }
-
-    return {
-        lat: parseFloat(resultados[0].lat),
-        lng: parseFloat(resultados[0].lon),
-    };
 }
 
 function normalize(text) {
@@ -854,10 +803,49 @@ function normalize(text) {
 function DomicilioTab({ data, setData, errors }) {
     const [sincronizandoMapa, setSincronizandoMapa] = useState(false);
     const [mensajeMapa, setMensajeMapa] = useState('');
+    
+    const [buscandoCp, setBuscandoCp] = useState(false);
+    const [coloniasDisponibles, setColoniasDisponibles] = useState([]);
 
     const handlePositionChange = (position) => {
         setData('latitud', position.lat);
         setData('longitud', position.lng);
+    };
+
+    const buscarPorCP = async (cpStr) => {
+        if (cpStr.length !== 5) return;
+        
+        setBuscandoCp(true);
+        try {
+            const res = await fetch(`https://blackisp.tech/api/cp/get/${cpStr}`);
+            if (!res.ok) throw new Error('CP no encontrado');
+            
+            const info = await res.json();
+
+            setData(prev => ({
+                ...prev,
+                estado: info.estado,
+                ciudad: info.municipio,
+                colonia: info.colonias[0] || '' 
+            }));
+            setColoniasDisponibles(info.colonias);
+        } catch (error) {
+            console.log("No se pudo obtener el CP de la API pública.");
+            setColoniasDisponibles([]);
+        } finally {
+            setBuscandoCp(false);
+        }
+    };
+
+    const handleCpChange = (e) => {
+        const cp = e.target.value.replace(/\D/g, ''); 
+        setData('codigo_postal', cp);
+        
+        if (cp.length === 5) {
+            buscarPorCP(cp);
+        } else {
+            setColoniasDisponibles([]); 
+        }
     };
 
     const buscarUbicacionEnMapa = async () => {
@@ -866,21 +854,6 @@ function DomicilioTab({ data, setData, errors }) {
         const colonia = normalize(data.colonia);
         const ciudad = normalize(data.ciudad);
         const estado = normalize(data.estado);
-
-        const intentos = [
-            {
-                nombre: 'intento 1',
-                payload: { street: `${calle} ${numero}`, city: ciudad, state: estado },
-            },
-            {
-                nombre: 'intento 2',
-                payload: { street: calle, city: ciudad, state: estado },
-            },
-            {
-                nombre: 'intento 3',
-                payload: { city: ciudad, state: estado },
-            },
-        ];
 
         if (!estado || !ciudad) {
             setMensajeMapa('Completa al menos ciudad y estado para ubicar en mapa.');
@@ -891,39 +864,18 @@ function DomicilioTab({ data, setData, errors }) {
             setSincronizandoMapa(true);
             setMensajeMapa('');
 
-            let resultado = null;
-            let intentoExitoso = '';
+            const direccionCompleta = `${calle} ${numero}, ${colonia}, ${ciudad}, ${estado}, Mexico`;
+            const resultado = await geocodeGoogleMaps(direccionCompleta);
 
-            for (const intento of intentos) {
-                const r = await geocodeEstructurado(intento.payload);
-                if (r && Number.isFinite(r.lat) && Number.isFinite(r.lng)) {
-                    resultado = r;
-                    intentoExitoso = intento.nombre;
-                    break;
-                }
-            }
-
-            if (!resultado && colonia) {
-                const aproximado = await geocodeAproximadoPorColonia({ colonia, ciudad, estado });
-                if (aproximado && Number.isFinite(aproximado.lat) && Number.isFinite(aproximado.lng)) {
-                    resultado = aproximado;
-                    intentoExitoso = 'fallback aproximado por colonia';
-                }
-            }
-
-            if (!resultado || !Number.isFinite(resultado.lat) || !Number.isFinite(resultado.lng)) {
-                setMensajeMapa('No se pudo ubicar esa direccion. Revisa los datos y vuelve a intentar.');
+            if (!resultado) {
+                setMensajeMapa('No se pudo ubicar esa direccion. Revisa los datos e intenta de nuevo.');
                 return;
             }
 
             setData('latitud', resultado.lat);
             setData('longitud', resultado.lng);
-            const esAproximado = intentoExitoso.includes('aproximado');
-            setMensajeMapa(
-                esAproximado
-                    ? `Ubicacion localizada (${intentoExitoso}). Es una aproximacion; ajusta el pin manualmente para precision.`
-                    : `Ubicacion localizada en mapa (${intentoExitoso}). Puedes mover el pin para ajustar con precision.`
-            );
+            setMensajeMapa('¡Ubicación localizada con Google Maps! Mueve el pin para ajuste fino.');
+
         } catch (error) {
             console.error('Error al buscar ubicacion en mapa:', error);
             setMensajeMapa('Ocurrio un error al buscar la ubicacion. Intenta nuevamente.');
@@ -951,18 +903,35 @@ function DomicilioTab({ data, setData, errors }) {
                 Domicilio
             </h2>
             <p className="text-xs text-gray-500">
-                Primero captura la direccion manualmente.
-                Luego ubica en el mapa y ajusta solo latitud/longitud con el pin.
+                Teclea el Código Postal para autocompletar el Estado y Municipio.
             </p>
 
             <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 md:col-span-1">
+                    <label className="block text-sm font-medium text-gray-700">
+                        Código Postal <span className="text-red-600">*</span>
+                        {buscandoCp && <span className="ml-2 text-xs font-bold text-blue-600 animate-pulse">Buscando...</span>}
+                    </label>
+                    <input
+                        type="text"
+                        value={data.codigo_postal}
+                        onChange={handleCpChange}
+                        maxLength="5"
+                        placeholder="Ej. 27000"
+                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                    />
+                    {errors.codigo_postal && <p className="text-xs text-red-600">{errors.codigo_postal}</p>}
+                </div>
+
+                <div className="hidden md:block"></div>
+
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Estado <span className="text-red-600">*</span></label>
                     <input
                         type="text"
                         value={data.estado}
                         onChange={e => setData('estado', e.target.value)}
-                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md bg-gray-50"
                     />
                 </div>
 
@@ -972,18 +941,31 @@ function DomicilioTab({ data, setData, errors }) {
                         type="text"
                         value={data.ciudad}
                         onChange={e => setData('ciudad', e.target.value)}
-                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md bg-gray-50"
                     />
                 </div>
 
                 <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700">Colonia <span className="text-red-600">*</span></label>
-                    <input
-                        type="text"
-                        value={data.colonia}
-                        onChange={e => setData('colonia', e.target.value)}
-                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
-                    />
+                    {coloniasDisponibles.length > 0 ? (
+                        <select
+                            value={data.colonia}
+                            onChange={e => setData('colonia', e.target.value)}
+                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md bg-blue-50"
+                        >
+                            {coloniasDisponibles.map((col, idx) => (
+                                <option key={idx} value={col}>{col}</option>
+                            ))}
+                        </select>
+                    ) : (
+                        <input
+                            type="text"
+                            value={data.colonia}
+                            onChange={e => setData('colonia', e.target.value)}
+                            placeholder="Escribe la colonia..."
+                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                        />
+                    )}
                     {errors.colonia && <p className="text-xs text-red-600">{errors.colonia}</p>}
                 </div>
 
@@ -1020,37 +1002,24 @@ function DomicilioTab({ data, setData, errors }) {
                     />
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Código Postal <span className="text-red-600">*</span></label>
-                    <input
-                        type="text"
-                        value={data.codigo_postal}
-                        onChange={e => setData('codigo_postal', e.target.value)}
-                        maxLength="5"
-                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
-                    />
-                    {errors.codigo_postal && <p className="text-xs text-red-600">{errors.codigo_postal}</p>}
-                </div>
-
-                <div className="col-span-2">
+                <div className="col-span-2 pt-2">
                     <button
                         type="button"
                         onClick={buscarUbicacionEnMapa}
                         disabled={sincronizandoMapa}
-                        className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                        className="w-full px-4 py-3 text-sm font-medium text-white transition-colors bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 disabled:opacity-50"
                     >
-                        {sincronizandoMapa ? 'Buscando ubicacion...' : 'Ubicar direccion en el mapa'}
+                        {sincronizandoMapa ? 'Buscando con Google...' : 'Ubicar dirección exacta en el mapa'}
                     </button>
-                    {mensajeMapa && <p className="mt-2 text-xs text-gray-600">{mensajeMapa}</p>}
+                    {mensajeMapa && <p className="mt-2 text-xs font-medium text-green-700">{mensajeMapa}</p>}
                 </div>
             </div>
 
             <div className="pt-4 mt-4 border-t border-gray-200">
                 <p className="mb-2 text-sm text-gray-600">
-                    Este mapa solo sirve para corroborar y ajustar el punto exacto del domicilio.
-                    Mover el pin no cambia la direccion escrita; solo actualiza latitud y longitud internas.
+                    Mueve el pin en caso de que la ubicación automática necesite un ajuste fino.
                 </p>
-                <div className="max-w-4xl mx-auto">
+                <div className="max-w-4xl mx-auto rounded-lg overflow-hidden border border-gray-300">
                     <MapaUbicacion
                         initialPosition={initialPosition}
                         onPositionChange={handlePositionChange}
@@ -1231,77 +1200,115 @@ function VehiculosTab({ data, setData, addVehiculo, removeVehiculo }) {
 // PESTAÑA 5: FINALIZAR
 // ============================================
 function FinalizarTab({ data, errors, handleDocumentoChange, isEditing }) {
+
+    // Componente interno reutilizable para cada caja de documento
+    const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file }) => {
+        const hasFile = file || (isEditing && path);
+        const fileName = file?.name || (isEditing && path ? 'Archivo guardado previamente' : 'Captura pendiente.');
+
+        return (
+            <div className={`p-4 rounded-xl border ${error ? 'border-red-300 bg-red-50' : 'border-blue-100 bg-blue-50/30'}`}>
+                <label className="block mb-3 text-sm font-semibold text-gray-800">
+                    {label} <span className="text-red-600">*</span>
+                </label>
+                
+                <div className="flex flex-col gap-2">
+                    <label className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
+                        <FontAwesomeIcon icon={faCamera} className="text-lg" />
+                        Tomar Foto
+                        <input
+                            type="file"
+                            accept="image/*"
+                            capture={capture}
+                            className="hidden" 
+                            onChange={(e) => handleDocumentoChange(fieldName, e.target.files?.[0], true)}
+                        />
+                    </label>
+
+                    <label className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
+                        <FontAwesomeIcon icon={faFileUpload} className="text-lg" />
+                        Subir Archivo
+                        <input
+                            type="file"
+                            accept={accept}
+                            className="hidden" 
+                            onChange={(e) => handleDocumentoChange(fieldName, e.target.files?.[0], true)}
+                        />
+                    </label>
+                </div>
+
+                <div className="mt-3 text-xs">
+                    {hasFile ? (
+                        <span className="flex items-center gap-1 font-medium text-green-700">
+                            <FontAwesomeIcon icon={faCheckCircle} />
+                            Listo: <span className="truncate max-w-[150px] inline-block align-bottom">{fileName}</span>
+                        </span>
+                    ) : (
+                        <span className="text-gray-500">{fileName}</span>
+                    )}
+                </div>
+                
+                {error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}
+            </div>
+        );
+    };
+
     return (
         <div className="p-4 space-y-4">
             <h2 className="text-lg font-semibold">Finalizar Solicitud</h2>
 
-            <div className="p-4 border border-gray-200 rounded-lg">
-                <h3 className="mb-3 text-sm font-semibold text-gray-800">Documentos obligatorios</h3>
+            <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                <h3 className="mb-4 text-sm font-semibold text-gray-800">Documentos obligatorios</h3>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">INE frente <span className="text-red-600">*</span></label>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleDocumentoChange('ine_frente', e.target.files?.[0], true)}
-                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
-                        />
-                        {isEditing && data.ine_frente_path && !data.ine_frente && (
-                            <p className="mt-1 text-xs text-gray-500">Ya cargado previamente</p>
-                        )}
-                        {errors.ine_frente && <p className="mt-1 text-xs text-red-600">{errors.ine_frente}</p>}
-                    </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <DocumentCard
+                        id="ine_frente"
+                        fieldName="ine_frente"
+                        label="INE frente"
+                        accept="image/*"
+                        capture="environment"
+                        error={errors.ine_frente}
+                        path={data.ine_frente_path}
+                        file={data.ine_frente}
+                    />
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">INE reverso <span className="text-red-600">*</span></label>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleDocumentoChange('ine_reverso', e.target.files?.[0], true)}
-                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
-                        />
-                        {isEditing && data.ine_reverso_path && !data.ine_reverso && (
-                            <p className="mt-1 text-xs text-gray-500">Ya cargado previamente</p>
-                        )}
-                        {errors.ine_reverso && <p className="mt-1 text-xs text-red-600">{errors.ine_reverso}</p>}
-                    </div>
+                    <DocumentCard
+                        id="ine_reverso"
+                        fieldName="ine_reverso"
+                        label="INE reverso"
+                        accept="image/*"
+                        capture="environment"
+                        error={errors.ine_reverso}
+                        path={data.ine_reverso_path}
+                        file={data.ine_reverso}
+                    />
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Comprobante de domicilio <span className="text-red-600">*</span></label>
-                        <input
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={(e) => handleDocumentoChange('comprobante_domicilio', e.target.files?.[0], true)}
-                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
-                        />
-                        {isEditing && data.comprobante_domicilio_path && !data.comprobante_domicilio && (
-                            <p className="mt-1 text-xs text-gray-500">Ya cargado previamente</p>
-                        )}
-                        {errors.comprobante_domicilio && <p className="mt-1 text-xs text-red-600">{errors.comprobante_domicilio}</p>}
-                    </div>
+                    <DocumentCard
+                        id="comprobante_domicilio"
+                        fieldName="comprobante_domicilio"
+                        label="Comprobante de domicilio"
+                        accept="image/*,.pdf"
+                        error={errors.comprobante_domicilio}
+                        path={data.comprobante_domicilio_path}
+                        file={data.comprobante_domicilio}
+                    />
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Reporte de buró <span className="text-red-600">*</span></label>
-                        <input
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={(e) => handleDocumentoChange('reporte_buro', e.target.files?.[0], true)}
-                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
-                        />
-                        {isEditing && data.reporte_buro_path && !data.reporte_buro && (
-                            <p className="mt-1 text-xs text-gray-500">Ya cargado previamente</p>
-                        )}
-                        {errors.reporte_buro && <p className="mt-1 text-xs text-red-600">{errors.reporte_buro}</p>}
-                    </div>
+                    <DocumentCard
+                        id="reporte_buro"
+                        fieldName="reporte_buro"
+                        label="Reporte de buró"
+                        accept="image/*,.pdf"
+                        error={errors.reporte_buro}
+                        path={data.reporte_buro_path}
+                        file={data.reporte_buro}
+                    />
                 </div>
 
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-4 text-xs text-gray-500">
                     Las imágenes se optimizan automáticamente antes del envío para reducir uso de datos en tablet.
                 </p>
             </div>
 
-            {/* Resumen existente */}
             <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
                 <h3 className="mb-2 font-medium text-blue-800">Resumen de la solicitud</h3>
                 <div className="space-y-1 text-sm">
@@ -1323,7 +1330,7 @@ function FinalizarTab({ data, errors, handleDocumentoChange, isEditing }) {
                     value={data.observaciones}
                     onChange={e => setData('observaciones', e.target.value)}
                     placeholder="Agrega cualquier observación importante sobre el prospecto..."
-                    className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm"
                 />
             </div>
 
