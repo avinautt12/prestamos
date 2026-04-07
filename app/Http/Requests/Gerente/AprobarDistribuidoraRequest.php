@@ -21,7 +21,9 @@ class AprobarDistribuidoraRequest extends FormRequest
             'limite_credito' => ['required', 'numeric', 'min:1'],
             'categoria_id' => [
                 'required',
-                Rule::exists('categorias_distribuidora', 'id')->where(fn($query) => $query->where('activo', true)),
+                Rule::exists('categorias_distribuidora', 'id')->where(fn($query) => $query
+                    ->where('activo', true)
+                    ->whereNull('deleted_at')),
             ],
             'resultado_buro' => ['required', 'string', 'max:100'],
         ];

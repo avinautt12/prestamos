@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Gerente;
 
 use App\Events\ActualizacionCredito;
+use App\Http\Controllers\Concerns\ResuelveSucursalActivaGerente;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Gerente\AprobarDistribuidoraRequest;
 use App\Http\Requests\Gerente\RechazarDistribuidoraRequest;
@@ -25,6 +26,8 @@ use Inertia\Inertia;
 
 class AprobacionController extends Controller
 {
+    use ResuelveSucursalActivaGerente;
+
     public function index(Request $request)
     {
         /** @var \App\Models\Usuario $gerente */
@@ -297,24 +300,35 @@ class AprobacionController extends Controller
 
     public function rechazar(RechazarDistribuidoraRequest $request, int $id)
     {
-        /** @var \App\Models\Usuario $gerente */
-        $gerente = auth()->user();
-        $sucursalId = $this->obtenerSucursalActivaGerente($gerente)?->id;
+        return DB::transaction(function () use ($request, $id) {
+            /** @var \App\Models\Usuario $gerente */
+            $gerente = auth()->user();
+            $sucursalId = $this->obtenerSucursalActivaGerente($gerente)?->id;
 
-        $solicitud = Solicitud::query()
-            ->where('estado', Solicitud::ESTADO_VERIFICADA)
-            ->where('sucursal_id', $sucursalId)
-            ->findOrFail($id);
+            $solicitud = Solicitud::query()
+                ->where('estado', Solicitud::ESTADO_VERIFICADA)
+                ->where('sucursal_id', $sucursalId)
+                ->findOrFail($id);
 
-        $solicitud->update([
-            'estado' => Solicitud::ESTADO_RECHAZADA,
-            'decidida_en' => now(),
-            'motivo_rechazo' => $request->string('motivo_rechazo')->toString(),
-        ]);
+            $solicitud->update([
+                'estado' => Solicitud::ESTADO_RECHAZADA,
+                'decidida_en' => now(),
+                'motivo_rechazo' => $request->string('motivo_rechazo')->toString(),
+            ]);
 
-        return redirect()
-            ->route('gerente.distribuidoras.rechazadas')
-            ->with('success', 'Solicitud rechazada correctamente.');
+            BitacoraDecisionGerente::query()->create([
+                'gerente_usuario_id' => $gerente->id,
+                'solicitud_id' => $solicitud->id,
+                'distribuidora_id' => null,
+                'tipo_evento' => 'RECHAZO',
+                'monto_anterior' => 0,
+                'monto_nuevo' => 0,
+            ]);
+
+            return redirect()
+                ->route('gerente.distribuidoras.rechazadas')
+                ->with('success', 'Solicitud rechazada correctamente.');
+        });
     }
 
     private function generarNumeroDistribuidora(): string
@@ -453,14 +467,5 @@ class AprobacionController extends Controller
         } catch (\Throwable $e) {
             return $disk->url($ruta);
         }
-    }
-
-    private function obtenerSucursalActivaGerente(Usuario $usuario)
-    {
-        return $usuario->sucursales()
-            ->wherePivotNull('revocado_en')
-            ->orderByDesc('usuario_rol.es_principal')
-            ->orderByDesc('usuario_rol.asignado_en')
-            ->first();
     }
 }

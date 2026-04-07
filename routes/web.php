@@ -28,14 +28,17 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\Gerente\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/reportes', [App\Http\Controllers\Gerente\DashboardController::class, 'reportes'])->name('reportes');
-    Route::get('/sucursales', [App\Http\Controllers\Gerente\DashboardController::class, 'sucursales'])->name('sucursales');
     Route::get('/cortes', [App\Http\Controllers\Gerente\CorteController::class, 'index'])->name('cortes');
     Route::post('/cortes/{corte}/cerrar-manual', [App\Http\Controllers\Gerente\CorteController::class, 'cerrarManual'])
         ->middleware('gerente.secure-action')
         ->name('cortes.cerrar-manual');
     Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
     Route::put('/configuraciones/sucursal', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarSucursal'])->name('configuraciones.sucursal.update');
+    Route::post('/configuraciones/categorias', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearCategoria'])->name('configuraciones.categorias.store');
     Route::put('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarCategoria'])->name('configuraciones.categorias.update');
+    Route::put('/configuraciones/categorias/{categoria}/inactivar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'inactivarCategoria'])->name('configuraciones.categorias.inactivar');
+    Route::put('/configuraciones/categorias/{categoria}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarCategoria'])->name('configuraciones.categorias.activar');
+    Route::delete('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarCategoria'])->name('configuraciones.categorias.delete');
     Route::put('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarProducto'])->name('configuraciones.productos.update');
     Route::get('/distribuidoras', [App\Http\Controllers\Gerente\AprobacionController::class, 'index'])->name('distribuidoras');
     Route::get('/distribuidoras/rechazadas', [App\Http\Controllers\Gerente\AprobacionController::class, 'rechazadas'])->name('distribuidoras.rechazadas');

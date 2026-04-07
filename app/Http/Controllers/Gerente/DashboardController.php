@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Gerente;
 
+use App\Http\Controllers\Concerns\ResuelveSucursalActivaGerente;
 use App\Http\Controllers\Controller;
 use App\Models\BitacoraDecisionGerente;
-use App\Models\Corte;
 use App\Models\Distribuidora;
 use App\Models\Solicitud;
-use App\Models\Sucursal;
 use App\Models\Usuario;
 use App\Models\Vale;
 use App\Services\CorteService;
@@ -16,6 +15,8 @@ use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
+    use ResuelveSucursalActivaGerente;
+
     public function __construct(private readonly CorteService $corteService) {}
 
     public function index()
@@ -168,56 +169,5 @@ class DashboardController extends Controller
             ],
             'distribuidorasMorosas' => $distribuidorasMorosas,
         ]);
-    }
-
-    public function sucursales()
-    {
-        /** @var Usuario $gerente */
-        $gerente = Auth::user();
-        $sucursal = $this->obtenerSucursalActivaGerente($gerente);
-
-        if (!$sucursal) {
-            return Inertia::render('Gerente/Sucursales', [
-                'sucursal' => null,
-                'stats' => [
-                    'distribuidoras_activas' => 0,
-                    'vales_activos' => 0,
-                    'capital_colocado' => 0,
-                ],
-            ]);
-        }
-
-        $valesActivosQuery = Vale::query()
-            ->where('sucursal_id', $sucursal->id)
-            ->whereIn('estado', [
-                Vale::ESTADO_ACTIVO,
-                Vale::ESTADO_PAGO_PARCIAL,
-            ]);
-
-        return Inertia::render('Gerente/Sucursales', [
-            'sucursal' => $sucursal,
-            'stats' => [
-                'distribuidoras_activas' => Distribuidora::query()
-                    ->where('sucursal_id', $sucursal->id)
-                    ->where('estado', Distribuidora::ESTADO_ACTIVA)
-                    ->count(),
-                'vales_activos' => (clone $valesActivosQuery)->count(),
-                'capital_colocado' => (float) ((clone $valesActivosQuery)->sum('monto_principal') ?? 0),
-            ],
-        ]);
-    }
-
-    public function distribuidoras()
-    {
-        return Inertia::render('Gerente/Distribuidoras');
-    }
-
-    private function obtenerSucursalActivaGerente(Usuario $usuario): ?Sucursal
-    {
-        return $usuario->sucursales()
-            ->wherePivotNull('revocado_en')
-            ->orderByDesc('usuario_rol.es_principal')
-            ->orderByDesc('usuario_rol.asignado_en')
-            ->first();
     }
 }

@@ -8,43 +8,38 @@ use App\Models\SucursalConfiguracion;
 
 class LoanService
 {
+    public function __construct(private readonly ServicioReglasNegocio $reglasNegocio) {}
+
     public function calcularSeguro(float $principal, SucursalConfiguracion $configuracion): array
     {
-        $tabuladores = $this->normalizarTabuladoresSeguro($configuracion->seguro_tabuladores_json ?? []);
-
-        foreach ($tabuladores as $tabulador) {
-            $desde = (float) ($tabulador['desde'] ?? 0);
-            $hasta = array_key_exists('hasta', $tabulador) && $tabulador['hasta'] !== null
-                ? (float) $tabulador['hasta']
-                : null;
-
-            if ($principal >= $desde && ($hasta === null || $principal <= $hasta)) {
-                return [
-                    'monto' => (float) ($tabulador['monto'] ?? 0),
-                    'tabulador' => $tabulador,
-                ];
-            }
-        }
+        $resultado = $this->reglasNegocio->calcularSeguroPorTabuladores(
+            $principal,
+            $configuracion->seguro_tabuladores_json ?? []
+        );
 
         return [
-            'monto' => 0.0,
-            'tabulador' => null,
+            'monto' => $resultado['monto'],
+            'tabulador' => $resultado['tabulador'],
         ];
     }
 
     public function calcularComisionApertura(float $principal, SucursalConfiguracion $configuracion): float
     {
-        return round($principal * ((float) $configuracion->porcentaje_comision_apertura / 100), 2);
+        return $this->reglasNegocio->calcularComisionApertura($principal, (float) $configuracion->porcentaje_comision_apertura);
     }
 
     public function calcularInteresTotal(float $principal, SucursalConfiguracion $configuracion, int $numQuincenas): float
     {
-        return round($principal * ((float) $configuracion->porcentaje_interes_quincenal / 100) * $numQuincenas, 2);
+        return $this->reglasNegocio->calcularInteresTotal(
+            $principal,
+            (float) $configuracion->porcentaje_interes_quincenal,
+            $numQuincenas
+        );
     }
 
     public function calcularComisionDistribuidora(float $principal, CategoriaDistribuidora $categoria): float
     {
-        return round($principal * ((float) $categoria->porcentaje_comision / 100), 2);
+        return $this->reglasNegocio->calcularComisionDistribuidora($principal, (float) $categoria->porcentaje_comision);
     }
 
     public function generarTablaAmortizacion(
@@ -101,28 +96,5 @@ class LoanService
             'producto' => $producto?->nombre,
             'categoria' => $categoria->nombre,
         ];
-    }
-
-    private function normalizarTabuladoresSeguro(array $tabuladores): array
-    {
-        $normalizados = [];
-
-        foreach ($tabuladores as $tabulador) {
-            if (!is_array($tabulador)) {
-                continue;
-            }
-
-            $normalizados[] = [
-                'desde' => $tabulador['desde'] ?? 0,
-                'hasta' => $tabulador['hasta'] ?? null,
-                'monto' => $tabulador['monto'] ?? 0,
-            ];
-        }
-
-        usort($normalizados, function (array $a, array $b) {
-            return (float) $a['desde'] <=> (float) $b['desde'];
-        });
-
-        return $normalizados;
     }
 }

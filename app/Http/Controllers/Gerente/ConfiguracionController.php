@@ -2,7 +2,12 @@
 
 namespace App\Http\Controllers\Gerente;
 
+use App\Http\Controllers\Concerns\ResuelveSucursalActivaGerente;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Gerente\ActualizarCategoriaConfiguracionRequest;
+use App\Http\Requests\Gerente\ActualizarProductoConfiguracionRequest;
+use App\Http\Requests\Gerente\ActualizarSucursalConfiguracionRequest;
+use App\Http\Requests\Gerente\CrearCategoriaConfiguracionRequest;
 use App\Models\BitacoraConfiguracionSucursal;
 use App\Models\CategoriaDistribuidora;
 use App\Models\Corte;
@@ -11,15 +16,20 @@ use App\Models\Sucursal;
 use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
 use App\Services\CorteService;
+use App\Services\ServicioReglasNegocio;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ConfiguracionController extends Controller
 {
-    public function __construct(private readonly CorteService $corteService) {}
+    use ResuelveSucursalActivaGerente;
+
+    public function __construct(
+        private readonly CorteService $corteService,
+        private readonly ServicioReglasNegocio $reglasNegocio
+    ) {}
 
     public function index(): Response
     {
@@ -30,57 +40,15 @@ class ConfiguracionController extends Controller
         $configuracion = $sucursal ? $this->obtenerOCrearConfiguracion($sucursal, $gerente) : null;
 
         $categorias = CategoriaDistribuidora::query()
-            ->where('activo', true)
+            ->orderByDesc('activo')
             ->orderBy('nombre')
             ->get([
                 'id',
                 'codigo',
                 'nombre',
                 'porcentaje_comision',
+                'activo',
             ]);
-
-        $productos = ProductoFinanciero::query()
-            ->where('activo', true)
-            ->orderBy('nombre')
-            ->get([
-                'id',
-                'codigo',
-                'nombre',
-                'numero_quincenas',
-                'porcentaje_comision_empresa',
-                'porcentaje_interes_quincenal',
-            ]);
-
-        $categoriasConfig = (array) ($configuracion?->categorias_config_json ?? []);
-        $productosConfig = (array) ($configuracion?->productos_config_json ?? []);
-
-        $categorias = $categorias->map(function (CategoriaDistribuidora $categoria) use ($categoriasConfig) {
-            $override = $categoriasConfig[(string) $categoria->id] ?? null;
-            if (is_array($override) && array_key_exists('porcentaje_comision', $override)) {
-                $categoria->porcentaje_comision = $override['porcentaje_comision'];
-            }
-
-            return $categoria;
-        });
-
-        $productos = $productos->map(function (ProductoFinanciero $producto) use ($productosConfig) {
-            $override = $productosConfig[(string) $producto->id] ?? null;
-            if (is_array($override)) {
-                if (array_key_exists('porcentaje_comision_empresa', $override)) {
-                    $producto->porcentaje_comision_empresa = $override['porcentaje_comision_empresa'];
-                }
-
-                if (array_key_exists('porcentaje_interes_quincenal', $override)) {
-                    $producto->porcentaje_interes_quincenal = $override['porcentaje_interes_quincenal'];
-                }
-
-                if (array_key_exists('numero_quincenas', $override)) {
-                    $producto->numero_quincenas = $override['numero_quincenas'];
-                }
-            }
-
-            return $producto;
-        });
 
         $historialCambios = collect();
 
@@ -120,12 +88,11 @@ class ConfiguracionController extends Controller
             'sucursal' => $sucursal,
             'configuracionSucursal' => $configuracion,
             'categorias' => $categorias,
-            'productos' => $productos,
             'historialCambios' => $historialCambios,
         ]);
     }
 
-    public function actualizarSucursal(Request $request): RedirectResponse
+    public function actualizarSucursal(ActualizarSucursalConfiguracionRequest $request): RedirectResponse
     {
         /** @var Usuario $gerente */
         $gerente = Auth::user();
@@ -137,20 +104,7 @@ class ConfiguracionController extends Controller
             ]);
         }
 
-        $data = $request->validate([
-            'dia_corte' => ['nullable', 'integer', 'between:1,31'],
-            'hora_corte' => ['nullable', 'date_format:H:i'],
-            'frecuencia_pago_dias' => ['required', 'integer', 'between:1,90'],
-            'plazo_pago_dias' => ['required', 'integer', 'between:1,180'],
-            'linea_credito_default' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
-            'seguro_tabuladores_json' => ['nullable'],
-            'porcentaje_comision_apertura' => ['required', 'numeric', 'min:0', 'max:100'],
-            'porcentaje_interes_quincenal' => ['required', 'numeric', 'min:0', 'max:100'],
-            'multa_incumplimiento_monto' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
-            'factor_divisor_puntos' => ['required', 'integer', 'min:1', 'max:999999'],
-            'multiplicador_puntos' => ['required', 'integer', 'min:1', 'max:999999'],
-            'valor_punto_mxn' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
-        ]);
+        $data = $request->validated();
 
         $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
 
@@ -218,7 +172,7 @@ class ConfiguracionController extends Controller
         return back()->with('success', 'Configuración de sucursal actualizada.');
     }
 
-    public function actualizarCategoria(Request $request, CategoriaDistribuidora $categoria): RedirectResponse
+    public function actualizarCategoria(ActualizarCategoriaConfiguracionRequest $request, CategoriaDistribuidora $categoria): RedirectResponse
     {
         /** @var Usuario $gerente */
         $gerente = Auth::user();
@@ -230,24 +184,26 @@ class ConfiguracionController extends Controller
             ]);
         }
 
-        $data = $request->validate([
-            'porcentaje_comision' => ['required', 'numeric', 'min:0', 'max:100'],
-        ]);
+        $data = $request->validated();
 
         $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
-        $categoriasConfig = (array) ($configuracion->categorias_config_json ?? []);
 
-        $antes = (array) ($categoriasConfig[(string) $categoria->id] ?? []);
+        $antes = [
+            'nombre' => $categoria->nombre,
+            'porcentaje_comision' => (float) $categoria->porcentaje_comision,
+        ];
         $despues = [
+            'nombre' => trim((string) $data['nombre']),
             'porcentaje_comision' => (float) $data['porcentaje_comision'],
         ];
 
-        $categoriasConfig[(string) $categoria->id] = [
+        $categoria->update([
+            'nombre' => $despues['nombre'],
             'porcentaje_comision' => $despues['porcentaje_comision'],
-        ];
+            'actualizado_en' => now(),
+        ]);
 
         $configuracion->update([
-            'categorias_config_json' => $categoriasConfig,
             'actualizado_por_usuario_id' => $gerente->id,
             'actualizado_en' => now(),
         ]);
@@ -265,7 +221,7 @@ class ConfiguracionController extends Controller
         return back()->with('success', 'Porcentaje de categoría actualizado para tu sucursal.');
     }
 
-    public function actualizarProducto(Request $request, ProductoFinanciero $producto): RedirectResponse
+    public function crearCategoria(CrearCategoriaConfiguracionRequest $request): RedirectResponse
     {
         /** @var Usuario $gerente */
         $gerente = Auth::user();
@@ -277,11 +233,217 @@ class ConfiguracionController extends Controller
             ]);
         }
 
-        $data = $request->validate([
-            'porcentaje_comision_empresa' => ['required', 'numeric', 'min:0', 'max:100'],
-            'porcentaje_interes_quincenal' => ['required', 'numeric', 'min:0', 'max:100'],
-            'numero_quincenas' => ['required', 'integer', 'between:1,72'],
+        $data = $request->validated();
+
+        $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
+
+        $nombre = trim((string) $data['nombre']);
+        $codigoBase = strtoupper(preg_replace('/[^A-Z0-9]+/', '', substr(iconv('UTF-8', 'ASCII//TRANSLIT', $nombre) ?: $nombre, 0, 12)));
+        $codigoBase = $codigoBase !== '' ? $codigoBase : 'CAT';
+        $codigo = $codigoBase;
+        $intento = 1;
+
+        while (CategoriaDistribuidora::query()->where('codigo', $codigo)->exists()) {
+            $intento++;
+            $codigo = substr($codigoBase, 0, 10) . str_pad((string) $intento, 2, '0', STR_PAD_LEFT);
+        }
+
+        $categoria = CategoriaDistribuidora::query()->create([
+            'codigo' => $codigo,
+            'nombre' => $nombre,
+            'porcentaje_comision' => (float) $data['porcentaje_comision'],
+            'puntos_por_cada_1200' => 3,
+            'valor_punto' => 2,
+            'castigo_pct_atraso' => 20,
+            'activo' => true,
+            'creado_en' => now(),
+            'actualizado_en' => now(),
         ]);
+
+        $configuracion->update([
+            'actualizado_por_usuario_id' => $gerente->id,
+            'actualizado_en' => now(),
+        ]);
+
+        $this->registrarCambio(
+            $configuracion,
+            $sucursal,
+            $gerente,
+            'CATEGORIA',
+            $categoria->id,
+            [],
+            [
+                'nombre' => $categoria->nombre,
+                'porcentaje_comision' => (float) $categoria->porcentaje_comision,
+            ]
+        );
+
+        return back()->with('success', 'Categoría creada correctamente.');
+    }
+
+    public function eliminarCategoria(CategoriaDistribuidora $categoria): RedirectResponse
+    {
+        /** @var Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursal = $this->obtenerSucursalActivaGerente($gerente);
+
+        if (!$sucursal) {
+            return back()->withErrors([
+                'general' => 'No tienes una sucursal activa asignada.',
+            ]);
+        }
+
+        if ($categoria->distribuidoras()->exists()) {
+            return back()->withErrors([
+                'general' => 'No se puede eliminar esta categoría porque ya está asignada a distribuidoras.',
+            ]);
+        }
+
+        $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
+
+        $antes = [
+            'nombre' => $categoria->nombre,
+            'porcentaje_comision' => (float) $categoria->porcentaje_comision,
+            'activo' => (bool) $categoria->activo,
+        ];
+
+        $categoria->delete();
+
+        $despues = [
+            'nombre' => $categoria->nombre,
+            'porcentaje_comision' => (float) $categoria->porcentaje_comision,
+            'eliminado' => true,
+        ];
+
+        $configuracion->update([
+            'actualizado_por_usuario_id' => $gerente->id,
+            'actualizado_en' => now(),
+        ]);
+
+        $this->registrarCambio(
+            $configuracion,
+            $sucursal,
+            $gerente,
+            'CATEGORIA',
+            $categoria->id,
+            $antes,
+            $despues
+        );
+
+        return back()->with('success', 'Categoría eliminada correctamente.');
+    }
+
+    public function inactivarCategoria(CategoriaDistribuidora $categoria): RedirectResponse
+    {
+        /** @var Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursal = $this->obtenerSucursalActivaGerente($gerente);
+
+        if (!$sucursal) {
+            return back()->withErrors([
+                'general' => 'No tienes una sucursal activa asignada.',
+            ]);
+        }
+
+        $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
+
+        $antes = [
+            'nombre' => $categoria->nombre,
+            'porcentaje_comision' => (float) $categoria->porcentaje_comision,
+            'activo' => (bool) $categoria->activo,
+        ];
+
+        $categoria->update([
+            'activo' => false,
+            'actualizado_en' => now(),
+        ]);
+
+        $despues = [
+            'nombre' => $categoria->nombre,
+            'porcentaje_comision' => (float) $categoria->porcentaje_comision,
+            'activo' => false,
+        ];
+
+        $configuracion->update([
+            'actualizado_por_usuario_id' => $gerente->id,
+            'actualizado_en' => now(),
+        ]);
+
+        $this->registrarCambio(
+            $configuracion,
+            $sucursal,
+            $gerente,
+            'CATEGORIA',
+            $categoria->id,
+            $antes,
+            $despues
+        );
+
+        return back()->with('success', 'Categoría inactivada correctamente.');
+    }
+
+    public function activarCategoria(CategoriaDistribuidora $categoria): RedirectResponse
+    {
+        /** @var Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursal = $this->obtenerSucursalActivaGerente($gerente);
+
+        if (!$sucursal) {
+            return back()->withErrors([
+                'general' => 'No tienes una sucursal activa asignada.',
+            ]);
+        }
+
+        $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
+
+        $antes = [
+            'nombre' => $categoria->nombre,
+            'porcentaje_comision' => (float) $categoria->porcentaje_comision,
+            'activo' => (bool) $categoria->activo,
+        ];
+
+        $categoria->update([
+            'activo' => true,
+            'actualizado_en' => now(),
+        ]);
+
+        $despues = [
+            'nombre' => $categoria->nombre,
+            'porcentaje_comision' => (float) $categoria->porcentaje_comision,
+            'activo' => true,
+        ];
+
+        $configuracion->update([
+            'actualizado_por_usuario_id' => $gerente->id,
+            'actualizado_en' => now(),
+        ]);
+
+        $this->registrarCambio(
+            $configuracion,
+            $sucursal,
+            $gerente,
+            'CATEGORIA',
+            $categoria->id,
+            $antes,
+            $despues
+        );
+
+        return back()->with('success', 'Categoría activada correctamente.');
+    }
+
+    public function actualizarProducto(ActualizarProductoConfiguracionRequest $request, ProductoFinanciero $producto): RedirectResponse
+    {
+        /** @var Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursal = $this->obtenerSucursalActivaGerente($gerente);
+
+        if (!$sucursal) {
+            return back()->withErrors([
+                'general' => 'No tienes una sucursal activa asignada.',
+            ]);
+        }
+
+        $data = $request->validated();
 
         $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
         $productosConfig = (array) ($configuracion->productos_config_json ?? []);
@@ -347,10 +509,10 @@ class ConfiguracionController extends Controller
         if (is_string($input)) {
             $decoded = json_decode($input, true);
 
-            return is_array($decoded) ? $decoded : [];
+            return is_array($decoded) ? $this->reglasNegocio->normalizarTabuladoresSeguro($decoded) : [];
         }
 
-        return is_array($input) ? $input : [];
+        return is_array($input) ? $this->reglasNegocio->normalizarTabuladoresSeguro($input) : [];
     }
 
     private function obtenerOCrearConfiguracion(Sucursal $sucursal, Usuario $usuario): SucursalConfiguracion
@@ -369,11 +531,7 @@ class ConfiguracionController extends Controller
                 'frecuencia_pago_dias' => 14,
                 'plazo_pago_dias' => 15,
                 'linea_credito_default' => 0,
-                'seguro_tabuladores_json' => [
-                    ['desde' => 0, 'hasta' => 5000, 'monto' => 50],
-                    ['desde' => 5001, 'hasta' => 15000, 'monto' => 100],
-                    ['desde' => 15001, 'hasta' => null, 'monto' => 150],
-                ],
+                'seguro_tabuladores_json' => $this->reglasNegocio->obtenerTabuladoresSeguroPorDefecto(),
                 'porcentaje_comision_apertura' => 10,
                 'porcentaje_interes_quincenal' => 5,
                 'multa_incumplimiento_monto' => 300,
@@ -387,14 +545,5 @@ class ConfiguracionController extends Controller
                 'actualizado_en' => now(),
             ]
         );
-    }
-
-    private function obtenerSucursalActivaGerente(Usuario $usuario): ?Sucursal
-    {
-        return $usuario->sucursales()
-            ->wherePivotNull('revocado_en')
-            ->orderByDesc('usuario_rol.es_principal')
-            ->orderByDesc('usuario_rol.asignado_en')
-            ->first();
     }
 }

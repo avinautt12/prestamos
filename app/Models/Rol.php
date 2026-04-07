@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property int $id
@@ -22,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  */
 class Rol extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'roles';
 
     // Deshabilitar timestamps automáticos de Laravel

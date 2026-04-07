@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Gerente;
 
+use App\Http\Controllers\Concerns\ResuelveSucursalActivaGerente;
 use App\Http\Controllers\Controller;
 use App\Models\Corte;
-use App\Models\Sucursal;
 use App\Models\Usuario;
 use App\Services\CorteService;
 use Illuminate\Http\RedirectResponse;
@@ -15,6 +15,8 @@ use Inertia\Response;
 
 class CorteController extends Controller
 {
+    use ResuelveSucursalActivaGerente;
+
     public function __construct(private readonly CorteService $corteService) {}
 
     public function index(Request $request): Response
@@ -63,14 +65,5 @@ class CorteController extends Controller
         $this->corteService->cerrarManual($corte, $gerente, $request->string('observaciones')->toString());
 
         return back()->with('success', 'Corte cerrado manualmente.');
-    }
-
-    private function obtenerSucursalActivaGerente(Usuario $usuario): ?Sucursal
-    {
-        return $usuario->sucursales()
-            ->wherePivotNull('revocado_en')
-            ->orderByDesc('usuario_rol.es_principal')
-            ->orderByDesc('usuario_rol.asignado_en')
-            ->first();
     }
 }
