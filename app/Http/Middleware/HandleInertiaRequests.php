@@ -33,6 +33,9 @@ class HandleInertiaRequests extends Middleware
         $sucursalId = null;
 
         if ($usuario) {
+            $usuario->loadMissing('persona');
+            $usuario->append('rol_nombre');
+
             $rolPrincipal = $usuario->roles()
                 ->wherePivotNull('revocado_en')
                 ->whereNotNull('usuario_rol.sucursal_id')
