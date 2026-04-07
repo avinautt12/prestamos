@@ -30,7 +30,7 @@ class Solicitud extends Model
         'reporte_buro_path',
         'limite_credito_solicitado',
         'resultado_buro',
-        'observaciones_validacion',
+        'motivo_rechazo',
         'prevale_aprobado',
         'fotos_casa_completas',
         'enviada_en',

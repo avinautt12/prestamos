@@ -9,16 +9,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('solicitudes', function (Blueprint $table) {
-            $table->timestamp('tomada_en')
-                ->nullable()
-                ->after('verificador_asignado_id');
+            $table->text('motivo_rechazo')->nullable()->after('resultado_buro');
         });
     }
 
     public function down(): void
     {
         Schema::table('solicitudes', function (Blueprint $table) {
-            $table->dropColumn('tomada_en');
+            $table->dropColumn('motivo_rechazo');
         });
     }
 };

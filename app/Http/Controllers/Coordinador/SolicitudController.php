@@ -143,7 +143,6 @@ class SolicitudController extends Controller
                 'comprobante_domicilio_path' => $this->subirDocumentoSolicitud($request->file('comprobante_domicilio'), 'comprobante_domicilio'),
                 'reporte_buro_path' => $this->subirDocumentoSolicitud($request->file('reporte_buro'), 'reporte_buro'),
                 'enviada_en' => now(),
-                'observaciones_validacion' => $request->observaciones,
             ]);
 
             $clienteNombre = trim(implode(' ', array_filter([
@@ -189,7 +188,7 @@ class SolicitudController extends Controller
         $sucursal = $this->obtenerSucursalActivaCoordinador($usuario);
         $sucursalId = $sucursal?->id;
 
-        $solicitudes = Solicitud::with(['persona', 'sucursal'])
+        $solicitudes = Solicitud::with(['persona', 'sucursal', 'verificacion'])
             ->where(function ($query) use ($usuario, $sucursalId) {
                 $query->where('coordinador_usuario_id', $usuario->id);
 
@@ -336,7 +335,6 @@ class SolicitudController extends Controller
                 'datos_familiares_json' => $request->has('familiares') ? json_encode($request->familiares) : null,
                 'afiliaciones_externas_json' => $request->has('afiliaciones') ? json_encode($request->afiliaciones) : null,
                 'vehiculos_json' => $request->has('vehiculos') ? json_encode($request->vehiculos) : null,
-                'observaciones_validacion' => $request->observaciones,
                 'ine_frente_path' => $ineFrentePath,
                 'ine_reverso_path' => $ineReversoPath,
                 'comprobante_domicilio_path' => $comprobanteDomicilioPath,
@@ -426,7 +424,6 @@ class SolicitudController extends Controller
             'familiares' => $solicitud->datos_familiares_json,
             'afiliaciones' => $solicitud->afiliaciones_externas_json,
             'vehiculos' => $solicitud->vehiculos_json,
-            'observaciones' => $solicitud->observaciones_validacion,
             'ine_frente_path' => $solicitud->ine_frente_path,
             'ine_reverso_path' => $solicitud->ine_reverso_path,
             'comprobante_domicilio_path' => $solicitud->comprobante_domicilio_path,

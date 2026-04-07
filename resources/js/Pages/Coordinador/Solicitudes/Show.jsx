@@ -114,10 +114,10 @@ export default function Show({ solicitud, edit_url }) {
                     <FontAwesomeIcon icon={estadoInfo.icon} className="text-xl" />
                     <span className="font-medium">Estado: {estadoInfo.label}</span>
                 </div>
-                {solicitud.observaciones_validacion && solicitud.estado === 'RECHAZADA' && (
+                {solicitud.verificacion?.observaciones && solicitud.estado === 'RECHAZADA' && (
                     <div className="p-2 mt-2 bg-red-100 rounded">
                         <p className="text-sm font-medium text-red-800">Motivo del rechazo:</p>
-                        <p className="text-sm text-red-700">{solicitud.observaciones_validacion}</p>
+                        <p className="text-sm text-red-700">{solicitud.verificacion.observaciones}</p>
                     </div>
                 )}
             </div>

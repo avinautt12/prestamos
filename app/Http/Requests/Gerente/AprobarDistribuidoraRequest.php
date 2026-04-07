@@ -20,7 +20,7 @@ class AprobarDistribuidoraRequest extends FormRequest
         return [
             'limite_credito' => ['required', 'numeric', 'min:1'],
             'categoria_id' => [
-                'nullable',
+                'required',
                 Rule::exists('categorias_distribuidora', 'id')->where(fn($query) => $query->where('activo', true)),
             ],
             'resultado_buro' => ['required', 'string', 'max:100'],
@@ -33,6 +33,7 @@ class AprobarDistribuidoraRequest extends FormRequest
             'limite_credito.required' => 'Debes asignar el límite de crédito inicial.',
             'limite_credito.numeric' => 'El límite de crédito debe ser numérico.',
             'limite_credito.min' => 'El límite de crédito debe ser mayor a 0.',
+            'categoria_id.required' => 'Debes seleccionar una categoría antes de aprobar.',
             'categoria_id.exists' => 'La categoría seleccionada no es válida.',
             'resultado_buro.required' => 'Es obligatorio registrar el resultado del Buró de Crédito antes de aprobar.',
         ];

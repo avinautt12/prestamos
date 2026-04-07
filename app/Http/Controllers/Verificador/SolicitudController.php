@@ -243,7 +243,6 @@ class SolicitudController extends Controller
             $solicitud->update([
                 'estado' => $nuevoEstado,
                 'revisada_en' => now(),
-                'observaciones_validacion' => $request->observaciones,
             ]);
 
             $clienteNombre = trim(implode(' ', array_filter([

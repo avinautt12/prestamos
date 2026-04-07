@@ -3,8 +3,7 @@ import TabletLayout from '@/Layouts/TabletLayout';
 import { Head, router } from '@inertiajs/react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faTriangleExclamation,
@@ -17,29 +16,16 @@ import {
     faTrophy,
 } from '@fortawesome/free-solid-svg-icons';
 
-const ubicacionActualIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-    iconRetinaUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
-});
-
-function MapController({ center, zoom = 17 }) {
-    const map = useMap();
-
-    useEffect(() => {
-        if (center && center.length === 2) {
-            map.flyTo(center, zoom);
-        }
-    }, [center, map, zoom]);
-
-    return null;
-}
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 export default function Show({ solicitud }) {
+    const { isLoaded } = useJsApiLoader({
+        id: 'google-map-script',
+        googleMapsApiKey: GOOGLE_MAPS_API_KEY
+    });
+
+    const [map, setMap] = useState(null);
+    const [infoWindowAbierto, setInfoWindowAbierto] = useState(null);
     const [enviando, setEnviando] = useState(false);
     const [resultado, setResultado] = useState(null);
     const [observaciones, setObservaciones] = useState('');
@@ -61,13 +47,15 @@ export default function Show({ solicitud }) {
     const domicilioLng = persona.longitud ? parseFloat(persona.longitud) : null;
     const tieneMapa = domicilioLat !== null && domicilioLng !== null;
     const centroMapa = ubicacionActual
-        ? [ubicacionActual.lat, ubicacionActual.lng]
+        ? { lat: ubicacionActual.lat, lng: ubicacionActual.lng }
         : tieneMapa
-            ? [domicilioLat, domicilioLng]
-            : [19.4326, -99.1332];
+            ? { lat: domicilioLat, lng: domicilioLng }
+            : { lat: 19.4326, lng: -99.1332 };
 
     // Obtener ubicación actual del verificador al cargar
     useEffect(() => {
+        if (!isLoaded) return;
+
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -107,7 +95,7 @@ export default function Show({ solicitud }) {
         } else {
             setErrorGPS('Tu dispositivo no soporta geolocalización');
         }
-    }, [persona.latitud, persona.longitud]);
+    }, [persona.latitud, persona.longitud, isLoaded]);
 
     // Calcular distancia entre dos puntos (fórmula de Haversine)
     const calcularDistancia = (lat1, lon1, lat2, lon2) => {
@@ -377,38 +365,55 @@ export default function Show({ solicitud }) {
                         {tieneMapa && (
                             <div className="overflow-hidden bg-white border border-gray-200 rounded-xl lg:col-span-7">
                                 <div className="h-64 sm:h-72">
-                                    <MapContainer
-                                        center={centroMapa}
-                                        zoom={17}
-                                        style={{ height: '100%', width: '100%' }}
-                                    >
-                                        <MapController center={centroMapa} />
-                                        <TileLayer
-                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                        />
-
-                                        <Marker position={[domicilioLat, domicilioLng]}>
-                                            <Popup>
-                                                <div className="text-sm">
-                                                    <p className="font-semibold text-gray-900">Domicilio registrado</p>
-                                                    <p className="text-gray-600">{persona.calle} {persona.numero_exterior}</p>
-                                                    <p className="text-gray-600">{persona.colonia}, {persona.ciudad}</p>
-                                                </div>
-                                            </Popup>
-                                        </Marker>
-
-                                        {ubicacionActual && (
-                                            <Marker position={[ubicacionActual.lat, ubicacionActual.lng]} icon={ubicacionActualIcon}>
-                                                <Popup>
-                                                    <div className="text-sm text-center">
-                                                        <p className="font-semibold text-green-700">Tu ubicación actual</p>
-                                                        <p className="text-gray-600">Punto donde estás verificando</p>
-                                                    </div>
-                                                </Popup>
+                                    {isLoaded && (
+                                        <GoogleMap
+                                            mapContainerStyle={{ width: '100%', height: '100%' }}
+                                            center={centroMapa}
+                                            zoom={17}
+                                            options={{
+                                                streetViewControl: false,
+                                                mapTypeControl: false,
+                                                fullscreenControl: false,
+                                            }}
+                                        >
+                                            <Marker
+                                                position={{ lat: domicilioLat, lng: domicilioLng }}
+                                                icon={{
+                                                    url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                                                }}
+                                                onClick={() => setInfoWindowAbierto('domicilio')}
+                                            >
+                                                {infoWindowAbierto === 'domicilio' && (
+                                                    <InfoWindow onCloseClick={() => setInfoWindowAbierto(null)}>
+                                                        <div className="text-sm">
+                                                            <p className="font-semibold text-gray-900">Domicilio registrado</p>
+                                                            <p className="text-gray-600">{persona.calle} {persona.numero_exterior}</p>
+                                                            <p className="text-gray-600">{persona.colonia}, {persona.ciudad}</p>
+                                                        </div>
+                                                    </InfoWindow>
+                                                )}
                                             </Marker>
-                                        )}
-                                    </MapContainer>
+
+                                            {ubicacionActual && (
+                                                <Marker
+                                                    position={{ lat: ubicacionActual.lat, lng: ubicacionActual.lng }}
+                                                    icon={{
+                                                        url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+                                                    }}
+                                                    onClick={() => setInfoWindowAbierto('actual')}
+                                                >
+                                                    {infoWindowAbierto === 'actual' && (
+                                                        <InfoWindow onCloseClick={() => setInfoWindowAbierto(null)}>
+                                                            <div className="text-sm text-center">
+                                                                <p className="font-semibold text-green-700">Tu ubicación actual</p>
+                                                                <p className="text-gray-600">Punto donde estás verificando</p>
+                                                            </div>
+                                                        </InfoWindow>
+                                                    )}
+                                                </Marker>
+                                            )}
+                                        </GoogleMap>
+                                    )}
                                 </div>
                             </div>
                         )}

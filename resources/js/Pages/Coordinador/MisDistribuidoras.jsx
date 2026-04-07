@@ -146,7 +146,7 @@ export default function MisDistribuidoras({ distribuidoras, estadisticas, filter
                                 );
                             })}
                         </div>
-                    </p>
+                    </div>
                 )}
             </div>
         </TabletLayout>

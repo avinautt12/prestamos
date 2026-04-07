@@ -1,5 +1,17 @@
 # Préstamo Fácil - Sistema de Gestión de Vales y Distribución
 
+## Documentacion de modulo Gerente
+
+- Ver detalle funcional y tecnico en [README_GERENTE.md](README_GERENTE.md)
+
+## Documentacion por rol
+
+- Gerente: [README_GERENTE.md](README_GERENTE.md)
+- Coordinador: [README_COORDINADOR.md](README_COORDINADOR.md)
+- Verificador: [README_VERIFICADOR.md](README_VERIFICADOR.md)
+- Cajera: [README_CAJERA.md](README_CAJERA.md)
+- Distribuidora: [README_DISTRIBUIDORA.md](README_DISTRIBUIDORA.md)
+
 ## 🚀 Visión General
 
 Préstamo Fácil no es un sistema de préstamos directos. Es un ecosistema financiero de confianza delegada.

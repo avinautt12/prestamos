@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -10,6 +10,32 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function Index({ solicitudes, filters, securityPolicy }) {
+    const [ultimaSolicitudEnTiempoReal, setUltimaSolicitudEnTiempoReal] = useState(null);
+
+    useEffect(() => {
+        const handleSolicitudLista = (event) => {
+            const payload = event.detail || null;
+
+            if (!payload?.solicitud_id) {
+                return;
+            }
+
+            setUltimaSolicitudEnTiempoReal(payload);
+
+            router.reload({
+                only: ['solicitudes'],
+                preserveState: true,
+                preserveScroll: true,
+            });
+        };
+
+        window.addEventListener('gerente-solicitud-lista', handleSolicitudLista);
+
+        return () => {
+            window.removeEventListener('gerente-solicitud-lista', handleSolicitudLista);
+        };
+    }, []);
+
     const runFilter = (next = {}) => {
         router.get(route('gerente.distribuidoras'), {
             search: next.search ?? filters.search ?? '',
@@ -105,6 +131,12 @@ export default function Index({ solicitudes, filters, securityPolicy }) {
                 {securityPolicy?.requires_vpn && (
                     <div className="mt-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-800">
                         Las acciones de aprobar y rechazar están protegidas por política de seguridad VPN (WireGuard / nodo S3).
+                    </div>
+                )}
+
+                {ultimaSolicitudEnTiempoReal?.solicitud_id && (
+                    <div className="mt-4 p-3 rounded-lg border border-emerald-200 bg-emerald-50 text-sm text-emerald-800">
+                        Nueva solicitud recibida en tiempo real: folio #{ultimaSolicitudEnTiempoReal.solicitud_id}.
                     </div>
                 )}
             </div>

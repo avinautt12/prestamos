@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             ProductosFinancierosSeeder::class,
             UsuarioTestSeeder::class,
             SolicitudesPruebaSeeder::class,
+            DatosPruebaAmpliosSeeder::class,
         ]);
     }
 }

@@ -16,9 +16,15 @@ import {
     faBriefcase,
 } from '@fortawesome/free-solid-svg-icons';
 
-export default function Show({ solicitud, categorias }) {
+export default function Show({ solicitud, categorias, configuracionSucursal }) {
+    const limiteSugerido = solicitud.limite_credito_solicitado
+        ? Number(solicitud.limite_credito_solicitado)
+        : Number(configuracionSucursal?.linea_credito_default || 0) > 0
+            ? Number(configuracionSucursal?.linea_credito_default)
+            : '';
+
     const aprobarForm = useForm({
-        limite_credito: solicitud.limite_credito_solicitado || '',
+        limite_credito: limiteSugerido,
         categoria_id: '',
         resultado_buro: '',
     });

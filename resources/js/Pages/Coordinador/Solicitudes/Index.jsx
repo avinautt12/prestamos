@@ -152,9 +152,9 @@ export default function Index({ solicitudes, filters }) {
                                     </div>
                                 </div>
 
-                                {solicitud.observaciones_validacion && (
+                                {solicitud.verificacion?.observaciones && (
                                     <div className="p-2 mt-2 text-xs text-gray-600 rounded bg-gray-50">
-                                        <span className="font-medium">Observaciones:</span> {solicitud.observaciones_validacion}
+                                        <span className="font-medium">Observaciones:</span> {solicitud.verificacion.observaciones}
                                     </div>
                                 )}
                             </Link>

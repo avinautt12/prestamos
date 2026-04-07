@@ -12,10 +12,10 @@ class SolicitudesPruebaSeeder extends Seeder
 {
     public function run(): void
     {
-        $sucursal = Sucursal::where('codigo', 'SUC-MATRIZ')->first();
+        $sucursal = Sucursal::where('codigo', 'SUC-TRC-CENTRO')->first();
 
         if (!$sucursal) {
-            $this->command?->warn('No se encontró la sucursal SUC-MATRIZ. Ejecuta primero UsuarioTestSeeder.');
+            $this->command?->warn('No se encontro la sucursal SUC-TRC-CENTRO. Ejecuta primero UsuarioTestSeeder.');
             return;
         }
 
@@ -30,15 +30,15 @@ class SolicitudesPruebaSeeder extends Seeder
                     'apellido_paterno' => 'Lopez',
                     'apellido_materno' => 'Garcia',
                     'sexo' => 'F',
-                    'telefono_celular' => '5551000001',
-                    'calle' => 'Calle Reforma',
+                    'telefono_celular' => '8712000001',
+                    'calle' => 'Av Juarez',
                     'numero_exterior' => '101',
                     'colonia' => 'Centro',
-                    'ciudad' => 'Ciudad de Mexico',
-                    'estado' => 'CDMX',
-                    'codigo_postal' => '06000',
-                    'latitud' => 19.4326000,
-                    'longitud' => -99.1332000,
+                    'ciudad' => 'Torreon',
+                    'estado' => 'Coahuila',
+                    'codigo_postal' => '27000',
+                    'latitud' => 25.5428000,
+                    'longitud' => -103.4068000,
                 ],
             ],
             [
@@ -49,15 +49,15 @@ class SolicitudesPruebaSeeder extends Seeder
                     'apellido_paterno' => 'Martinez',
                     'apellido_materno' => 'Diaz',
                     'sexo' => 'M',
-                    'telefono_celular' => '5551000002',
-                    'calle' => 'Av Juarez',
+                    'telefono_celular' => '8712000002',
+                    'calle' => 'Calz Colon',
                     'numero_exterior' => '202',
-                    'colonia' => 'Doctores',
-                    'ciudad' => 'Ciudad de Mexico',
-                    'estado' => 'CDMX',
-                    'codigo_postal' => '06720',
-                    'latitud' => 19.4331000,
-                    'longitud' => -99.1329000,
+                    'colonia' => 'Nueva California',
+                    'ciudad' => 'Torreon',
+                    'estado' => 'Coahuila',
+                    'codigo_postal' => '27089',
+                    'latitud' => 25.5319000,
+                    'longitud' => -103.4469000,
                 ],
             ],
             [
@@ -68,15 +68,15 @@ class SolicitudesPruebaSeeder extends Seeder
                     'apellido_paterno' => 'Sanchez',
                     'apellido_materno' => 'Perez',
                     'sexo' => 'F',
-                    'telefono_celular' => '5551000003',
-                    'calle' => 'Calle Madero',
+                    'telefono_celular' => '8712000003',
+                    'calle' => 'Blvd Independencia',
                     'numero_exterior' => '303',
-                    'colonia' => 'Tabacalera',
-                    'ciudad' => 'Ciudad de Mexico',
-                    'estado' => 'CDMX',
-                    'codigo_postal' => '06030',
-                    'latitud' => 19.4319000,
-                    'longitud' => -99.1341000,
+                    'colonia' => 'El Fresno',
+                    'ciudad' => 'Torreon',
+                    'estado' => 'Coahuila',
+                    'codigo_postal' => '27018',
+                    'latitud' => 25.5503000,
+                    'longitud' => -103.4215000,
                 ],
             ],
         ];
@@ -111,7 +111,6 @@ class SolicitudesPruebaSeeder extends Seeder
                         'tiene_vehiculo' => false,
                     ]),
                     'resultado_buro' => 'SIN_REPORTE',
-                    'observaciones_validacion' => 'Registro de prueba para verificador',
                     'prevale_aprobado' => false,
                     'fotos_casa_completas' => true,
                     'enviada_en' => now(),
@@ -121,6 +120,6 @@ class SolicitudesPruebaSeeder extends Seeder
             );
         }
 
-        $this->command?->info('3 solicitudes EN_REVISION creadas/actualizadas para pruebas del verificador.');
+        $this->command?->info('3 solicitudes EN_REVISION en Torreon, Coahuila creadas/actualizadas para pruebas del verificador.');
     }
 }

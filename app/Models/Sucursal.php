@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Sucursal extends Model
 {
@@ -46,5 +47,10 @@ class Sucursal extends Model
     public function cortes(): HasMany
     {
         return $this->hasMany(Corte::class, 'sucursal_id');
+    }
+
+    public function configuracion(): HasOne
+    {
+        return $this->hasOne(SucursalConfiguracion::class, 'sucursal_id');
     }
 }

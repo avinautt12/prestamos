@@ -14,6 +14,7 @@ return new class extends Migration
             $table->unsignedBigInteger('sucursal_id');
             $table->unsignedBigInteger('capturada_por_usuario_id')->nullable();
             $table->unsignedBigInteger('coordinador_usuario_id')->nullable();
+            $table->unsignedBigInteger('verificador_asignado_id')->nullable();
             $table->unsignedBigInteger('cuenta_bancaria_id')->nullable();
             $table->enum('estado', [
                 'PRE',
@@ -24,13 +25,19 @@ return new class extends Migration
                 'APROBADA',
                 'RECHAZADA'
             ])->default('PRE');
+            $table->string('categoria_inicial_codigo', 20)->default('COBRE');
             $table->longText('datos_familiares_json')->nullable();
             $table->longText('afiliaciones_externas_json')->nullable();
             $table->longText('vehiculos_json')->nullable();
+            $table->decimal('limite_credito_solicitado', 12, 2)->nullable();
+            $table->string('ine_frente_path')->nullable();
+            $table->string('ine_reverso_path')->nullable();
+            $table->string('comprobante_domicilio_path')->nullable();
+            $table->string('reporte_buro_path')->nullable();
             $table->string('resultado_buro', 100)->nullable();
-            $table->text('observaciones_validacion')->nullable();
             $table->boolean('prevale_aprobado')->default(false);
             $table->boolean('fotos_casa_completas')->default(false);
+            $table->timestamp('tomada_en')->nullable();
             $table->timestamp('enviada_en')->nullable();
             $table->timestamp('revisada_en')->nullable();
             $table->timestamp('decidida_en')->nullable();
@@ -41,10 +48,13 @@ return new class extends Migration
             $table->foreign('sucursal_id')->references('id')->on('sucursales');
             $table->foreign('capturada_por_usuario_id')->references('id')->on('usuarios');
             $table->foreign('coordinador_usuario_id')->references('id')->on('usuarios');
+            $table->foreign('verificador_asignado_id')->references('id')->on('usuarios');
             $table->foreign('cuenta_bancaria_id')->references('id')->on('cuentas_bancarias');
 
             $table->index('estado');
             $table->index('sucursal_id');
+            $table->index('verificador_asignado_id');
+            $table->index('categoria_inicial_codigo');
         });
     }
 

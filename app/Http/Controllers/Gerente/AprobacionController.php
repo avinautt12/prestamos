@@ -8,14 +8,19 @@ use App\Http\Requests\Gerente\AprobarDistribuidoraRequest;
 use App\Http\Requests\Gerente\RechazarDistribuidoraRequest;
 use App\Models\BitacoraDecisionGerente;
 use App\Models\CategoriaDistribuidora;
+use App\Models\CuentaBancaria;
 use App\Models\Distribuidora;
+use App\Models\Rol;
+use App\Models\SucursalConfiguracion;
 use App\Notifications\DistribuidoraAprobadaNotification;
 use App\Models\Solicitud;
 use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class AprobacionController extends Controller
@@ -65,6 +70,45 @@ class AprobacionController extends Controller
         ]);
     }
 
+    public function rechazadas(Request $request)
+    {
+        /** @var \App\Models\Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursalId = $this->obtenerSucursalActivaGerente($gerente)?->id;
+
+        $solicitudes = Solicitud::with(['persona', 'sucursal', 'coordinador.persona'])
+            ->where('estado', Solicitud::ESTADO_RECHAZADA)
+            ->where('sucursal_id', $sucursalId)
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = $request->string('search')->toString();
+
+                $query->whereHas('persona', function ($personaQuery) use ($search) {
+                    $personaQuery->where('primer_nombre', 'like', "%{$search}%")
+                        ->orWhere('apellido_paterno', 'like', "%{$search}%")
+                        ->orWhere('apellido_materno', 'like', "%{$search}%")
+                        ->orWhere('curp', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->filled('motivo'), function ($query) use ($request) {
+                $query->where('motivo_rechazo', 'like', '%' . $request->string('motivo')->toString() . '%');
+            })
+            ->when($request->filled('fecha_desde'), function ($query) use ($request) {
+                $query->whereDate('decidida_en', '>=', $request->string('fecha_desde')->toString());
+            })
+            ->when($request->filled('fecha_hasta'), function ($query) use ($request) {
+                $query->whereDate('decidida_en', '<=', $request->string('fecha_hasta')->toString());
+            })
+            ->orderByDesc('decidida_en')
+            ->orderByDesc('id')
+            ->paginate(12)
+            ->appends($request->query());
+
+        return Inertia::render('Gerente/Distribuidoras/Rechazadas', [
+            'solicitudes' => $solicitudes,
+            'filters' => $request->only(['search', 'motivo', 'fecha_desde', 'fecha_hasta']),
+        ]);
+    }
+
     public function show(int $id)
     {
         /** @var \App\Models\Usuario $gerente */
@@ -95,14 +139,31 @@ class AprobacionController extends Controller
             $solicitud->verificacion->foto_comprobante_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_comprobante);
         }
 
+        $configuracionSucursal = SucursalConfiguracion::query()
+            ->where('sucursal_id', $sucursalId)
+            ->first(['linea_credito_default', 'categorias_config_json']);
+
+        $categoriasConfig = (array) ($configuracionSucursal?->categorias_config_json ?? []);
+
         $categorias = CategoriaDistribuidora::query()
             ->where('activo', true)
             ->orderBy('nombre')
-            ->get(['id', 'codigo', 'nombre', 'porcentaje_comision']);
+            ->get(['id', 'codigo', 'nombre', 'porcentaje_comision'])
+            ->map(function (CategoriaDistribuidora $categoria) use ($categoriasConfig) {
+                $override = $categoriasConfig[(string) $categoria->id] ?? null;
+
+                if (is_array($override) && array_key_exists('porcentaje_comision', $override)) {
+                    $categoria->porcentaje_comision = $override['porcentaje_comision'];
+                }
+
+                return $categoria;
+            })
+            ->values();
 
         return Inertia::render('Gerente/Distribuidoras/Show', [
             'solicitud' => $solicitud,
             'categorias' => $categorias,
+            'configuracionSucursal' => $configuracionSucursal,
         ]);
     }
 
@@ -134,18 +195,7 @@ class AprobacionController extends Controller
                 ->where('solicitud_id', $solicitud->id)
                 ->first();
 
-            $categoriaCobre = CategoriaDistribuidora::query()
-                ->where('codigo', 'COBRE')
-                ->where('activo', true)
-                ->first();
-
-            if (!$request->categoria_id && !$categoriaCobre) {
-                return back()->withErrors([
-                    'general' => 'No existe una categoría Cobre activa configurada.',
-                ]);
-            }
-
-            $categoriaId = $request->categoria_id ?: $categoriaCobre?->id;
+            $categoriaId = (int) $request->categoria_id;
 
             $montoAnterior = (float) ($distribuidoraActual?->limite_credito ?? 0);
             $montoNuevo = (float) $request->limite_credito;
@@ -168,12 +218,44 @@ class AprobacionController extends Controller
                 ]
             );
 
+            $referenciaVisual = $this->generarReferenciaPagoVisual((string) $distribuidora->numero_distribuidora);
+            $nombreTitular = $this->obtenerNombreTitularDistribuidora($solicitud);
+
+            $cuentaDistribuidora = CuentaBancaria::query()->updateOrCreate(
+                [
+                    'tipo_propietario' => CuentaBancaria::TIPO_DISTRIBUIDORA,
+                    'propietario_id' => $distribuidora->id,
+                    'es_principal' => true,
+                ],
+                [
+                    'banco' => 'PRACTICA_UNIVERSITARIA',
+                    'nombre_titular' => $nombreTitular,
+                    'referencia_base' => $referenciaVisual,
+                ]
+            );
+
+            $distribuidora->update([
+                'cuenta_bancaria_id' => $cuentaDistribuidora->id,
+            ]);
+
+            $rolDistribuidora = Rol::query()
+                ->where('codigo', 'DISTRIBUIDORA')
+                ->where('activo', true)
+                ->first();
+
+            if (!$rolDistribuidora) {
+                return back()->withErrors([
+                    'general' => 'No existe un rol DISTRIBUIDORA activo configurado en el sistema.',
+                ]);
+            }
+
             $solicitud->update([
                 'estado' => Solicitud::ESTADO_APROBADA,
                 'decidida_en' => now(),
                 'resultado_buro' => $request->resultado_buro,
+                'motivo_rechazo' => null,
             ]);
-    
+
             BitacoraDecisionGerente::create([
                 'gerente_usuario_id' => $gerente->id,
                 'solicitud_id' => $solicitud->id,
@@ -185,28 +267,27 @@ class AprobacionController extends Controller
                 'monto_nuevo' => $montoNuevo,
             ]);
 
-            $usuarioDistribuidora = Usuario::query()
-                ->where('persona_id', $solicitud->persona_solicitante_id)
-                ->where('activo', true)
-                ->first();
+            $usuarioDistribuidora = $this->obtenerOCrearUsuarioDistribuidora(
+                $solicitud,
+                $distribuidora,
+                $rolDistribuidora
+            );
 
-            if ($usuarioDistribuidora) {
-                DB::afterCommit(function () use ($usuarioDistribuidora, $distribuidora, $montoNuevo) {
-                    event(new ActualizacionCredito(
-                        (int) $usuarioDistribuidora->id,
-                        (int) $distribuidora->id,
-                        (string) $distribuidora->numero_distribuidora,
-                        (float) $montoNuevo
-                    ));
-                });
+            DB::afterCommit(function () use ($usuarioDistribuidora, $distribuidora, $montoNuevo) {
+                event(new ActualizacionCredito(
+                    (int) $usuarioDistribuidora->id,
+                    (int) $distribuidora->id,
+                    (string) $distribuidora->numero_distribuidora,
+                    (float) $montoNuevo
+                ));
+            });
 
-                $usuarioDistribuidora->notify(
-                    new DistribuidoraAprobadaNotification(
-                        $montoNuevo,
-                        $distribuidora->numero_distribuidora
-                    )
-                );
-            }
+            $usuarioDistribuidora->notify(
+                new DistribuidoraAprobadaNotification(
+                    $montoNuevo,
+                    $distribuidora->numero_distribuidora
+                )
+            );
 
             return redirect()
                 ->route('gerente.distribuidoras')
@@ -228,11 +309,11 @@ class AprobacionController extends Controller
         $solicitud->update([
             'estado' => Solicitud::ESTADO_RECHAZADA,
             'decidida_en' => now(),
-            'observaciones_validacion' => $request->motivo_rechazo,
+            'motivo_rechazo' => $request->string('motivo_rechazo')->toString(),
         ]);
 
         return redirect()
-            ->route('gerente.distribuidoras')
+            ->route('gerente.distribuidoras.rechazadas')
             ->with('success', 'Solicitud rechazada correctamente.');
     }
 
@@ -243,6 +324,118 @@ class AprobacionController extends Controller
         } while (Distribuidora::query()->where('numero_distribuidora', $numero)->exists());
 
         return $numero;
+    }
+
+    private function generarReferenciaPagoVisual(string $numeroDistribuidora): string
+    {
+        $normalizado = strtoupper(preg_replace('/[^A-Z0-9-]/i', '', $numeroDistribuidora) ?? '');
+
+        if ($normalizado === '') {
+            $normalizado = 'DIST-' . now()->format('ymdHis');
+        }
+
+        return 'PF-' . $normalizado;
+    }
+
+    private function obtenerNombreTitularDistribuidora(Solicitud $solicitud): string
+    {
+        $persona = $solicitud->persona;
+
+        $nombre = trim(implode(' ', array_filter([
+            $persona?->primer_nombre,
+            $persona?->segundo_nombre,
+            $persona?->apellido_paterno,
+            $persona?->apellido_materno,
+        ])));
+
+        return $nombre !== '' ? $nombre : 'DISTRIBUIDORA SIN NOMBRE';
+    }
+
+    private function obtenerOCrearUsuarioDistribuidora(
+        Solicitud $solicitud,
+        Distribuidora $distribuidora,
+        Rol $rolDistribuidora
+    ): Usuario {
+        $usuario = Usuario::query()
+            ->where('persona_id', $solicitud->persona_solicitante_id)
+            ->first();
+
+        if (!$usuario) {
+            $usuario = Usuario::query()->create([
+                'persona_id' => $solicitud->persona_solicitante_id,
+                'nombre_usuario' => $this->generarNombreUsuarioDistribuidora($solicitud, $distribuidora),
+                'clave_hash' => Hash::make(Str::random(24)),
+                'activo' => true,
+                'requiere_vpn' => false,
+                'canal_login' => Usuario::CANAL_MOVIL,
+            ]);
+        } elseif (!$usuario->activo) {
+            $usuario->update(['activo' => true]);
+        }
+
+        $rolActivo = DB::table('usuario_rol')
+            ->where('usuario_id', $usuario->id)
+            ->where('rol_id', $rolDistribuidora->id)
+            ->whereNull('revocado_en')
+            ->exists();
+
+        if (!$rolActivo) {
+            DB::table('usuario_rol')->insert([
+                'usuario_id' => $usuario->id,
+                'rol_id' => $rolDistribuidora->id,
+                'sucursal_id' => $solicitud->sucursal_id,
+                'asignado_en' => now(),
+                'revocado_en' => null,
+                'es_principal' => true,
+            ]);
+        }
+
+        return $usuario;
+    }
+
+    private function generarNombreUsuarioDistribuidora(Solicitud $solicitud, Distribuidora $distribuidora): string
+    {
+        $persona = $solicitud->persona;
+
+        $candidatos = [];
+
+        if (!empty($persona?->curp)) {
+            $candidatos[] = strtolower((string) $persona->curp);
+        }
+
+        if (!empty($persona?->telefono_celular)) {
+            $digitos = preg_replace('/\D+/', '', (string) $persona->telefono_celular);
+            if (!empty($digitos)) {
+                $candidatos[] = 'dist' . substr($digitos, -8);
+            }
+        }
+
+        $numero = strtolower((string) $distribuidora->numero_distribuidora);
+        $candidatos[] = preg_replace('/[^a-z0-9]/', '', $numero);
+
+        foreach ($candidatos as $base) {
+            $base = substr((string) $base, 0, 80);
+            if ($base === '') {
+                continue;
+            }
+
+            $existe = Usuario::query()
+                ->where('nombre_usuario', $base)
+                ->exists();
+
+            if (!$existe) {
+                return $base;
+            }
+        }
+
+        do {
+            $alterno = 'dist' . now()->format('ymdHis') . random_int(10, 99);
+            $existe = Usuario::query()
+                ->where('nombre_usuario', $alterno)
+                ->exists();
+        } while ($existe);
+
+        return $alterno;
     }
 
     private function generarUrlEvidencia(?string $ruta): ?string
