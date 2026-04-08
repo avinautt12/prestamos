@@ -18,7 +18,9 @@ class DatabaseSeeder extends Seeder
             ProductosFinancierosSeeder::class,
             UsuarioTestSeeder::class,
             SolicitudesPruebaSeeder::class,
-            PrevalesCajeraSeeder::class, 
+            DatosPruebaAmpliosSeeder::class,
+            PrevalesCajeraSeeder::class,
+            ConciliacionesCajeraSeeder::class,
         ]);
     }
 }

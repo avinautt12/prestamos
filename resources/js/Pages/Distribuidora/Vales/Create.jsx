@@ -17,7 +17,6 @@ export default function Create({
     const [form, setForm] = useState({
         cliente_id: seleccion.cliente_id || '',
         producto_id: seleccion.producto_id || '',
-        monto: seleccion.monto ?? '',
     });
 
     const clienteSeleccionado = useMemo(
@@ -40,7 +39,7 @@ export default function Create({
     };
 
     const limpiar = () => {
-        const empty = { cliente_id: '', producto_id: '', monto: '' };
+        const empty = { cliente_id: '', producto_id: '' };
         setForm(empty);
         router.get(route('distribuidora.vales.create'), empty, {
             preserveState: true,
@@ -51,21 +50,21 @@ export default function Create({
 
     return (
         <DistribuidoraLayout
-            title="Preparar emisión de vale"
-            subtitle="Valida reglas mínimas, selecciona cliente y producto, y simula el impacto financiero antes de abrir la emisión transaccional."
+            title="Preparar pre vale"
+            subtitle="Selecciona cliente y producto, revisa el plan fijo del producto y valida si hoy puedes avanzar al pre vale."
         >
-            <Head title="Preparar emisión" />
+            <Head title="Preparar pre vale" />
 
             {sinConfig ? (
                 <div className="fin-card">
                     <p className="fin-title">No se encontró una distribuidora ligada a tu acceso</p>
-                    <p className="mt-2 fin-subtitle">Cuando exista el registro operativo, aquí verás la prevalidación para emisión.</p>
+                    <p className="mt-2 fin-subtitle">Cuando exista el registro operativo, aquí verás la validación previa del pre vale.</p>
                 </div>
             ) : (
                 <>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                         <div className="fin-card">
-                            <p className="text-sm font-medium text-gray-600">Puede emitir vales</p>
+                            <p className="text-sm font-medium text-gray-600">Puede iniciar vale</p>
                             <p className="fin-stat-value">{prevalidacion.puede_emitir_vales ? 'Sí' : 'No'}</p>
                         </div>
                         <div className="fin-card">
@@ -86,7 +85,7 @@ export default function Create({
                         <div className="flex items-start justify-between gap-3">
                             <div>
                                 <p className="text-lg font-semibold text-gray-900">Estado operativo actual</p>
-                                <p className="mt-1 text-sm text-gray-600">Esta vista ya valida la selección de cliente, producto, monto y consumo de crédito. Aún no persiste el vale.</p>
+                                <p className="mt-1 text-sm text-gray-600">Esta vista valida cliente, producto y consumo de crédito con base en un plan fijo. Aún no persiste el vale.</p>
                             </div>
                             <span className={statusBadgeClass(prevalidacion.estado)}>{prevalidacion.estado || 'SIN ESTADO'}</span>
                         </div>
@@ -95,8 +94,8 @@ export default function Create({
                     <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-5">
                         <div className="space-y-4 xl:col-span-3">
                             <div className="fin-card">
-                                <h2 className="fin-title">Configuración de la pre-emisión</h2>
-                                <p className="mt-1 fin-subtitle">Selecciona el cliente y producto, captura un monto y revisa si la operación cumple las reglas mínimas.</p>
+                                <h2 className="fin-title">Configuración del pre vale</h2>
+                                <p className="mt-1 fin-subtitle">Selecciona el cliente y el producto. El monto principal viene definido por el plan financiero, así que aquí ya no se captura manualmente.</p>
 
                                 <form onSubmit={aplicarSimulacion} className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-2">
                                     <div className="md:col-span-2">
@@ -126,18 +125,6 @@ export default function Create({
                                                 <option key={producto.id} value={producto.id}>{producto.nombre}</option>
                                             ))}
                                         </select>
-                                    </div>
-                                    <div>
-                                        <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto principal</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={form.monto}
-                                            onChange={(event) => setForm((prev) => ({ ...prev, monto: event.target.value }))}
-                                            className="fin-input"
-                                            placeholder="0.00"
-                                        />
                                     </div>
                                     <div className="grid grid-cols-2 gap-2 md:col-span-2">
                                         <button type="submit" className="w-full fin-btn-primary">Actualizar simulación</button>
@@ -190,7 +177,7 @@ export default function Create({
                                         <div>
                                             <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Producto</p>
                                             <p className="mt-1 font-semibold text-gray-900">{productoSeleccionado.nombre}</p>
-                                            <p className="mt-1 text-sm text-gray-500">{productoSeleccionado.codigo} · {productoSeleccionado.numero_quincenas} quincenas</p>
+                                            <p className="mt-1 text-sm text-gray-500">{productoSeleccionado.codigo} · {formatCurrency(productoSeleccionado.monto_principal)} · {productoSeleccionado.numero_quincenas} quincenas</p>
                                         </div>
                                         <div>
                                             <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Desembolso</p>
@@ -211,7 +198,7 @@ export default function Create({
                                         <span className={statusBadgeClass(prevalidacion.estado)}>{prevalidacion.estado || 'SIN ESTADO'}</span>
                                     </div>
                                     <div className="flex items-center justify-between gap-3 p-3 border rounded-xl border-gray-200">
-                                        <span>Emisión habilitada</span>
+                                        <span>Inicio de vale habilitado</span>
                                         <span className={statusBadgeClass(prevalidacion.puede_emitir_vales ? 'ACTIVO' : 'BLOQUEADO')}>
                                             {prevalidacion.puede_emitir_vales ? 'HABILITADA' : 'BLOQUEADA'}
                                         </span>
@@ -229,7 +216,7 @@ export default function Create({
 
                             {!!bloqueos.length && (
                                 <div className="fin-card border-red-200 bg-red-50">
-                                    <p className="font-semibold text-red-800">La pre-emisión todavía está bloqueada</p>
+                                    <p className="font-semibold text-red-800">El pre vale todavía está bloqueado</p>
                                     <ul className="mt-3 space-y-1 text-sm text-red-700 list-disc list-inside">
                                         {bloqueos.map((bloqueo) => <li key={bloqueo}>{bloqueo}</li>)}
                                     </ul>
@@ -241,7 +228,7 @@ export default function Create({
                                     <div className="flex items-start justify-between gap-3">
                                         <div>
                                             <h2 className="fin-title">Resultado de la simulación</h2>
-                                            <p className="mt-1 fin-subtitle">Vista previa del cálculo con base en el producto, la categoría actual y el monto principal capturado.</p>
+                                            <p className="mt-1 fin-subtitle">Vista previa del cálculo con base en el producto seleccionado, la categoría actual y el monto fijo configurado en ese plan.</p>
                                         </div>
                                         <span className={statusBadgeClass(puedeContinuar ? 'ACTIVO' : 'PAGO_PARCIAL')}>
                                             {puedeContinuar ? 'LISTA' : 'CON OBSERVACIONES'}
@@ -249,7 +236,7 @@ export default function Create({
                                     </div>
                                     <div className="grid grid-cols-2 gap-3 mt-4">
                                         <div>
-                                            <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto principal</p>
+                                            <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto fijo del producto</p>
                                             <p className="mt-1 font-semibold text-gray-900">{formatCurrency(simulacion.monto_principal)}</p>
                                         </div>
                                         <div>
@@ -295,7 +282,7 @@ export default function Create({
                             ) : (
                                 <div className="fin-card">
                                     <p className="font-semibold text-gray-900">Aún no hay simulación</p>
-                                    <p className="mt-1 text-sm text-gray-500">Selecciona cliente, producto y monto para calcular la pre-emisión.</p>
+                                    <p className="mt-1 text-sm text-gray-500">Selecciona cliente y producto para calcular el pre vale con el monto fijo del plan.</p>
                                 </div>
                             )}
                         </div>

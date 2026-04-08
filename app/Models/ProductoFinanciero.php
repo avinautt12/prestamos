@@ -18,6 +18,7 @@ class ProductoFinanciero extends Model
         'codigo',
         'nombre',
         'descripcion',
+        'monto_principal',
         'numero_quincenas',
         'porcentaje_comision_empresa',
         'monto_seguro',
@@ -28,6 +29,7 @@ class ProductoFinanciero extends Model
     ];
 
     protected $casts = [
+        'monto_principal' => 'decimal:2',
         'porcentaje_comision_empresa' => 'decimal:4',
         'monto_seguro' => 'decimal:2',
         'porcentaje_interes_quincenal' => 'decimal:4',

@@ -61,7 +61,7 @@ class DashboardController extends Controller
         $ultimosVales = Vale::query()
             ->with([
                 'cliente.persona:id,primer_nombre,segundo_nombre,apellido_paterno,apellido_materno',
-                'productoFinanciero:id,codigo,nombre',
+                'productoFinanciero:id,codigo,nombre,monto_principal',
             ])
             ->where('distribuidora_id', $distribuidora->id)
             ->orderByDesc('fecha_emision')
@@ -74,7 +74,7 @@ class DashboardController extends Controller
         $proximosVencimientos = Vale::query()
             ->with([
                 'cliente.persona:id,primer_nombre,segundo_nombre,apellido_paterno,apellido_materno',
-                'productoFinanciero:id,codigo,nombre',
+                'productoFinanciero:id,codigo,nombre,monto_principal',
             ])
             ->where('distribuidora_id', $distribuidora->id)
             ->whereIn('estado', [
@@ -146,7 +146,7 @@ class DashboardController extends Controller
         $query = Vale::query()
             ->with([
                 'cliente.persona:id,primer_nombre,segundo_nombre,apellido_paterno,apellido_materno',
-                'productoFinanciero:id,codigo,nombre',
+                'productoFinanciero:id,codigo,nombre,monto_principal',
                 'pagos:id,vale_id,monto,fecha_pago,metodo_pago',
             ])
             ->where('distribuidora_id', $distribuidora->id);
@@ -255,6 +255,7 @@ class DashboardController extends Controller
                 'codigo',
                 'nombre',
                 'descripcion',
+                'monto_principal',
                 'numero_quincenas',
                 'porcentaje_comision_empresa',
                 'monto_seguro',
@@ -267,6 +268,7 @@ class DashboardController extends Controller
                 'codigo' => $producto->codigo,
                 'nombre' => $producto->nombre,
                 'descripcion' => $producto->descripcion,
+                'monto_principal' => (float) $producto->monto_principal,
                 'numero_quincenas' => $producto->numero_quincenas,
                 'porcentaje_comision_empresa' => (float) $producto->porcentaje_comision_empresa,
                 'monto_seguro' => (float) $producto->monto_seguro,
@@ -281,17 +283,15 @@ class DashboardController extends Controller
         $seleccion = [
             'cliente_id' => (string) $request->string('cliente_id', ''),
             'producto_id' => (string) $request->string('producto_id', ''),
-            'monto' => $request->filled('monto') ? (float) $request->input('monto') : null,
         ];
 
         $clienteSeleccionado = $clientes->firstWhere('id', (int) $seleccion['cliente_id']);
         $productoSeleccionado = $productos->firstWhere('id', (int) $seleccion['producto_id']);
-        $simulacion = $this->simularEmision($distribuidora, $productoSeleccionado, $seleccion['monto']);
+        $simulacion = $this->simularEmision($distribuidora, $productoSeleccionado);
         $bloqueos = $this->obtenerBloqueosEmision(
             $distribuidora,
             $clienteSeleccionado,
             $productoSeleccionado,
-            $seleccion['monto'],
             $resumen['pagos_pendientes_conciliar']
         );
 
@@ -861,13 +861,17 @@ class DashboardController extends Controller
             ->values();
     }
 
-    private function simularEmision($distribuidora, ?array $producto, ?float $monto): ?array
+    private function simularEmision($distribuidora, ?array $producto): ?array
     {
-        if (!$producto || !$monto || $monto <= 0) {
+        if (!$producto) {
             return null;
         }
 
-        $montoPrincipal = round($monto, 2);
+        $montoPrincipal = round((float) ($producto['monto_principal'] ?? 0), 2);
+
+        if ($montoPrincipal <= 0) {
+            return null;
+        }
         $comisionEmpresa = round($montoPrincipal * ((float) $producto['porcentaje_comision_empresa'] / 100), 2);
         $interes = round($montoPrincipal * ((float) $producto['porcentaje_interes_quincenal'] / 100) * (int) $producto['numero_quincenas'], 2);
         $seguro = round((float) $producto['monto_seguro'], 2);
@@ -893,7 +897,7 @@ class DashboardController extends Controller
         ];
     }
 
-    private function obtenerBloqueosEmision($distribuidora, ?array $cliente, ?array $producto, ?float $monto, int $pagosPendientesConciliar): array
+    private function obtenerBloqueosEmision($distribuidora, ?array $cliente, ?array $producto, int $pagosPendientesConciliar): array
     {
         $bloqueos = [];
 
@@ -919,10 +923,14 @@ class DashboardController extends Controller
             $bloqueos[] = 'Debes seleccionar un producto financiero.';
         }
 
-        if (!$monto || $monto <= 0) {
-            $bloqueos[] = 'Debes capturar un monto válido mayor a cero.';
-        } elseif (!(bool) $distribuidora->sin_limite && (float) $monto > (float) $distribuidora->credito_disponible) {
-            $bloqueos[] = 'El monto supera el crédito disponible actual.';
+        if ($producto) {
+            $montoProducto = (float) ($producto['monto_principal'] ?? 0);
+
+            if ($montoProducto <= 0) {
+                $bloqueos[] = 'El producto seleccionado no tiene monto principal configurado.';
+            } elseif (!(bool) $distribuidora->sin_limite && $montoProducto > (float) $distribuidora->credito_disponible) {
+                $bloqueos[] = 'El monto fijo del producto supera el crédito disponible actual.';
+            }
         }
 
         return array_values(array_unique($bloqueos));
@@ -1044,7 +1052,7 @@ class DashboardController extends Controller
             'id' => $vale->id,
             'numero_vale' => $vale->numero_vale,
             'estado' => $vale->estado,
-            'monto_principal' => (float) $vale->monto_principal,
+            'monto_principal' => (float) ($vale->productoFinanciero?->monto_principal ?? 0),
             'monto_total_deuda' => (float) $vale->monto_total_deuda,
             'monto_quincenal' => (float) $vale->monto_quincenal,
             'saldo_actual' => (float) $vale->saldo_actual,

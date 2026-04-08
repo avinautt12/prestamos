@@ -3,12 +3,9 @@ import { Head, Link } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-    faArrowRight,
     faCircleExclamation,
     faClock,
-    faCreditCard,
     faFileInvoiceDollar,
-    faListCheck,
     faMoneyBillTransfer,
     faStar,
     faTriangleExclamation,
@@ -160,9 +157,9 @@ export default function DistribuidoraDashboard({
                                             <FontAwesomeIcon icon={faTriangleExclamation} />
                                         </span>
                                         <div>
-                                            <p className="font-semibold text-red-800">Emisión bloqueada</p>
+                                            <p className="font-semibold text-red-800">Inicio de vale bloqueado</p>
                                             <p className="mt-1 text-sm text-red-700">
-                                                Tu registro operativo no tiene habilitada la emisión de vales en este momento.
+                                                Tu registro operativo no tiene habilitado el proceso para levantar nuevos vales en este momento.
                                             </p>
                                         </div>
                                     </div>
@@ -177,33 +174,11 @@ export default function DistribuidoraDashboard({
                                     </p>
                                 </div>
                             )}
-
-                            <div className="fin-card">
-                                <p className="font-semibold text-gray-900">Accesos rápidos</p>
-                                <div className="grid grid-cols-1 gap-2 mt-3">
-                                    <Link href={route('distribuidora.clientes')} className="fin-btn-secondary">
-                                        Ver mis clientes
-                                        <FontAwesomeIcon icon={faArrowRight} />
-                                    </Link>
-                                    <Link href={route('distribuidora.vales')} className="fin-btn-secondary">
-                                        Consultar vales
-                                        <FontAwesomeIcon icon={faArrowRight} />
-                                    </Link>
-                                    <Link href={route('distribuidora.vales.create')} className="fin-btn-secondary">
-                                        Preparar emisión
-                                        <FontAwesomeIcon icon={faCreditCard} />
-                                    </Link>
-                                    <Link href={route('distribuidora.estado-cuenta')} className="fin-btn-primary">
-                                        Revisar estado de cuenta
-                                        <FontAwesomeIcon icon={faArrowRight} />
-                                    </Link>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-3">
-                        <div className="xl:col-span-2 fin-card">
+                    <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-2">
+                        <div className="fin-card">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <h2 className="fin-title">Relación de corte</h2>
@@ -237,7 +212,6 @@ export default function DistribuidoraDashboard({
                                     <div className="flex flex-wrap gap-2 mt-4">
                                         <Link href={route('distribuidora.estado-cuenta', { relacion_id: relacionActual.id })} className="fin-btn-secondary">
                                             Abrir estado de cuenta
-                                            <FontAwesomeIcon icon={faArrowRight} />
                                         </Link>
                                     </div>
                                 </>
@@ -247,27 +221,36 @@ export default function DistribuidoraDashboard({
                         <div className="fin-card">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <h2 className="fin-title">Siguientes pasos</h2>
-                                    <p className="mt-1 fin-subtitle">Prioriza lo que requiere atención hoy.</p>
+                                    <h2 className="fin-title">Pagos reportados recientes</h2>
+                                    <p className="mt-1 fin-subtitle">Seguimiento rápido a pagos de relación y conciliación.</p>
                                 </div>
                                 <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-green-50 text-green-700">
-                                    <FontAwesomeIcon icon={faListCheck} />
+                                    <FontAwesomeIcon icon={faMoneyBillTransfer} />
                                 </span>
                             </div>
-                            <div className="mt-4 space-y-3 text-sm text-gray-700">
-                                <div className="p-3 border rounded-xl border-gray-200">
-                                    <p className="font-semibold text-gray-900">1. Revisa conciliaciones</p>
-                                    <p className="mt-1 text-gray-500">Antes de intentar una nueva emisión, confirma si tienes pagos por conciliar.</p>
+
+                            {!pagosRecientes.length ? (
+                                <p className="mt-4 text-sm text-gray-500">Todavía no hay pagos reportados por esta distribuidora.</p>
+                            ) : (
+                                <div className="mt-4 space-y-3">
+                                    {pagosRecientes.map((pago) => (
+                                        <div key={pago.id} className="p-3 border rounded-xl border-gray-200">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="font-semibold text-gray-900">{formatCurrency(pago.monto)}</p>
+                                                    <p className="mt-1 text-sm text-gray-500">{pago.relacion_numero || 'Sin relación'} · {formatDate(pago.fecha_pago, true)}</p>
+                                                </div>
+                                                <div className="flex flex-wrap justify-end gap-2">
+                                                    <span className={statusBadgeClass(pago.estado)}>{pago.estado}</span>
+                                                    {pago.conciliacion_estado && (
+                                                        <span className={statusBadgeClass(pago.conciliacion_estado)}>{pago.conciliacion_estado}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                                <div className="p-3 border rounded-xl border-gray-200">
-                                    <p className="font-semibold text-gray-900">2. Valida clientes elegibles</p>
-                                    <p className="mt-1 text-gray-500">Asegúrate de que el cliente no tenga deuda abierta o bloqueo por parentesco.</p>
-                                </div>
-                                <div className="p-3 border rounded-xl border-gray-200">
-                                    <p className="font-semibold text-gray-900">3. Usa la pre-emisión</p>
-                                    <p className="mt-1 text-gray-500">Simula monto, producto y consumo de crédito antes de pasar a emisión transaccional.</p>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </div>
 
@@ -315,43 +298,6 @@ export default function DistribuidoraDashboard({
                         <div className="fin-card">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <h2 className="fin-title">Pagos reportados recientes</h2>
-                                    <p className="mt-1 fin-subtitle">Seguimiento rápido a pagos de relación y conciliación.</p>
-                                </div>
-                                <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-green-50 text-green-700">
-                                    <FontAwesomeIcon icon={faMoneyBillTransfer} />
-                                </span>
-                            </div>
-
-                            {!pagosRecientes.length ? (
-                                <p className="mt-4 text-sm text-gray-500">Todavía no hay pagos reportados por esta distribuidora.</p>
-                            ) : (
-                                <div className="mt-4 space-y-3">
-                                    {pagosRecientes.map((pago) => (
-                                        <div key={pago.id} className="p-3 border rounded-xl border-gray-200">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div>
-                                                    <p className="font-semibold text-gray-900">{formatCurrency(pago.monto)}</p>
-                                                    <p className="mt-1 text-sm text-gray-500">{pago.relacion_numero || 'Sin relación'} · {formatDate(pago.fecha_pago, true)}</p>
-                                                </div>
-                                                <div className="flex flex-wrap justify-end gap-2">
-                                                    <span className={statusBadgeClass(pago.estado)}>{pago.estado}</span>
-                                                    {pago.conciliacion_estado && (
-                                                        <span className={statusBadgeClass(pago.conciliacion_estado)}>{pago.conciliacion_estado}</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-2">
-                        <div className="fin-card">
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
                                     <h2 className="fin-title">Últimos vales</h2>
                                     <p className="mt-1 fin-subtitle">Historial reciente emitido para tus clientes.</p>
                                 </div>
@@ -382,20 +328,6 @@ export default function DistribuidoraDashboard({
                                     ))}
                                 </div>
                             )}
-                        </div>
-
-                        <div className="fin-card">
-                            <div className="flex items-start gap-3">
-                                <span className="inline-flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-xl bg-blue-50 text-blue-700">
-                                    <FontAwesomeIcon icon={faFileInvoiceDollar} />
-                                </span>
-                                <div>
-                                    <h2 className="fin-title">Recordatorio operativo</h2>
-                                    <p className="mt-1 fin-subtitle">
-                                        Esta app móvil ya consulta cartera, vales, puntos y estado de cuenta. La pre-emisión valida reglas mínimas antes de abrir el flujo transaccional completo.
-                                    </p>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </>

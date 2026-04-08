@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Coordinador\SolicitudController;
 use App\Http\Controllers\Gerente\AprobacionController;
 use App\Http\Controllers\Gerente\DashboardController;
+use App\Http\Controllers\Cajera\ConciliacionController;
 use App\Http\Controllers\Cajera\PrevaleController;
 use App\Models\Usuario;
 use Illuminate\Support\Facades\Auth;
@@ -29,12 +30,24 @@ Route::middleware(['auth'])->group(function () {
 // RUTAS POR ROL - GERENTE
 // ============================================================
 Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/reportes', [DashboardController::class, 'reportes'])->name('reportes');
-    Route::get('/sucursales', [DashboardController::class, 'sucursales'])->name('sucursales');
-    Route::get('/distribuidoras', [AprobacionController::class, 'index'])->name('distribuidoras');
-    Route::get('/distribuidoras/{id}', [AprobacionController::class, 'show'])->name('distribuidoras.show');
-    Route::post('/distribuidoras/{id}/aprobar', [AprobacionController::class, 'aprobar'])
+    Route::get('/dashboard', [App\Http\Controllers\Gerente\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/reportes', [App\Http\Controllers\Gerente\DashboardController::class, 'reportes'])->name('reportes');
+    Route::get('/cortes', [App\Http\Controllers\Gerente\CorteController::class, 'index'])->name('cortes');
+    Route::post('/cortes/{corte}/cerrar-manual', [App\Http\Controllers\Gerente\CorteController::class, 'cerrarManual'])
+        ->middleware('gerente.secure-action')
+        ->name('cortes.cerrar-manual');
+    Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
+    Route::put('/configuraciones/sucursal', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarSucursal'])->name('configuraciones.sucursal.update');
+    Route::post('/configuraciones/categorias', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearCategoria'])->name('configuraciones.categorias.store');
+    Route::put('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarCategoria'])->name('configuraciones.categorias.update');
+    Route::put('/configuraciones/categorias/{categoria}/inactivar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'inactivarCategoria'])->name('configuraciones.categorias.inactivar');
+    Route::put('/configuraciones/categorias/{categoria}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarCategoria'])->name('configuraciones.categorias.activar');
+    Route::delete('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarCategoria'])->name('configuraciones.categorias.delete');
+    Route::put('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarProducto'])->name('configuraciones.productos.update');
+    Route::get('/distribuidoras', [App\Http\Controllers\Gerente\AprobacionController::class, 'index'])->name('distribuidoras');
+    Route::get('/distribuidoras/rechazadas', [App\Http\Controllers\Gerente\AprobacionController::class, 'rechazadas'])->name('distribuidoras.rechazadas');
+    Route::get('/distribuidoras/{id}', [App\Http\Controllers\Gerente\AprobacionController::class, 'show'])->name('distribuidoras.show');
+    Route::post('/distribuidoras/{id}/aprobar', [App\Http\Controllers\Gerente\AprobacionController::class, 'aprobar'])
         ->middleware('gerente.secure-action')
         ->name('distribuidoras.aprobar');
     Route::post('/distribuidoras/{id}/rechazar', [AprobacionController::class, 'rechazar'])
@@ -91,13 +104,16 @@ Route::middleware(['auth', 'role:VERIFICADOR'])->prefix('verificador')->name('ve
 Route::middleware(['auth', 'role:CAJERA'])->prefix('cajera')->name('cajera.')->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\Cajera\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/cobros', [App\Http\Controllers\Cajera\DashboardController::class, 'cobros'])->name('cobros');
-    Route::get('/conciliaciones', [App\Http\Controllers\Cajera\DashboardController::class, 'conciliaciones'])->name('conciliaciones');
+    Route::get('/conciliaciones', [ConciliacionController::class, 'index'])->name('conciliaciones');
+    Route::get('/conciliaciones/exportar', [ConciliacionController::class, 'exportarHistorial'])->name('conciliaciones.exportar');
+    Route::post('/conciliaciones/importar', [ConciliacionController::class, 'importar'])->name('conciliaciones.importar');
+    Route::post('/conciliaciones/manual', [ConciliacionController::class, 'conciliarManual'])->name('conciliaciones.manual');
     Route::get('/pagos-distribuidora', [App\Http\Controllers\Cajera\DashboardController::class, 'pagosDistribuidora'])->name('pagos-distribuidora');
 
     // Rutas de Prevale (Usando el controlador que creaste)
     Route::get('/prevale', [PrevaleController::class, 'index'])->name('prevale.index');
     Route::get('/prevale/{id}', [PrevaleController::class, 'show'])->name('prevale.show');
-    
+
     // Y necesitamos las rutas POST para aprobar/rechazar que están en tu form
     Route::post('/prevale/{id}/aprobar', [PrevaleController::class, 'aprobar'])->name('prevale.aprobar');
     Route::post('/prevale/{id}/rechazar', [PrevaleController::class, 'rechazar'])->name('prevale.rechazar');

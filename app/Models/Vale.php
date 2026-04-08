@@ -19,7 +19,6 @@ class Vale extends Model
         'creado_por_usuario_id',
         'aprobado_por_usuario_id',
         'estado',
-        'monto_principal',
         'porcentaje_comision_empresa_snap',
         'monto_comision_empresa',
         'monto_seguro_snap',
@@ -46,7 +45,6 @@ class Vale extends Model
     ];
 
     protected $casts = [
-        'monto_principal' => 'decimal:2',
         'porcentaje_comision_empresa_snap' => 'decimal:4',
         'monto_comision_empresa' => 'decimal:2',
         'monto_seguro_snap' => 'decimal:2',

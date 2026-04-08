@@ -44,8 +44,8 @@ class HandleInertiaRequests extends Middleware
                 ->first();
 
             $sucursalId = $rolPrincipal?->pivot?->sucursal_id;
-            
-            $usuario->rol_nombre = $rolPrincipal?->nombre; 
+
+            $usuario->rol_nombre = $rolPrincipal?->nombre;
         }
 
         return [
@@ -53,6 +53,11 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $usuario,
                 'sucursal_id' => $sucursalId,
+            ],
+            'flash' => [
+                'message' => fn() => $request->session()->get('message'),
+                'error' => fn() => $request->session()->get('error'),
+                'import_result' => fn() => $request->session()->get('import_result'),
             ],
         ];
     }
