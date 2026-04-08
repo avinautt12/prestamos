@@ -382,7 +382,7 @@ class DashboardController extends Controller
                 // Verificar que no tenga vales abiertos con esta distribuidora
                 $valesAbiertos = Vale::where('distribuidora_id', $distribuidora->id)
                     ->where('cliente_id', $cliente->id)
-                    ->whereIn('estado', [Vale::ESTADO_ACTIVO, Vale::ESTADO_PAGO_PARCIAL, Vale::ESTADO_MOROSO])
+                    ->whereIn('estado', [Vale::ESTADO_BORRADOR, Vale::ESTADO_ACTIVO, Vale::ESTADO_PAGO_PARCIAL, Vale::ESTADO_MOROSO])
                     ->exists();
 
                 if ($valesAbiertos) {
@@ -596,10 +596,10 @@ class DashboardController extends Controller
         $subVales = Vale::query()
             ->selectRaw('cliente_id, COUNT(*) as vales_abiertos, COALESCE(SUM(saldo_actual), 0) as saldo_pendiente, MIN(fecha_limite_pago) as siguiente_vencimiento')
             ->where('distribuidora_id', $distribuidora->id)
-            ->whereIn('estado', [
-                Vale::ESTADO_ACTIVO,
-                Vale::ESTADO_PAGO_PARCIAL,
-                Vale::ESTADO_MOROSO,
+            ->whereNotIn('estado', [
+                Vale::ESTADO_PAGADO,
+                Vale::ESTADO_CANCELADO,
+                Vale::ESTADO_REVERSADO,
             ])
             ->groupBy('cliente_id');
 
@@ -957,10 +957,10 @@ class DashboardController extends Controller
         $subVales = Vale::query()
             ->selectRaw('cliente_id, COUNT(*) as vales_abiertos, COALESCE(SUM(saldo_actual), 0) as saldo_pendiente')
             ->where('distribuidora_id', $distribuidoraId)
-            ->whereIn('estado', [
-                Vale::ESTADO_ACTIVO,
-                Vale::ESTADO_PAGO_PARCIAL,
-                Vale::ESTADO_MOROSO,
+            ->whereNotIn('estado', [
+                Vale::ESTADO_PAGADO,
+                Vale::ESTADO_CANCELADO,
+                Vale::ESTADO_REVERSADO,
             ])
             ->groupBy('cliente_id');
 
