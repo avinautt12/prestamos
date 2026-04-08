@@ -20,9 +20,12 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
     const [toasts, setToasts] = useState([]);
 
     const currentUrl = ziggy?.location || '';
-    const homeRoute = auth.user?.rol_nombre === 'coordinador'
-        ? route('coordinador.dashboard')
-        : route('verificador.dashboard');
+    
+    // Ruta base dependiendo del rol
+    let homeRoute = '/';
+    if (auth.user?.rol_nombre === 'coordinador') homeRoute = route('coordinador.dashboard');
+    else if (auth.user?.rol_nombre === 'cajera') homeRoute = route('cajera.dashboard');
+    else if (auth.user?.rol_nombre === 'verificador') homeRoute = route('verificador.dashboard');
 
     const agregarToast = (titulo, mensaje) => {
         const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -90,29 +93,45 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
         return () => window.removeEventListener('keydown', onKeyDown);
     }, []);
 
-    const navigation = auth.user?.rol_nombre === 'coordinador' ? [
-        { name: 'Dashboard', href: route('coordinador.dashboard'), icon: faHouse, active: route().current('coordinador.dashboard') },
-        { name: 'Nueva Solicitud', href: route('coordinador.solicitudes.create'), icon: faFileCirclePlus, active: route().current('coordinador.solicitudes.create') },
-        { name: 'Solicitudes', href: route('coordinador.solicitudes.index'), icon: faFileLines, active: route().current('coordinador.solicitudes.*') },
-        { name: 'Clientes', href: route('coordinador.clientes'), icon: faUsers, active: route().current('coordinador.clientes') },
-        { name: 'Mis Distribuidoras', href: route('coordinador.mis-distribuidoras'), icon: faPeopleGroup, active: route().current('coordinador.mis-distribuidoras') }
-    ] : [
-        { name: 'Dashboard', href: route('verificador.dashboard'), icon: faHouse, active: route().current('verificador.dashboard') },
-        { name: 'Solicitudes Pendientes', href: route('verificador.solicitudes.pendientes'), icon: faFileLines, active: route().current('verificador.solicitudes.pendientes') },
-        { name: 'Mapa de Ruta', href: route('verificador.mapa-ruta'), icon: faPeopleGroup, active: route().current('verificador.mapa-ruta') },
-        { name: 'Validaciones', href: route('verificador.validaciones'), icon: faClipboardCheck, active: route().current('verificador.validaciones') }
-    ];
+    // MENÚS DINÁMICOS POR ROL
+    let navigation = [];
+    let shortcuts = [];
 
-    const shortcuts = auth.user?.rol_nombre === 'coordinador'
-        ? [
+    if (auth.user?.rol_nombre === 'coordinador') {
+        navigation = [
+            { name: 'Dashboard', href: route('coordinador.dashboard'), icon: faHouse, active: route().current('coordinador.dashboard') },
+            { name: 'Nueva Solicitud', href: route('coordinador.solicitudes.create'), icon: faFileCirclePlus, active: route().current('coordinador.solicitudes.create') },
+            { name: 'Solicitudes', href: route('coordinador.solicitudes.index'), icon: faFileLines, active: route().current('coordinador.solicitudes.*') },
+            { name: 'Clientes', href: route('coordinador.clientes'), icon: faUsers, active: route().current('coordinador.clientes') },
+            { name: 'Mis Distribuidoras', href: route('coordinador.mis-distribuidoras'), icon: faPeopleGroup, active: route().current('coordinador.mis-distribuidoras') }
+        ];
+        shortcuts = [
             { name: 'Captura Rápida', href: route('coordinador.solicitudes.create') },
             { name: 'Ver Cartera', href: route('coordinador.clientes') },
-        ]
-        : [
+        ];
+    } else if (auth.user?.rol_nombre === 'cajera') {
+        navigation = [
+            { name: 'Dashboard', href: route('cajera.dashboard'), icon: faHouse, active: route().current('cajera.dashboard') },
+            { name: 'Prevales', href: route('cajera.prevale.index'), icon: faFileLines, active: route().current('cajera.prevale.*') },
+            { name: 'Cobros y Pagos', href: route('cajera.cobros'), icon: faClipboardCheck, active: route().current('cajera.cobros') },
+            { name: 'Cobranza', href: route('cajera.cobranza.index'), icon: faUsers, active: route().current('cajera.cobranza.*') }
+        ];
+        shortcuts = [
+            { name: 'Validar Prevale', href: route('cajera.prevale.index') },
+            { name: 'Registrar Cobro', href: route('cajera.cobros') },
+        ];
+    } else {
+        navigation = [
+            { name: 'Dashboard', href: route('verificador.dashboard'), icon: faHouse, active: route().current('verificador.dashboard') },
+            { name: 'Solicitudes Pendientes', href: route('verificador.solicitudes.pendientes'), icon: faFileLines, active: route().current('verificador.solicitudes.pendientes') },
+            { name: 'Mapa de Ruta', href: route('verificador.mapa-ruta'), icon: faPeopleGroup, active: route().current('verificador.mapa-ruta') },
+            { name: 'Validaciones', href: route('verificador.validaciones'), icon: faClipboardCheck, active: route().current('verificador.validaciones') }
+        ];
+        shortcuts = [
             { name: 'Por Revisar', href: route('verificador.solicitudes.pendientes') },
             { name: 'Mapa de Ruta', href: route('verificador.mapa-ruta') },
-            { name: 'Validar Expediente', href: route('verificador.validaciones') },
         ];
+    }
 
     return (
         <div className="relative flex min-h-screen" style={{ backgroundColor: '#F8FAFC' }}>
