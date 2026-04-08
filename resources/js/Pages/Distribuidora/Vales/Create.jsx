@@ -74,15 +74,6 @@ export default function Create({
 
     const cambiarModo = (modo) => {
         setModoCliente(modo);
-        setForm((prev) => ({
-            ...prev,
-            cliente_id: '',
-            primer_nombre: '', segundo_nombre: '', apellido_paterno: '', apellido_materno: '',
-            sexo: '', fecha_nacimiento: '', curp: '', telefono_celular: '', correo_electronico: '',
-            calle: '', numero_exterior: '', colonia: '', ciudad: '', estado_direccion: '', codigo_postal: '',
-            foto_ine_frente: null, foto_ine_reverso: null, foto_selfie_ine: null,
-            cuenta_banco: '', cuenta_clabe: '', cuenta_titular: '',
-        }));
     };
 
     const limpiar = () => {
