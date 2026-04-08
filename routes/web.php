@@ -1,10 +1,13 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
-
+use App\Http\Controllers\Coordinador\SolicitudController;
+use App\Http\Controllers\Gerente\AprobacionController;
+use App\Http\Controllers\Gerente\DashboardController;
+use App\Http\Controllers\Cajera\PrevaleController;
+use App\Models\Usuario;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
 // Rutas públicas
 Route::redirect('/', '/login');
@@ -46,7 +49,7 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
     Route::post('/distribuidoras/{id}/aprobar', [App\Http\Controllers\Gerente\AprobacionController::class, 'aprobar'])
         ->middleware('gerente.secure-action')
         ->name('distribuidoras.aprobar');
-    Route::post('/distribuidoras/{id}/rechazar', [App\Http\Controllers\Gerente\AprobacionController::class, 'rechazar'])
+    Route::post('/distribuidoras/{id}/rechazar', [AprobacionController::class, 'rechazar'])
         ->middleware('gerente.secure-action')
         ->name('distribuidoras.rechazar');
 });
@@ -63,13 +66,13 @@ Route::middleware(['auth', 'role:COORDINADOR'])->prefix('coordinador')->name('co
     Route::get('/mis-distribuidoras', [App\Http\Controllers\Coordinador\DashboardController::class, 'misDistribuidoras'])->name('mis-distribuidoras');
 
     // Gestión de solicitudes (nuevas rutas)
-    Route::get('/solicitudes', [App\Http\Controllers\Coordinador\SolicitudController::class, 'index'])->name('solicitudes.index');
-    Route::get('/solicitudes/create', [App\Http\Controllers\Coordinador\SolicitudController::class, 'create'])->name('solicitudes.create');
-    Route::post('/solicitudes', [App\Http\Controllers\Coordinador\SolicitudController::class, 'store'])->name('solicitudes.store');
-    Route::get('/solicitudes/{id}', [App\Http\Controllers\Coordinador\SolicitudController::class, 'show'])->name('solicitudes.show');
-    Route::put('/solicitudes/{id}', [App\Http\Controllers\Coordinador\SolicitudController::class, 'update'])->name('solicitudes.update');
-    Route::post('/solicitudes/{id}/enviar-verificacion', [App\Http\Controllers\Coordinador\SolicitudController::class, 'enviarVerificacion'])->name('solicitudes.enviar-verificacion');
-    Route::get('/solicitudes/{id}/edit', [App\Http\Controllers\Coordinador\SolicitudController::class, 'edit'])->name('solicitudes.edit');
+    Route::get('/solicitudes', [SolicitudController::class, 'index'])->name('solicitudes.index');
+    Route::get('/solicitudes/create', [SolicitudController::class, 'create'])->name('solicitudes.create');
+    Route::post('/solicitudes', [SolicitudController::class, 'store'])->name('solicitudes.store');
+    Route::get('/solicitudes/{id}', [SolicitudController::class, 'show'])->name('solicitudes.show');
+    Route::put('/solicitudes/{id}', [SolicitudController::class, 'update'])->name('solicitudes.update');
+    Route::post('/solicitudes/{id}/enviar-verificacion', [SolicitudController::class, 'enviarVerificacion'])->name('solicitudes.enviar-verificacion');
+    Route::get('/solicitudes/{id}/edit', [SolicitudController::class, 'edit'])->name('solicitudes.edit');
 });
 
 // ============================================================
@@ -102,6 +105,17 @@ Route::middleware(['auth', 'role:CAJERA'])->prefix('cajera')->name('cajera.')->g
     Route::get('/cobros', [App\Http\Controllers\Cajera\DashboardController::class, 'cobros'])->name('cobros');
     Route::get('/conciliaciones', [App\Http\Controllers\Cajera\DashboardController::class, 'conciliaciones'])->name('conciliaciones');
     Route::get('/pagos-distribuidora', [App\Http\Controllers\Cajera\DashboardController::class, 'pagosDistribuidora'])->name('pagos-distribuidora');
+
+    // Rutas de Prevale (Usando el controlador que creaste)
+    Route::get('/prevale', [PrevaleController::class, 'index'])->name('prevale.index');
+    Route::get('/prevale/{id}', [PrevaleController::class, 'show'])->name('prevale.show');
+
+    // Y necesitamos las rutas POST para aprobar/rechazar que están en tu form
+    Route::post('/prevale/{id}/aprobar', [PrevaleController::class, 'aprobar'])->name('prevale.aprobar');
+    Route::post('/prevale/{id}/rechazar', [PrevaleController::class, 'rechazar'])->name('prevale.rechazar');
+
+    // Rutas de Cobranza
+    Route::get('/cobranza', [App\Http\Controllers\Cajera\DashboardController::class, 'cobranzaIndex'])->name('cobranza.index');
 });
 
 // ============================================================
@@ -118,7 +132,7 @@ Route::middleware(['auth', 'role:DISTRIBUIDORA'])->prefix('distribuidora')->name
 
 // Redirección por defecto según rol
 Route::middleware(['auth'])->get('/dashboard', function () {
-    /** @var \App\Models\Usuario $user */
+    /** @var Usuario $user */
     $user = Auth::user();
     $rol = $user->getRolNombreAttribute();
 

@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             UsuarioTestSeeder::class,
             SolicitudesPruebaSeeder::class,
             DatosPruebaAmpliosSeeder::class,
+            PrevalesCajeraSeeder::class,
         ]);
     }
 }
