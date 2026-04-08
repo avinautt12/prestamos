@@ -7,13 +7,32 @@ use App\Models\Usuario;
 use App\Models\Persona;
 use App\Models\Rol;
 use App\Models\Sucursal;
+use Database\Seeders\RolesSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class UsuarioTestSeeder extends Seeder
 {
     public function run(): void
     {
+        $tablasRequeridas = ['personas', 'usuarios', 'roles', 'sucursales', 'usuario_rol'];
+        $faltantes = array_values(array_filter(
+            $tablasRequeridas,
+            static fn(string $tabla): bool => !Schema::hasTable($tabla)
+        ));
+
+        if (!empty($faltantes)) {
+            $lista = implode(', ', $faltantes);
+            throw new \RuntimeException(
+                "Faltan tablas requeridas para UsuarioTestSeeder: {$lista}. Ejecuta 'php artisan migrate' y vuelve a correr el seeder."
+            );
+        }
+
+        if (!Rol::query()->exists()) {
+            $this->call(RolesSeeder::class);
+        }
+
         $sucursal = Sucursal::updateOrCreate(
             ['codigo' => 'SUC-TRC-CENTRO'],
             [
