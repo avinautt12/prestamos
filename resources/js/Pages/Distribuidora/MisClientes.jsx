@@ -71,7 +71,7 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                             <div>
                                 <h2 className="fin-title">Listado de clientes</h2>
-                                <p className="mt-1 fin-subtitle">Consulta cartera, elegibilidad de emisión, bloqueo por parentesco y saldos vigentes.</p>
+                                <p className="mt-1 fin-subtitle">Consulta cartera, elegibilidad para pre vale, bloqueo por parentesco y saldos vigentes.</p>
                             </div>
                             <form onSubmit={submitFilters} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:min-w-[720px]">
                                 <div>
@@ -129,9 +129,9 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <p className="font-semibold text-gray-900">{cliente.nombre}</p>
                                                     {cliente.puede_solicitar_vale ? (
-                                                        <span className="fin-badge fin-badge-approved">LISTO PARA EMISIÓN</span>
+                                                        <span className="fin-badge fin-badge-approved">LISTO PARA PRE VALE</span>
                                                     ) : (
-                                                        <span className="fin-badge fin-badge-pending">REVISAR ANTES DE EMITIR</span>
+                                                        <span className="fin-badge fin-badge-pending">REVISAR ANTES DEL PRE VALE</span>
                                                     )}
                                                 </div>
                                                 <p className="mt-1 text-sm text-gray-500">{cliente.codigo_cliente || 'Sin código de cliente'}</p>
@@ -171,7 +171,7 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                         {!cliente.puede_solicitar_vale && !cliente.bloqueado_por_parentesco && cliente.saldo_pendiente > 0 && (
                                             <div className="p-3 mt-4 border rounded-xl border-blue-200 bg-blue-50">
                                                 <p className="text-sm font-semibold text-blue-800">Cliente con deuda vigente</p>
-                                                <p className="mt-1 text-sm text-blue-700">Antes de intentar una nueva emisión, revisa los vales abiertos y el saldo pendiente de este cliente.</p>
+                                                <p className="mt-1 text-sm text-blue-700">Antes de levantar un nuevo pre vale, revisa los vales abiertos y el saldo pendiente de este cliente.</p>
                                             </div>
                                         )}
 
@@ -186,7 +186,7 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                                 href={route('distribuidora.vales.create', { cliente_id: cliente.id })}
                                                 className={cliente.puede_solicitar_vale ? 'fin-btn-primary' : 'fin-btn-secondary'}
                                             >
-                                                Preparar emisión
+                                                Pre vale
                                             </Link>
                                         </div>
                                     </div>

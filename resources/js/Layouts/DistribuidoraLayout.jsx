@@ -5,7 +5,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faBars,
     faChartPie,
-    faCreditCard,
     faFileInvoiceDollar,
     faHouse,
     faRightFromBracket,
@@ -26,7 +25,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
         { name: 'Vales', short: 'Vales', href: route('distribuidora.vales'), icon: faFileInvoiceDollar, current: 'distribuidora.vales' },
         { name: 'Estado de Cuenta', short: 'Cuenta', href: route('distribuidora.estado-cuenta'), icon: faWallet, current: 'distribuidora.estado-cuenta' },
         { name: 'Puntos', short: 'Puntos', href: route('distribuidora.puntos'), icon: faStar, current: 'distribuidora.puntos' },
-        { name: 'Crear Vale', short: 'Emitir', href: route('distribuidora.vales.create'), icon: faCreditCard, current: 'distribuidora.vales.create' },
+        { name: 'Pre vale', short: 'Pre vale', href: route('distribuidora.vales.create'), icon: faChartPie, current: 'distribuidora.vales.create' },
     ]), []);
 
     const agregarToast = (titulo, mensaje) => {
