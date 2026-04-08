@@ -16,8 +16,11 @@ export default function Create({
     const sinConfig = !distribuidora;
     const { errors } = usePage().props;
 
+    const [modoCliente, setModoCliente] = useState('nuevo'); // 'nuevo' | 'existente'
     const [form, setForm] = useState({
         producto_id: seleccion.producto_id || '',
+        cliente_id: '',
+        // Datos de persona (cliente nuevo)
         primer_nombre: '',
         segundo_nombre: '',
         apellido_paterno: '',
@@ -33,6 +36,13 @@ export default function Create({
         ciudad: '',
         estado_direccion: '',
         codigo_postal: '',
+        // Fotos y cuenta bancaria
+        foto_ine_frente: null,
+        foto_ine_reverso: null,
+        foto_selfie_ine: null,
+        cuenta_banco: '',
+        cuenta_clabe: '',
+        cuenta_titular: '',
     });
 
     const [enviando, setEnviando] = useState(false);
@@ -41,6 +51,11 @@ export default function Create({
     const productoSeleccionado = useMemo(
         () => (productos || []).find((item) => Number(item.id) === Number(form.producto_id)),
         [productos, form.producto_id],
+    );
+
+    const clienteExistenteSeleccionado = useMemo(
+        () => (clientes.todos || []).find((c) => Number(c.id) === Number(form.cliente_id)),
+        [clientes.todos, form.cliente_id],
     );
 
     // Auto-calcular al cambiar producto
@@ -57,6 +72,10 @@ export default function Create({
         setForm((prev) => ({ ...prev, [campo]: valor }));
     };
 
+    const cambiarModo = (modo) => {
+        setModoCliente(modo);
+    };
+
     const limpiar = () => {
         setForm((prev) => ({ ...prev, producto_id: '' }));
         router.get(route('distribuidora.vales.create'), {}, {
@@ -69,18 +88,41 @@ export default function Create({
     const confirmarPreVale = () => {
         if (enviando) return;
         setEnviando(true);
-        router.post(route('distribuidora.vales.store'), form, {
+
+        const payload = new FormData();
+        payload.append('producto_id', form.producto_id);
+
+        if (modoCliente === 'existente') {
+            payload.append('cliente_id', form.cliente_id);
+        } else {
+            const camposTexto = [
+                'primer_nombre', 'segundo_nombre', 'apellido_paterno', 'apellido_materno',
+                'sexo', 'fecha_nacimiento', 'curp', 'telefono_celular', 'correo_electronico',
+                'calle', 'numero_exterior', 'colonia', 'ciudad', 'estado_direccion', 'codigo_postal',
+                'cuenta_banco', 'cuenta_clabe', 'cuenta_titular',
+            ];
+            camposTexto.forEach((k) => { if (form[k]) payload.append(k, form[k]); });
+
+            if (form.foto_ine_frente) payload.append('foto_ine_frente', form.foto_ine_frente);
+            if (form.foto_ine_reverso) payload.append('foto_ine_reverso', form.foto_ine_reverso);
+            if (form.foto_selfie_ine) payload.append('foto_selfie_ine', form.foto_selfie_ine);
+        }
+
+        router.post(route('distribuidora.vales.store'), payload, {
+            forceFormData: true,
             onError: () => setEnviando(false),
             onFinish: () => setEnviando(false),
         });
     };
 
-    const clienteLleno = form.primer_nombre.trim() && form.apellido_paterno.trim();
+    const clienteNuevoLleno = form.primer_nombre.trim() && form.apellido_paterno.trim();
+    const clienteListo = modoCliente === 'existente' ? !!form.cliente_id : clienteNuevoLleno;
+    const hayElegibles = (clientes.elegibles || []).length > 0;
 
     return (
         <DistribuidoraLayout
             title="Nuevo pre vale"
-            subtitle="Selecciona el producto, registra al cliente y confirma el pre vale."
+            subtitle="Selecciona el producto, registra o selecciona al cliente y confirma el pre vale."
         >
             <Head title="Nuevo pre vale" />
 
@@ -119,23 +161,17 @@ export default function Create({
                     )}
 
                     <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-3">
-                        {/* Columna izquierda: producto + cliente */}
+                        {/* Columna izquierda */}
                         <div className="space-y-4 xl:col-span-2">
-                            {/* Selección de producto */}
+                            {/* Producto */}
                             <div className="fin-card">
                                 <h2 className="fin-title">Producto financiero</h2>
                                 <div className="flex items-end gap-3 mt-3">
                                     <div className="flex-1">
-                                        <select
-                                            value={form.producto_id}
-                                            onChange={(e) => actualizarCampo('producto_id', e.target.value)}
-                                            className="fin-input"
-                                        >
+                                        <select value={form.producto_id} onChange={(e) => actualizarCampo('producto_id', e.target.value)} className="fin-input">
                                             <option value="">Selecciona un producto</option>
                                             {productos.map((p) => (
-                                                <option key={p.id} value={p.id}>
-                                                    {p.nombre} — {formatCurrency(p.monto_principal)}
-                                                </option>
+                                                <option key={p.id} value={p.id}>{p.nombre} — {formatCurrency(p.monto_principal)}</option>
                                             ))}
                                         </select>
                                         {errors?.producto_id && <p className="mt-1 text-sm text-red-600">{errors.producto_id}</p>}
@@ -144,92 +180,124 @@ export default function Create({
                                         <button type="button" onClick={limpiar} className="px-4 py-2 text-sm fin-btn-secondary">Limpiar</button>
                                     )}
                                 </div>
-
                                 {productoSeleccionado && (
                                     <div className="grid grid-cols-2 gap-3 p-3 mt-3 rounded-lg md:grid-cols-4 bg-gray-50">
-                                        <div>
-                                            <p className="text-xs text-gray-500">Código</p>
-                                            <p className="text-sm font-semibold">{productoSeleccionado.codigo}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500">Quincenas</p>
-                                            <p className="text-sm font-semibold">{productoSeleccionado.numero_quincenas}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500">Desembolso</p>
-                                            <p className="text-sm font-semibold">{productoSeleccionado.modo_desembolso}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500">Multa base</p>
-                                            <p className="text-sm font-semibold">{formatCurrency(productoSeleccionado.monto_multa_tardia)}</p>
-                                        </div>
+                                        <div><p className="text-xs text-gray-500">Código</p><p className="text-sm font-semibold">{productoSeleccionado.codigo}</p></div>
+                                        <div><p className="text-xs text-gray-500">Quincenas</p><p className="text-sm font-semibold">{productoSeleccionado.numero_quincenas}</p></div>
+                                        <div><p className="text-xs text-gray-500">Desembolso</p><p className="text-sm font-semibold">{productoSeleccionado.modo_desembolso}</p></div>
+                                        <div><p className="text-xs text-gray-500">Multa base</p><p className="text-sm font-semibold">{formatCurrency(productoSeleccionado.monto_multa_tardia)}</p></div>
                                     </div>
                                 )}
                             </div>
 
-                            {/* Cliente nuevo - resumen + botón para abrir modal */}
+                            {/* Toggle Cliente nuevo / existente */}
                             <div className="fin-card">
-                                <div className="flex items-center justify-between">
-                                    <h2 className="fin-title">Cliente nuevo</h2>
+                                <div className="flex items-center gap-2 mb-4">
                                     <button
                                         type="button"
-                                        onClick={() => setModalCliente(true)}
-                                        className="px-4 py-2 text-sm fin-btn-primary"
+                                        onClick={() => cambiarModo('nuevo')}
+                                        className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors ${modoCliente === 'nuevo' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                                     >
-                                        {clienteLleno ? 'Editar datos' : 'Registrar cliente'}
+                                        Cliente nuevo
                                     </button>
+                                    {hayElegibles && (
+                                        <button
+                                            type="button"
+                                            onClick={() => cambiarModo('existente')}
+                                            className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors ${modoCliente === 'existente' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                        >
+                                            Cliente existente ({(clientes.elegibles || []).length})
+                                        </button>
+                                    )}
                                 </div>
 
-                                {clienteLleno ? (
-                                    <div className="grid grid-cols-1 gap-3 p-3 mt-3 rounded-lg md:grid-cols-2 bg-gray-50">
-                                        <div>
-                                            <p className="text-xs text-gray-500">Nombre completo</p>
-                                            <p className="text-sm font-semibold">
-                                                {[form.primer_nombre, form.segundo_nombre, form.apellido_paterno, form.apellido_materno].filter(Boolean).join(' ')}
-                                            </p>
-                                        </div>
-                                        {form.curp && (
-                                            <div>
-                                                <p className="text-xs text-gray-500">CURP</p>
-                                                <p className="text-sm font-semibold">{form.curp}</p>
+                                {modoCliente === 'existente' ? (
+                                    <>
+                                        <select value={form.cliente_id} onChange={(e) => actualizarCampo('cliente_id', e.target.value)} className="fin-input">
+                                            <option value="">Selecciona un cliente</option>
+                                            {(clientes.elegibles || []).map((c) => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.codigo_cliente ? `${c.codigo_cliente} · ` : ''}{c.nombre}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors?.cliente_id && <p className="mt-1 text-sm text-red-600">{errors.cliente_id}</p>}
+
+                                        {clienteExistenteSeleccionado && (
+                                            <div className="grid grid-cols-2 gap-3 p-3 mt-3 rounded-lg bg-gray-50">
+                                                <div>
+                                                    <p className="text-xs text-gray-500">Nombre</p>
+                                                    <p className="text-sm font-semibold">{clienteExistenteSeleccionado.nombre}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-500">Estado</p>
+                                                    <span className={statusBadgeClass(clienteExistenteSeleccionado.estado_cliente)}>{clienteExistenteSeleccionado.estado_cliente}</span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-500">Vales abiertos</p>
+                                                    <p className="text-sm font-semibold">{formatNumber(clienteExistenteSeleccionado.vales_abiertos)}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-500">Saldo pendiente</p>
+                                                    <p className="text-sm font-semibold">{formatCurrency(clienteExistenteSeleccionado.saldo_pendiente)}</p>
+                                                </div>
                                             </div>
                                         )}
-                                        {form.telefono_celular && (
-                                            <div>
-                                                <p className="text-xs text-gray-500">Teléfono</p>
-                                                <p className="text-sm font-semibold">{form.telefono_celular}</p>
-                                            </div>
-                                        )}
-                                        {form.correo_electronico && (
-                                            <div>
-                                                <p className="text-xs text-gray-500">Correo</p>
-                                                <p className="text-sm font-semibold">{form.correo_electronico}</p>
-                                            </div>
-                                        )}
-                                        {(form.calle || form.colonia || form.ciudad) && (
-                                            <div className="md:col-span-2">
-                                                <p className="text-xs text-gray-500">Dirección</p>
-                                                <p className="text-sm font-semibold">
-                                                    {[form.calle, form.numero_exterior, form.colonia, form.ciudad, form.estado_direccion, form.codigo_postal].filter(Boolean).join(', ')}
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
+                                    </>
                                 ) : (
-                                    <p className="mt-2 text-sm text-gray-500">Haz clic en "Registrar cliente" para ingresar los datos del nuevo cliente.</p>
-                                )}
-                                {(errors?.primer_nombre || errors?.apellido_paterno || errors?.curp || errors?.correo_electronico) && (
-                                    <div className="p-3 mt-3 border rounded-lg border-red-200 bg-red-50">
-                                        {errors?.primer_nombre && <p className="text-sm text-red-600">{errors.primer_nombre}</p>}
-                                        {errors?.apellido_paterno && <p className="text-sm text-red-600">{errors.apellido_paterno}</p>}
-                                        {errors?.curp && <p className="text-sm text-red-600">{errors.curp}</p>}
-                                        {errors?.correo_electronico && <p className="text-sm text-red-600">{errors.correo_electronico}</p>}
-                                    </div>
+                                    <>
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-sm text-gray-500">
+                                                {clienteNuevoLleno
+                                                    ? [form.primer_nombre, form.segundo_nombre, form.apellido_paterno, form.apellido_materno].filter(Boolean).join(' ')
+                                                    : 'Registra los datos del nuevo cliente.'}
+                                            </p>
+                                            <button type="button" onClick={() => setModalCliente(true)} className="px-4 py-2 text-sm fin-btn-primary">
+                                                {clienteNuevoLleno ? 'Editar datos' : 'Registrar cliente'}
+                                            </button>
+                                        </div>
+                                        {clienteNuevoLleno && (
+                                            <div className="grid grid-cols-2 gap-3 p-3 mt-3 rounded-lg bg-gray-50">
+                                                {form.curp && <div><p className="text-xs text-gray-500">CURP</p><p className="text-sm font-semibold">{form.curp}</p></div>}
+                                                {form.telefono_celular && <div><p className="text-xs text-gray-500">Teléfono</p><p className="text-sm font-semibold">{form.telefono_celular}</p></div>}
+                                                {form.correo_electronico && <div><p className="text-xs text-gray-500">Correo</p><p className="text-sm font-semibold">{form.correo_electronico}</p></div>}
+                                                {(form.calle || form.colonia || form.ciudad) && (
+                                                    <div className="col-span-2"><p className="text-xs text-gray-500">Dirección</p><p className="text-sm font-semibold">{[form.calle, form.numero_exterior, form.colonia, form.ciudad, form.estado_direccion, form.codigo_postal].filter(Boolean).join(', ')}</p></div>
+                                                )}
+                                                {form.cuenta_banco && (
+                                                    <div><p className="text-xs text-gray-500">Banco</p><p className="text-sm font-semibold">{form.cuenta_banco}</p></div>
+                                                )}
+                                                {form.cuenta_clabe && (
+                                                    <div><p className="text-xs text-gray-500">CLABE</p><p className="text-sm font-semibold">{form.cuenta_clabe}</p></div>
+                                                )}
+                                                <div>
+                                                    <p className="text-xs text-gray-500">Documentos</p>
+                                                    <p className="text-sm font-semibold">
+                                                        {[form.foto_ine_frente && 'INE frente', form.foto_ine_reverso && 'INE reverso', form.foto_selfie_ine && 'Selfie'].filter(Boolean).join(', ') || 'Sin documentos'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {(errors?.primer_nombre || errors?.apellido_paterno || errors?.curp || errors?.correo_electronico || errors?.foto_ine_frente || errors?.foto_ine_reverso || errors?.foto_selfie_ine || errors?.cuenta_banco || errors?.cuenta_clabe || errors?.cuenta_titular) && (
+                                            <div className="p-3 mt-3 border rounded-lg border-red-200 bg-red-50">
+                                                {errors?.primer_nombre && <p className="text-sm text-red-600">{errors.primer_nombre}</p>}
+                                                {errors?.apellido_paterno && <p className="text-sm text-red-600">{errors.apellido_paterno}</p>}
+                                                {errors?.curp && <p className="text-sm text-red-600">{errors.curp}</p>}
+                                                {errors?.correo_electronico && <p className="text-sm text-red-600">{errors.correo_electronico}</p>}
+                                                {errors?.foto_ine_frente && <p className="text-sm text-red-600">{errors.foto_ine_frente}</p>}
+                                                {errors?.foto_ine_reverso && <p className="text-sm text-red-600">{errors.foto_ine_reverso}</p>}
+                                                {errors?.foto_selfie_ine && <p className="text-sm text-red-600">{errors.foto_selfie_ine}</p>}
+                                                {errors?.cuenta_banco && <p className="text-sm text-red-600">{errors.cuenta_banco}</p>}
+                                                {errors?.cuenta_clabe && <p className="text-sm text-red-600">{errors.cuenta_clabe}</p>}
+                                                {errors?.cuenta_titular && <p className="text-sm text-red-600">{errors.cuenta_titular}</p>}
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>
 
-                        {/* Columna derecha: desglose + confirmar */}
+                        {/* Columna derecha */}
                         <div className="space-y-4">
                             {!!bloqueos.length && (
                                 <div className="fin-card border-red-200 bg-red-50">
@@ -274,25 +342,29 @@ export default function Create({
                             {simulacion && puedeContinuar && (
                                 <div className="fin-card border-green-200 bg-green-50">
                                     <p className="text-sm text-green-700">
-                                        Se registrará al cliente y se creará el pre vale en estado borrador.
+                                        {modoCliente === 'existente'
+                                            ? 'Se creará el pre vale en estado borrador para el cliente seleccionado.'
+                                            : 'Se registrará al cliente nuevo y se creará el pre vale en estado borrador.'}
                                     </p>
                                     <button
                                         type="button"
                                         onClick={confirmarPreVale}
-                                        disabled={enviando || !clienteLleno}
+                                        disabled={enviando || !clienteListo}
                                         className="w-full mt-3 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {enviando ? 'Creando pre vale...' : 'Confirmar pre vale'}
                                     </button>
-                                    {!clienteLleno && (
-                                        <p className="mt-2 text-xs text-amber-700">Registra los datos del cliente para continuar.</p>
+                                    {!clienteListo && (
+                                        <p className="mt-2 text-xs text-amber-700">
+                                            {modoCliente === 'existente' ? 'Selecciona un cliente para continuar.' : 'Registra los datos del cliente para continuar.'}
+                                        </p>
                                     )}
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Modal de registro de cliente */}
+                    {/* Modal de registro de cliente nuevo */}
                     {modalCliente && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setModalCliente(false)}>
                             <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -301,14 +373,12 @@ export default function Create({
                                     <button type="button" onClick={() => setModalCliente(false)} className="text-2xl leading-none text-gray-400 hover:text-gray-600">&times;</button>
                                 </div>
                                 <div className="p-5 space-y-5">
-                                    {/* Datos personales */}
                                     <div>
                                         <h3 className="mb-3 text-sm font-semibold text-gray-700">Datos personales</h3>
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Primer nombre *</label>
                                                 <input type="text" value={form.primer_nombre} onChange={(e) => actualizarCampo('primer_nombre', e.target.value)} className="fin-input" placeholder="María" />
-                                                {errors?.primer_nombre && <p className="mt-1 text-xs text-red-600">{errors.primer_nombre}</p>}
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Segundo nombre</label>
@@ -317,7 +387,6 @@ export default function Create({
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Apellido paterno *</label>
                                                 <input type="text" value={form.apellido_paterno} onChange={(e) => actualizarCampo('apellido_paterno', e.target.value)} className="fin-input" placeholder="López" />
-                                                {errors?.apellido_paterno && <p className="mt-1 text-xs text-red-600">{errors.apellido_paterno}</p>}
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Apellido materno</label>
@@ -326,7 +395,6 @@ export default function Create({
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">CURP</label>
                                                 <input type="text" value={form.curp} onChange={(e) => actualizarCampo('curp', e.target.value.toUpperCase())} className="fin-input" placeholder="LOPM850101MDFRRL09" maxLength={18} />
-                                                {errors?.curp && <p className="mt-1 text-xs text-red-600">{errors.curp}</p>}
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Sexo</label>
@@ -348,12 +416,9 @@ export default function Create({
                                             <div className="md:col-span-2">
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Correo electrónico</label>
                                                 <input type="email" value={form.correo_electronico} onChange={(e) => actualizarCampo('correo_electronico', e.target.value)} className="fin-input" placeholder="maria@correo.com" />
-                                                {errors?.correo_electronico && <p className="mt-1 text-xs text-red-600">{errors.correo_electronico}</p>}
                                             </div>
                                         </div>
                                     </div>
-
-                                    {/* Dirección */}
                                     <div>
                                         <h3 className="mb-3 text-sm font-semibold text-gray-700">Dirección</h3>
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -383,9 +448,103 @@ export default function Create({
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Documentos (fotos) */}
+                                    <div>
+                                        <h3 className="mb-3 text-sm font-semibold text-gray-700">Documentos</h3>
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                            <div>
+                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">INE frente *</label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => actualizarCampo('foto_ine_frente', e.target.files[0] || null)}
+                                                    className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                                                />
+                                                {form.foto_ine_frente && <p className="mt-1 text-xs text-green-600">{form.foto_ine_frente.name}</p>}
+                                                {errors?.foto_ine_frente && <p className="mt-1 text-xs text-red-600">{errors.foto_ine_frente}</p>}
+                                            </div>
+                                            <div>
+                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">INE reverso *</label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => actualizarCampo('foto_ine_reverso', e.target.files[0] || null)}
+                                                    className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                                                />
+                                                {form.foto_ine_reverso && <p className="mt-1 text-xs text-green-600">{form.foto_ine_reverso.name}</p>}
+                                                {errors?.foto_ine_reverso && <p className="mt-1 text-xs text-red-600">{errors.foto_ine_reverso}</p>}
+                                            </div>
+                                            <div>
+                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Selfie con INE *</label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => actualizarCampo('foto_selfie_ine', e.target.files[0] || null)}
+                                                    className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                                                />
+                                                {form.foto_selfie_ine && <p className="mt-1 text-xs text-green-600">{form.foto_selfie_ine.name}</p>}
+                                                {errors?.foto_selfie_ine && <p className="mt-1 text-xs text-red-600">{errors.foto_selfie_ine}</p>}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Cuenta bancaria */}
+                                    <div>
+                                        <h3 className="mb-3 text-sm font-semibold text-gray-700">Cuenta bancaria</h3>
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                            <div>
+                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Banco *</label>
+                                                <input type="text" value={form.cuenta_banco} onChange={(e) => actualizarCampo('cuenta_banco', e.target.value)} className="fin-input" placeholder="BBVA" />
+                                                {errors?.cuenta_banco && <p className="mt-1 text-xs text-red-600">{errors.cuenta_banco}</p>}
+                                            </div>
+                                            <div>
+                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">CLABE interbancaria *</label>
+                                                <input type="text" value={form.cuenta_clabe} onChange={(e) => actualizarCampo('cuenta_clabe', e.target.value)} className="fin-input" placeholder="012345678901234567" maxLength={18} />
+                                                {errors?.cuenta_clabe && <p className="mt-1 text-xs text-red-600">{errors.cuenta_clabe}</p>}
+                                            </div>
+                                            <div>
+                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Titular *</label>
+                                                <input type="text" value={form.cuenta_titular} onChange={(e) => actualizarCampo('cuenta_titular', e.target.value)} className="fin-input" placeholder="Nombre del titular" />
+                                                {errors?.cuenta_titular && <p className="mt-1 text-xs text-red-600">{errors.cuenta_titular}</p>}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="sticky bottom-0 flex justify-end gap-3 p-5 bg-white border-t rounded-b-2xl">
-                                    <button type="button" onClick={() => setModalCliente(false)} className="px-6 py-2 fin-btn-secondary">Cerrar</button>
+                                <div className="sticky bottom-0 p-5 bg-white border-t rounded-b-2xl">
+                                    {(() => {
+                                        const faltantes = [];
+                                        if (!form.primer_nombre.trim()) faltantes.push('Primer nombre');
+                                        if (!form.apellido_paterno.trim()) faltantes.push('Apellido paterno');
+                                        if (!form.foto_ine_frente) faltantes.push('INE frente');
+                                        if (!form.foto_ine_reverso) faltantes.push('INE reverso');
+                                        if (!form.foto_selfie_ine) faltantes.push('Selfie con INE');
+                                        if (!form.cuenta_banco.trim()) faltantes.push('Banco');
+                                        if (!form.cuenta_clabe.trim()) faltantes.push('CLABE');
+                                        if (!form.cuenta_titular.trim()) faltantes.push('Titular');
+                                        const completo = faltantes.length === 0;
+
+                                        return (
+                                            <>
+                                                {!completo && (
+                                                    <p className="mb-3 text-xs text-amber-700">
+                                                        Faltan: {faltantes.join(', ')}
+                                                    </p>
+                                                )}
+                                                <div className="flex justify-end gap-3">
+                                                    <button type="button" onClick={() => setModalCliente(false)} className="px-6 py-2 fin-btn-secondary">Cancelar</button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setModalCliente(false)}
+                                                        disabled={!completo}
+                                                        className="px-6 py-2 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        Confirmar datos del cliente
+                                                    </button>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>
