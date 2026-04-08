@@ -12,6 +12,7 @@ import {
     faUsers,
     faPeopleGroup,
     faClipboardCheck,
+    faScaleBalanced,
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function TabletLayout({ children, title = 'Prestamo Fácil', showTitle = false }) {
@@ -20,7 +21,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
     const [toasts, setToasts] = useState([]);
 
     const currentUrl = ziggy?.location || '';
-    
+
     // Ruta base dependiendo del rol
     let homeRoute = '/';
     if (auth.user?.rol_nombre === 'coordinador') homeRoute = route('coordinador.dashboard');
@@ -114,11 +115,13 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
             { name: 'Dashboard', href: route('cajera.dashboard'), icon: faHouse, active: route().current('cajera.dashboard') },
             { name: 'Prevales', href: route('cajera.prevale.index'), icon: faFileLines, active: route().current('cajera.prevale.*') },
             { name: 'Cobros y Pagos', href: route('cajera.cobros'), icon: faClipboardCheck, active: route().current('cajera.cobros') },
+            { name: 'Conciliaciones', href: route('cajera.conciliaciones'), icon: faScaleBalanced, active: route().current('cajera.conciliaciones*') },
             { name: 'Cobranza', href: route('cajera.cobranza.index'), icon: faUsers, active: route().current('cajera.cobranza.*') }
         ];
         shortcuts = [
             { name: 'Validar Prevale', href: route('cajera.prevale.index') },
             { name: 'Registrar Cobro', href: route('cajera.cobros') },
+            { name: 'Conciliar archivo', href: route('cajera.conciliaciones') },
         ];
     } else {
         navigation = [

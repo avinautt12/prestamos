@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Coordinador\SolicitudController;
 use App\Http\Controllers\Gerente\AprobacionController;
 use App\Http\Controllers\Gerente\DashboardController;
+use App\Http\Controllers\Cajera\ConciliacionController;
 use App\Http\Controllers\Cajera\PrevaleController;
 use App\Models\Usuario;
 use Illuminate\Support\Facades\Auth;
@@ -103,7 +104,10 @@ Route::middleware(['auth', 'role:VERIFICADOR'])->prefix('verificador')->name('ve
 Route::middleware(['auth', 'role:CAJERA'])->prefix('cajera')->name('cajera.')->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\Cajera\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/cobros', [App\Http\Controllers\Cajera\DashboardController::class, 'cobros'])->name('cobros');
-    Route::get('/conciliaciones', [App\Http\Controllers\Cajera\DashboardController::class, 'conciliaciones'])->name('conciliaciones');
+    Route::get('/conciliaciones', [ConciliacionController::class, 'index'])->name('conciliaciones');
+    Route::get('/conciliaciones/exportar', [ConciliacionController::class, 'exportarHistorial'])->name('conciliaciones.exportar');
+    Route::post('/conciliaciones/importar', [ConciliacionController::class, 'importar'])->name('conciliaciones.importar');
+    Route::post('/conciliaciones/manual', [ConciliacionController::class, 'conciliarManual'])->name('conciliaciones.manual');
     Route::get('/pagos-distribuidora', [App\Http\Controllers\Cajera\DashboardController::class, 'pagosDistribuidora'])->name('pagos-distribuidora');
 
     // Rutas de Prevale (Usando el controlador que creaste)
