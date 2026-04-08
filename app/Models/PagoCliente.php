@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PagoCliente extends Model
 {
@@ -56,8 +57,8 @@ class PagoCliente extends Model
         return $this->belongsTo(Usuario::class, 'cobrado_por_usuario_id');
     }
 
-    public function movimientoPunto(): BelongsTo
+    public function movimientoPunto(): HasOne
     {
-        return $this->belongsTo(MovimientoPunto::class, 'id', 'pago_cliente_id');
+        return $this->hasOne(MovimientoPunto::class, 'pago_cliente_id');
     }
 }

@@ -13,13 +13,25 @@ class Cliente extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['persona_id', 'codigo_cliente', 'estado', 'notas'];
+    protected $fillable = [
+        'persona_id',
+        'codigo_cliente',
+        'estado',
+        'notas',
+        'foto_ine_frente',
+        'foto_ine_reverso',
+        'foto_selfie_ine',
+        'cuenta_banco',
+        'cuenta_clabe',
+        'cuenta_titular',
+    ];
 
     protected $casts = [
         'creado_en' => 'datetime',
         'actualizado_en' => 'datetime'
     ];
 
+    public const ESTADO_EN_VERIFICACION = 'EN_VERIFICACION';
     public const ESTADO_ACTIVO = 'ACTIVO';
     public const ESTADO_BLOQUEADO = 'BLOQUEADO';
     public const ESTADO_MOROSO = 'MOROSO';
