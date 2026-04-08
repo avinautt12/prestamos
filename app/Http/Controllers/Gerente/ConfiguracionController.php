@@ -50,6 +50,42 @@ class ConfiguracionController extends Controller
                 'activo',
             ]);
 
+        $productos = ProductoFinanciero::query()
+            ->where('activo', true)
+            ->orderBy('nombre')
+            ->get([
+                'id',
+                'codigo',
+                'nombre',
+                'numero_quincenas',
+                'porcentaje_comision_empresa',
+                'porcentaje_interes_quincenal',
+            ]);
+
+        if ($configuracion) {
+            $productosConfig = (array) ($configuracion->productos_config_json ?? []);
+
+            $productos = $productos->map(function (ProductoFinanciero $producto) use ($productosConfig) {
+                $override = $productosConfig[(string) $producto->id] ?? null;
+
+                if (is_array($override)) {
+                    if (array_key_exists('porcentaje_comision_empresa', $override)) {
+                        $producto->porcentaje_comision_empresa = $override['porcentaje_comision_empresa'];
+                    }
+
+                    if (array_key_exists('porcentaje_interes_quincenal', $override)) {
+                        $producto->porcentaje_interes_quincenal = $override['porcentaje_interes_quincenal'];
+                    }
+
+                    if (array_key_exists('numero_quincenas', $override)) {
+                        $producto->numero_quincenas = $override['numero_quincenas'];
+                    }
+                }
+
+                return $producto;
+            })->values();
+        }
+
         $historialCambios = collect();
 
         if ($configuracion) {
@@ -88,6 +124,7 @@ class ConfiguracionController extends Controller
             'sucursal' => $sucursal,
             'configuracionSucursal' => $configuracion,
             'categorias' => $categorias,
+            'productos' => $productos,
             'historialCambios' => $historialCambios,
         ]);
     }

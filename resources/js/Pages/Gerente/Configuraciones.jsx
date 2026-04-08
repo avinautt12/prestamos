@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import TabConfiguracion from './ConfiguracionesTabs/TabConfiguracion';
 import TabCategorias from './ConfiguracionesTabs/TabCategorias';
+import TabProductos from './ConfiguracionesTabs/TabProductos';
 import TabHistorial from './ConfiguracionesTabs/TabHistorial';
 
 const FIELD_LABELS = {
@@ -18,6 +19,9 @@ const FIELD_LABELS = {
     multiplicador_puntos: 'Multiplicador puntos',
     valor_punto_mxn: 'Valor del punto (MXN)',
     porcentaje_comision: 'Comisión (%)',
+    porcentaje_comision_empresa: 'Comisión empresa (%)',
+    porcentaje_interes_quincenal: 'Interés quincenal (%)',
+    numero_quincenas: 'Número de quincenas',
 };
 
 const EVENT_LABELS = {
@@ -158,7 +162,7 @@ const obtenerPagina = (items, pagina, porPagina) => {
     return items.slice(inicio, inicio + porPagina);
 };
 
-export default function Configuraciones({ sucursal, configuracionSucursal, categorias, historialCambios = [] }) {
+export default function Configuraciones({ sucursal, configuracionSucursal, categorias, productos = [], historialCambios = [] }) {
     const CATEGORIAS_POR_PAGINA = 6;
     const HISTORIAL_POR_PAGINA = 8;
 
@@ -200,6 +204,18 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         return map;
     }, [categorias]);
 
+    const productosMap = React.useMemo(() => {
+        const map = {};
+        (productos || []).forEach((producto) => {
+            map[producto.id] = {
+                porcentaje_comision_empresa: String(producto.porcentaje_comision_empresa ?? '0'),
+                porcentaje_interes_quincenal: String(producto.porcentaje_interes_quincenal ?? '0'),
+                numero_quincenas: String(producto.numero_quincenas ?? '12'),
+            };
+        });
+        return map;
+    }, [productos]);
+
     const categoriasActivas = React.useMemo(
         () => (categorias || []).filter((categoria) => Boolean(categoria.activo)),
         [categorias]
@@ -211,6 +227,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     );
 
     const [categoriaValues, setCategoriaValues] = React.useState(categoriasMap);
+    const [productoValues, setProductoValues] = React.useState(productosMap);
     const [guardandoSucursal, setGuardandoSucursal] = React.useState(false);
     const [tabActiva, setTabActiva] = React.useState('sucursal');
     const [paginaActivas, setPaginaActivas] = React.useState(1);
@@ -222,6 +239,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     const [ordenCategorias, setOrdenCategorias] = React.useState({ campo: 'nombre', direccion: 'asc' });
     const [ordenHistorial, setOrdenHistorial] = React.useState({ campo: 'creado_en', direccion: 'desc' });
     const [accionesCategoria, setAccionesCategoria] = React.useState({});
+    const [accionesProducto, setAccionesProducto] = React.useState({});
 
     const nuevaCategoriaForm = useForm({
         nombre: '',
@@ -280,6 +298,10 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     React.useEffect(() => {
         setCategoriaValues(categoriasMap);
     }, [categoriasMap]);
+
+    React.useEffect(() => {
+        setProductoValues(productosMap);
+    }, [productosMap]);
 
     const erroresTabuladores = React.useMemo(
         () => validarTabuladoresSeguro(seguroTabuladores),
@@ -471,6 +493,21 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         });
     };
 
+    const marcarAccionProducto = (productoId, texto) => {
+        setAccionesProducto((prev) => ({
+            ...prev,
+            [productoId]: texto,
+        }));
+    };
+
+    const limpiarAccionProducto = (productoId) => {
+        setAccionesProducto((prev) => {
+            const next = { ...prev };
+            delete next[productoId];
+            return next;
+        });
+    };
+
     const guardarConfiguracionSucursal = (event) => {
         event.preventDefault();
 
@@ -579,6 +616,22 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         });
     };
 
+    const guardarProducto = (productoId) => {
+        router.put(
+            route('gerente.configuraciones.productos.update', productoId),
+            {
+                porcentaje_comision_empresa: productoValues[productoId]?.porcentaje_comision_empresa,
+                porcentaje_interes_quincenal: productoValues[productoId]?.porcentaje_interes_quincenal,
+                numero_quincenas: productoValues[productoId]?.numero_quincenas,
+            },
+            {
+                preserveScroll: true,
+                onStart: () => marcarAccionProducto(productoId, 'Guardando...'),
+                onFinish: () => limpiarAccionProducto(productoId),
+            }
+        );
+    };
+
     const formatearValor = (key, value) => {
         if (value === null || value === undefined || value === '') {
             return 'Sin valor';
@@ -643,6 +696,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                     {[
                         { id: 'sucursal', label: 'Sucursal' },
                         { id: 'categorias', label: `Categorías (${categorias.length})` },
+                        { id: 'productos', label: `Productos (${productos.length})` },
                         { id: 'historial', label: `Historial (${historialCambios.length})` },
                     ].map((tab) => (
                         <button
@@ -718,6 +772,16 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                     setPaginaHistorial={setPaginaHistorial}
                     ordenHistorial={ordenHistorial}
                     alternarOrdenHistorial={(campo) => alternarOrden(setOrdenHistorial, campo)}
+                />
+            )}
+
+            {tabActiva === 'productos' && (
+                <TabProductos
+                    productos={productos}
+                    productoValues={productoValues}
+                    setProductoValues={setProductoValues}
+                    guardarProducto={guardarProducto}
+                    accionesProducto={accionesProducto}
                 />
             )}
 
