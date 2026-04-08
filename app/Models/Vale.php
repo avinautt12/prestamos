@@ -10,6 +10,8 @@ class Vale extends Model
 {
     protected $table = 'vales';
 
+    public $timestamps = false;
+
     protected $fillable = [
         'numero_vale',
         'distribuidora_id',
