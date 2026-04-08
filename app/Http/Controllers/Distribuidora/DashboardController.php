@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Distribuidora;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Distribuidora\StorePreValeRequest;
 use App\Models\Cliente;
+use App\Models\Distribuidora;
 use App\Models\MovimientoPunto;
 use App\Models\PagoDistribuidora;
 use App\Models\Persona;
@@ -118,7 +119,7 @@ class DashboardController extends Controller
             'pagosRecientes' => $pagosRecientes,
             'alertas' => [
                 'puede_emitir_vales' => (bool) $distribuidora->puede_emitir_vales,
-                'distribuidora_activa' => $distribuidora->estado === 'ACTIVA',
+                'distribuidora_activa' => $distribuidora->estado === Distribuidora::ESTADO_ACTIVA,
                 'pagos_pendientes_conciliar' => $resumen['pagos_pendientes_conciliar'],
                 'relaciones_abiertas' => $resumen['relaciones_abiertas'],
             ],
@@ -330,7 +331,7 @@ class DashboardController extends Controller
             return back()->withErrors(['general' => 'No se encontró una distribuidora ligada a tu acceso.']);
         }
 
-        if ($distribuidora->estado !== 'ACTIVA') {
+        if ($distribuidora->estado !== Distribuidora::ESTADO_ACTIVA) {
             return back()->withErrors(['general' => 'Tu distribuidora no está en estado ACTIVA.']);
         }
 
@@ -357,43 +358,82 @@ class DashboardController extends Controller
             return back()->withErrors(['general' => 'El monto fijo del producto supera el crédito disponible actual.']);
         }
 
+        if (!$distribuidora->categoria) {
+            return back()->withErrors(['general' => 'Tu distribuidora no tiene una categoría asignada. Contacta al gerente.']);
+        }
+
+        try {
         $numeroVale = DB::transaction(function () use ($request, $distribuidora, $producto, $montoPrincipal) {
-            // 1. Crear Persona
-            $persona = Persona::create([
-                'primer_nombre'      => $request->primer_nombre,
-                'segundo_nombre'     => $request->segundo_nombre,
-                'apellido_paterno'   => $request->apellido_paterno,
-                'apellido_materno'   => $request->apellido_materno,
-                'sexo'               => $request->sexo,
-                'fecha_nacimiento'   => $request->fecha_nacimiento,
-                'curp'               => $request->curp,
-                'telefono_celular'   => $request->telefono_celular,
-                'correo_electronico' => $request->correo_electronico,
-                'calle'              => $request->calle,
-                'numero_exterior'    => $request->numero_exterior,
-                'colonia'            => $request->colonia,
-                'ciudad'             => $request->ciudad,
-                'estado'             => $request->estado_direccion,
-                'codigo_postal'      => $request->codigo_postal,
-            ]);
+            $esClienteExistente = $request->filled('cliente_id');
 
-            // 2. Crear Cliente
-            $codigoCliente = $this->generarCodigoCliente();
-            $cliente = Cliente::create([
-                'persona_id'     => $persona->id,
-                'codigo_cliente' => $codigoCliente,
-                'estado'         => Cliente::ESTADO_EN_VERIFICACION,
-            ]);
+            if ($esClienteExistente) {
+                // Cliente existente: validar que pertenece a esta distribuidora
+                $cliente = Cliente::findOrFail($request->cliente_id);
+                $relacion = DB::table('clientes_distribuidora')
+                    ->where('distribuidora_id', $distribuidora->id)
+                    ->where('cliente_id', $cliente->id)
+                    ->where('estado_relacion', 'ACTIVA')
+                    ->first();
 
-            // 3. Crear relación clientes_distribuidora
-            DB::table('clientes_distribuidora')->insert([
-                'distribuidora_id' => $distribuidora->id,
-                'cliente_id'       => $cliente->id,
-                'estado_relacion'  => 'ACTIVA',
-                'vinculado_en'     => now(),
-            ]);
+                if (!$relacion) {
+                    throw new \Exception('El cliente no está vinculado a tu distribuidora.');
+                }
 
-            // 4. Calcular montos server-side
+                // Verificar que no tenga vales abiertos con esta distribuidora
+                $valesAbiertos = Vale::where('distribuidora_id', $distribuidora->id)
+                    ->where('cliente_id', $cliente->id)
+                    ->whereIn('estado', [Vale::ESTADO_ACTIVO, Vale::ESTADO_PAGO_PARCIAL, Vale::ESTADO_MOROSO])
+                    ->exists();
+
+                if ($valesAbiertos) {
+                    throw new \Exception('El cliente tiene deuda abierta con tu distribuidora.');
+                }
+            } else {
+                // Cliente nuevo: crear Persona + Cliente + relación
+                $persona = Persona::create([
+                    'primer_nombre'      => $request->primer_nombre,
+                    'segundo_nombre'     => $request->segundo_nombre,
+                    'apellido_paterno'   => $request->apellido_paterno,
+                    'apellido_materno'   => $request->apellido_materno,
+                    'sexo'               => $request->sexo,
+                    'fecha_nacimiento'   => $request->fecha_nacimiento,
+                    'curp'               => $request->curp,
+                    'telefono_celular'   => $request->telefono_celular,
+                    'correo_electronico' => $request->correo_electronico,
+                    'calle'              => $request->calle,
+                    'numero_exterior'    => $request->numero_exterior,
+                    'colonia'            => $request->colonia,
+                    'ciudad'             => $request->ciudad,
+                    'estado'             => $request->estado_direccion,
+                    'codigo_postal'      => $request->codigo_postal,
+                ]);
+
+                // Subir fotos
+                $fotoIneFrente = $request->file('foto_ine_frente')?->store('clientes/ine_frente', 'spaces');
+                $fotoIneReverso = $request->file('foto_ine_reverso')?->store('clientes/ine_reverso', 'spaces');
+                $fotoSelfieIne = $request->file('foto_selfie_ine')?->store('clientes/selfie_ine', 'spaces');
+
+                $cliente = Cliente::create([
+                    'persona_id'       => $persona->id,
+                    'codigo_cliente'   => $this->generarCodigoCliente(),
+                    'estado'           => Cliente::ESTADO_EN_VERIFICACION,
+                    'foto_ine_frente'  => $fotoIneFrente,
+                    'foto_ine_reverso' => $fotoIneReverso,
+                    'foto_selfie_ine'  => $fotoSelfieIne,
+                    'cuenta_banco'     => $request->cuenta_banco,
+                    'cuenta_clabe'     => $request->cuenta_clabe,
+                    'cuenta_titular'   => $request->cuenta_titular,
+                ]);
+
+                DB::table('clientes_distribuidora')->insert([
+                    'distribuidora_id' => $distribuidora->id,
+                    'cliente_id'       => $cliente->id,
+                    'estado_relacion'  => 'ACTIVA',
+                    'vinculado_en'     => now(),
+                ]);
+            }
+
+            // Calcular montos server-side
             $comisionEmpresa = round($montoPrincipal * ((float) $producto->porcentaje_comision_empresa / 100), 2);
             $interes = round($montoPrincipal * ((float) $producto->porcentaje_interes_quincenal / 100) * (int) $producto->numero_quincenas, 2);
             $seguro = round((float) $producto->monto_seguro, 2);
@@ -437,6 +477,12 @@ class DashboardController extends Controller
         return redirect()
             ->route('distribuidora.vales')
             ->with('success', "Pre vale {$numeroVale} creado exitosamente.");
+        } catch (\Exception $e) {
+            $mensaje = str_starts_with($e->getMessage(), 'El cliente')
+                ? $e->getMessage()
+                : 'Ocurrió un error al crear el pre vale. Intenta de nuevo.';
+            return back()->withErrors(['general' => $mensaje]);
+        }
     }
 
     private function generarCodigoCliente(): string
@@ -589,7 +635,7 @@ class DashboardController extends Controller
                     && !(bool) $cliente->bloqueado_por_parentesco
                     && (int) $cliente->vales_abiertos === 0
                     && (float) $cliente->saldo_pendiente <= 0
-                    && $distribuidora->estado === 'ACTIVA'
+                    && $distribuidora->estado === Distribuidora::ESTADO_ACTIVA
                     && (bool) $distribuidora->puede_emitir_vales;
 
                 return [
@@ -945,7 +991,7 @@ class DashboardController extends Controller
             ->map(function ($cliente) use ($puedeEmitirVales, $estadoDistribuidora) {
                 $motivos = [];
 
-                if ($estadoDistribuidora !== 'ACTIVA') {
+                if ($estadoDistribuidora !== Distribuidora::ESTADO_ACTIVA) {
                     $motivos[] = 'Tu distribuidora no está activa.';
                 }
 
@@ -1030,7 +1076,7 @@ class DashboardController extends Controller
     {
         $bloqueos = [];
 
-        if ($distribuidora->estado !== 'ACTIVA') {
+        if ($distribuidora->estado !== Distribuidora::ESTADO_ACTIVA) {
             $bloqueos[] = 'Tu distribuidora no está en estado ACTIVA.';
         }
 
