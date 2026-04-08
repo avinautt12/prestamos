@@ -20,6 +20,7 @@ class Cliente extends Model
         'actualizado_en' => 'datetime'
     ];
 
+    public const ESTADO_EN_VERIFICACION = 'EN_VERIFICACION';
     public const ESTADO_ACTIVO = 'ACTIVO';
     public const ESTADO_BLOQUEADO = 'BLOQUEADO';
     public const ESTADO_MOROSO = 'MOROSO';

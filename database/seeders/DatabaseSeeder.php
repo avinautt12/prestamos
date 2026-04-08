@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             CategoriasDistribuidoraSeeder::class,
             ProductosFinancierosSeeder::class,
             UsuarioTestSeeder::class,
+            DistribuidoraPruebaSeeder::class,
             SolicitudesPruebaSeeder::class,
             PrevalesCajeraSeeder::class, 
         ]);
