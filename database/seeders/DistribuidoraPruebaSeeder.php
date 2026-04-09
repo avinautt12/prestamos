@@ -15,12 +15,18 @@ class DistribuidoraPruebaSeeder extends Seeder
         $persona = Persona::where('curp', 'DISTRI123456789ABC')->first();
 
         if (!$persona) {
-            $this->command?->warn('No se encontró la persona de prueba DISTRIBUIDORA. Ejecuta UsuarioTestSeeder primero.');
+            $this->command?->warn('No se encontró la persona de prueba. Ejecuta UsuarioTestSeeder primero.');
             return;
         }
 
-        $sucursal = Sucursal::where('codigo', 'SUC-MATRIZ')->first();
-        $categoria = CategoriaDistribuidora::where('codigo', 'PLATA')->first();
+        $sucursal = Sucursal::where('codigo', 'SUC-MATRIZ')->first() ?? Sucursal::first();
+        
+        $categoria = CategoriaDistribuidora::where('codigo', 'PLATA')->first() ?? CategoriaDistribuidora::first();
+
+        if (!$sucursal || !$categoria) {
+            $this->command?->error('Error: No hay sucursales o categorías cargadas. Revisa SucursalesSeeder.');
+            return;
+        }
 
         Distribuidora::updateOrCreate(
             ['persona_id' => $persona->id],
@@ -40,6 +46,6 @@ class DistribuidoraPruebaSeeder extends Seeder
             ]
         );
 
-        $this->command?->info('Distribuidora de prueba creada/actualizada (PLATA, crédito $100,000)');
+        $this->command?->info("Distribuidora creada en sucursal: {$sucursal->nombre} con categoría: {$categoria->nombre}");
     }
 }
