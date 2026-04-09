@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage; // <-- IMPORTANTE: Librería para Digital Ocean
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use App\Models\Vale;
 use App\Models\Cliente; 
@@ -15,7 +15,6 @@ class PrevaleController extends Controller
 {
     public function index(Request $request)
     {
-        // Traemos solo los VALES en estado BORRADOR (nuestros Prevales)
         $vales = Vale::with([
                 'cliente.persona', 
                 'distribuidora.persona', 
@@ -61,71 +60,71 @@ class PrevaleController extends Controller
 
     public function aprobar(Request $request, $id)
     {
-        // Candados estrictos ampliados: Anti-fraude y PLD
         $request->validate([
-            'check_identidad' => 'accepted',
-            'check_domicilio' => 'accepted',
+            'check_identidad'  => 'accepted',
+            'check_domicilio'  => 'accepted',
             'check_parentesco' => 'accepted',
-            'check_biometria' => 'accepted', // Ajustado al nombre real en tu frontend
-            'check_pld' => 'accepted',       // Ajustado al nombre real en tu frontend
-        ], [
-            'accepted' => 'Debes confirmar esta verificación para continuar.'
+            'check_biometria'  => 'accepted',
+            'check_pld'        => 'accepted',
         ]);
 
         try {
             DB::beginTransaction();
 
-            $vale = Vale::findOrFail($id);
+            $vale          = Vale::findOrFail($id);
             $distribuidora = $vale->distribuidora;
-            $cliente = $vale->cliente;
+            $cliente       = $vale->cliente;
 
             if (!$distribuidora || !$cliente) {
-                throw new \Exception('No se encontraron las referencias de cliente o distribuidora.');
+                throw new \Exception('Faltan relaciones del vale.');
             }
 
-            $montoPrestamo = $vale->productoFinanciero ? $vale->productoFinanciero->monto_principal : $vale->monto_principal;
+            // ✅ Cast explícito para evitar errores de tipo
+            $montoPrestamo     = (float) $vale->monto_principal;
+            $creditoDisponible = (float) $distribuidora->credito_disponible;
 
-            // Validar Crédito
-            if ($distribuidora->credito_disponible < $montoPrestamo) {
-                return back()->withErrors(['error' => 'La distribuidora no tiene crédito suficiente para este vale.']);
+            if ($creditoDisponible < $montoPrestamo) {
+                DB::rollBack();
+                return back()->withErrors(['error' => 'Crédito insuficiente.']);
             }
 
-            // 1. Descontar Crédito a la Distribuidora
-            $distribuidora->credito_disponible -= $montoPrestamo;
-            $distribuidora->save();
+            // 1. Descontar crédito
+            $distribuidora->decrement('credito_disponible', $montoPrestamo);
 
-            // 2. Activar Vale (De BORRADOR a ACTIVO)
-            $vale->estado = Vale::ESTADO_ACTIVO;
-            $vale->aprobado_por_usuario_id = Auth::id(); 
-            $vale->notas = "Verificación completa (Identidad, Dirección, Parentesco, Prueba de Vida y PLD) realizada por la Cajera.";
-            $vale->save();
+            // 2. Vale: BORRADOR -> ACTIVO
+            DB::table('vales')->where('id', $id)->update([
+                'estado'                  => Vale::ESTADO_ACTIVO,
+                'aprobado_por_usuario_id' => Auth::user()->id,
+                'fecha_emision'           => now(),
+                'actualizado_en'          => now(),
+            ]);
 
-            // 3. Activar Cliente (De EN_VERIFICACION a ACTIVO)
-            $cliente->estado = Cliente::ESTADO_ACTIVO; 
-            $cliente->save();
+            // 3. Cliente: EN_VERIFICACION -> ACTIVO
+            DB::table('clientes')->where('id', $cliente->id)->update([
+                'estado'         => Cliente::ESTADO_ACTIVO,
+                'actualizado_en' => now(),
+            ]);
 
-            // 4. Vincular formalmente a la distribuidora
+            // 4. Pivot
             DB::table('clientes_distribuidora')->updateOrInsert(
                 [
                     'distribuidora_id' => $distribuidora->id,
-                    'cliente_id' => $cliente->id,
+                    'cliente_id'       => $cliente->id,
                 ],
                 [
                     'estado_relacion' => 'ACTIVA',
-                    'bloqueado_por_parentesco' => false,
-                    'vinculado_en' => now(),
-                    'desvinculado_en' => null,
+                    'vinculado_en'    => now(),
                 ]
             );
 
             DB::commit();
 
-            return redirect()->route('cajera.prevale.index')
-                ->with('message', 'Prevale aprobado. El Cliente y el Vale ahora están ACTIVOS y el monto fue descontado.');
+            return Inertia::location(route('cajera.prevale.index'));
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Ocurrió un error al procesar el prevale: ' . $e->getMessage()]);
+            \Log::error('Error aprobando prevale ID ' . $id . ': ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Error crítico: ' . $e->getMessage()]);
         }
     }
 
@@ -138,38 +137,39 @@ class PrevaleController extends Controller
         try {
             DB::beginTransaction();
 
-            $vale = Vale::findOrFail($id);
+            $vale   = Vale::findOrFail($id);
             $cliente = $vale->cliente;
-            $motivo = $request->motivo_rechazo;
+            $motivo  = $request->motivo_rechazo;
 
             if (!$cliente) {
-                 throw new \Exception('No se encontró el cliente asociado a este vale.');
+                throw new \Exception('No se encontró el cliente asociado a este vale.');
             }
 
-            // 1. Rechazar Vale (De BORRADOR a RECHAZADO / CANCELADO)
-            $vale->estado = Vale::ESTADO_CANCELADO; 
-            $vale->notas = "RECHAZADO POR CAJERA: " . $motivo;
+            // 1. Vale: BORRADOR -> CANCELADO
+            $vale->estado      = Vale::ESTADO_CANCELADO; 
+            $vale->notas       = "RECHAZADO POR CAJERA: " . $motivo;
             $vale->cancelado_en = now();
             $vale->save();
 
-            // 2. Bloquear Cliente
+            // 2. Cliente: EN_VERIFICACION -> BLOQUEADO
             $cliente->estado = Cliente::ESTADO_BLOQUEADO; 
-            $cliente->notas = "Rechazado en etapa de prevale: " . $motivo;
+            $cliente->notas  = "Rechazado en etapa de prevale: " . $motivo;
             $cliente->save();
 
-            // 3. Registrar posible parentesco en la tabla pivot
-            $esParentesco = str_contains(strtolower($motivo), 'parentesco') || str_contains(strtolower($motivo), 'familiar');
+            // 3. Pivot
+            $esParentesco = str_contains(strtolower($motivo), 'parentesco') 
+                         || str_contains(strtolower($motivo), 'familiar');
 
             DB::table('clientes_distribuidora')->updateOrInsert(
                 [
                     'distribuidora_id' => $vale->distribuidora_id,
-                    'cliente_id' => $cliente->id,
+                    'cliente_id'       => $cliente->id,
                 ],
                 [
-                    'estado_relacion' => 'BLOQUEADA',
+                    'estado_relacion'          => 'BLOQUEADA',
                     'bloqueado_por_parentesco' => $esParentesco,
                     'observaciones_parentesco' => "Bloqueado en revisión de prevale. Motivo: " . $motivo,
-                    'vinculado_en' => now(),
+                    'vinculado_en'             => now(),
                 ]
             );
 

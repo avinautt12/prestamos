@@ -33,27 +33,27 @@ class Distribuidora extends Model
     ];
 
     protected $casts = [
-        'limite_credito' => 'decimal:2',
-        'credito_disponible' => 'decimal:2',
-        'puntos_actuales' => 'decimal:2',
-        'sin_limite' => 'boolean',
+        // ✅ float en lugar de decimal:2
+        'limite_credito'     => 'float',
+        'credito_disponible' => 'float',
+        'puntos_actuales'    => 'float',
+        'sin_limite'         => 'boolean',
         'puede_emitir_vales' => 'boolean',
-        'es_externa' => 'boolean',
-        'activada_en' => 'datetime',
-        'desactivada_en' => 'datetime',
-        'creado_en' => 'datetime',
-        'actualizado_en' => 'datetime'
+        'es_externa'         => 'boolean',
+        'activada_en'        => 'datetime',
+        'desactivada_en'     => 'datetime',
+        'creado_en'          => 'datetime',
+        'actualizado_en'     => 'datetime',
     ];
 
     public const ESTADO_CANDIDATA = 'CANDIDATA';
-    public const ESTADO_POSIBLE = 'POSIBLE';
-    public const ESTADO_ACTIVA = 'ACTIVA';
-    public const ESTADO_INACTIVA = 'INACTIVA';
-    public const ESTADO_MOROSA = 'MOROSA';
+    public const ESTADO_POSIBLE   = 'POSIBLE';
+    public const ESTADO_ACTIVA    = 'ACTIVA';
+    public const ESTADO_INACTIVA  = 'INACTIVA';
+    public const ESTADO_MOROSA    = 'MOROSA';
     public const ESTADO_BLOQUEADA = 'BLOQUEADA';
-    public const ESTADO_CERRADA = 'CERRADA';
+    public const ESTADO_CERRADA   = 'CERRADA';
 
-    // Relaciones
     public function persona(): BelongsTo
     {
         return $this->belongsTo(Persona::class, 'persona_id');

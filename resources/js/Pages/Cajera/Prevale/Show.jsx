@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import TabletLayout from '@/Layouts/TabletLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faArrowLeft, 
@@ -15,6 +15,7 @@ import {
 
 export default function Show({ vale }) {
     // 1. EXTRACCIÓN DE DATOS
+    const { errors: serverErrors } = usePage().props; // Para capturar errores de BD o validación
     const cp = vale.cliente?.persona || {}; // Cliente Persona
     const dp = vale.distribuidora?.persona || {}; // Distribuidora Persona
     const distribuidora = vale.distribuidora || {};
@@ -55,7 +56,6 @@ export default function Show({ vale }) {
     const edadCliente = calcularEdad(cp.fecha_nacimiento);
 
     // 3. ESTADOS Y FORMULARIOS
-    const [showAprobar, setShowAprobar] = useState(false);
     const [showRechazar, setShowRechazar] = useState(false);
 
     const formAprobar = useForm({
@@ -76,7 +76,7 @@ export default function Show({ vale }) {
     const handleAprobar = (e) => {
         e.preventDefault();
         if(!puedeAprobar) return;
-        formAprobar.post(route('cajera.prevale.aprobar', vale.id), { onSuccess: () => setShowAprobar(false) });
+        formAprobar.post(route('cajera.prevale.aprobar', vale.id));
     };
 
     const handleRechazar = (e) => {
@@ -242,37 +242,37 @@ export default function Show({ vale }) {
                         </div>
                     </div>
 
-                    {/* --- EVIDENCIA FOTOGRÁFICA --- */}
+                    {/* --- EVIDENCIA FOTOGRÁFICA (Ajustado para URLs de Digital Ocean) --- */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className="bg-gray-50 px-5 py-4 border-b border-gray-200 flex items-center gap-3">
                             <FontAwesomeIcon icon={faIdCard} className="text-gray-600" />
                             <h3 className="font-bold text-gray-800">Evidencia Fotográfica</h3>
                         </div>
                         <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-6">
-                            <div className="group cursor-pointer">
+                            <div className="group">
                                 <p className="text-xs text-gray-500 mb-2 font-bold uppercase text-center">INE Frente</p>
                                 <div className="h-48 flex items-center justify-center bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 overflow-hidden">
-                                    {cliente.foto_ine_frente ? (
+                                    {cliente.ine_frente_url ? (
                                         <img src={cliente.ine_frente_url} alt="INE Frente" className="w-full h-full object-cover" />
                                     ) : (
                                         <span className="text-sm font-medium text-gray-400">Sin Imagen</span>
                                     )}
                                 </div>
                             </div>
-                            <div className="group cursor-pointer">
+                            <div className="group">
                                 <p className="text-xs text-gray-500 mb-2 font-bold uppercase text-center">INE Reverso</p>
                                 <div className="h-48 flex items-center justify-center bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 overflow-hidden">
-                                    {cliente.foto_ine_reverso ? (
+                                    {cliente.ine_reverso_url ? (
                                         <img src={cliente.ine_reverso_url} alt="INE Reverso" className="w-full h-full object-cover" />
                                     ) : (
                                         <span className="text-sm font-medium text-gray-400">Sin Imagen</span>
                                     )}
                                 </div>
                             </div>
-                            <div className="group cursor-pointer">
+                            <div className="group">
                                 <p className="text-xs text-blue-600 mb-2 font-bold uppercase text-center">Prueba de Vida (Selfie)</p>
                                 <div className="h-48 flex items-center justify-center bg-blue-50 rounded-xl border-2 border-dashed border-blue-300 overflow-hidden">
-                                    {cliente.foto_selfie_ine ? (
+                                    {cliente.selfie_url ? (
                                         <img src={cliente.selfie_url} alt="Selfie" className="w-full h-full object-cover" />
                                     ) : (
                                         <span className="text-sm font-medium text-blue-400">Sin Selfie</span>
@@ -325,8 +325,16 @@ export default function Show({ vale }) {
                                     className={`w-full py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-md
                                         ${(tieneCreditoSuficiente && puedeAprobar) ? 'bg-green-600 text-white hover:bg-green-700 hover:shadow-lg transform hover:-translate-y-0.5' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
                                 >
-                                    <FontAwesomeIcon icon={faCheckCircle} /> Aprobar y Fondeo
+                                    <FontAwesomeIcon icon={faCheckCircle} /> {formAprobar.processing ? 'Procesando...' : 'Aprobar y Fondeo'}
                                 </button>
+
+                                {/* VISUALIZACIÓN DE ERRORES DEL SERVIDOR */}
+                                {serverErrors.error && (
+                                    <p className="text-xs text-red-600 font-black text-center mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                                        ⚠️ {serverErrors.error}
+                                    </p>
+                                )}
+
                                 {!tieneCreditoSuficiente && <p className="text-xs text-red-500 text-center font-bold mt-1">Crédito de distribuidora insuficiente</p>}
                                 {!puedeAprobar && tieneCreditoSuficiente && <p className="text-xs text-gray-400 text-center mt-1">Completa el checklist para aprobar</p>}
                             </div>
@@ -371,4 +379,4 @@ export default function Show({ vale }) {
 
         </TabletLayout>
     );
-}
+}   

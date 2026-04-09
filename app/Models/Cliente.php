@@ -11,7 +11,10 @@ class Cliente extends Model
 {
     protected $table = 'clientes';
 
-    public $timestamps = false;
+
+       const CREATED_AT = 'creado_en';
+    const UPDATED_AT = 'actualizado_en';
+
 
     protected $fillable = [
         'persona_id',
