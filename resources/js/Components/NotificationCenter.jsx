@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { usePage } from '@inertiajs/react';
 
 function normalizeIncomingNotification(payload) {
     if (!payload) {
@@ -35,12 +36,29 @@ function formatWhen(isoDate) {
 }
 
 export default function NotificationCenter() {
+    const { auth } = usePage().props;
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [liveToasts, setLiveToasts] = useState([]);
+    const [soundEnabled, setSoundEnabled] = useState(true);
     const audioContextRef = useRef(null);
+
+    useEffect(() => {
+        const saved = window.localStorage.getItem('notifications.sound.enabled');
+        if (saved === 'false') {
+            setSoundEnabled(false);
+        }
+    }, []);
+
+    const toggleSound = () => {
+        setSoundEnabled((prev) => {
+            const next = !prev;
+            window.localStorage.setItem('notifications.sound.enabled', next ? 'true' : 'false');
+            return next;
+        });
+    };
 
     useEffect(() => {
         const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
@@ -152,7 +170,9 @@ export default function NotificationCenter() {
                 return next;
             });
 
-            playNotificationBeep();
+            if (soundEnabled) {
+                playNotificationBeep();
+            }
 
             window.setTimeout(() => {
                 setLiveToasts((prev) => prev.filter((item) => item.id !== normalized.id));
@@ -164,7 +184,7 @@ export default function NotificationCenter() {
         return () => {
             window.removeEventListener('app-notification', onRealtimeNotification);
         };
-    }, []);
+    }, [soundEnabled]);
 
     const markAsRead = async (id) => {
         try {
@@ -173,8 +193,10 @@ export default function NotificationCenter() {
 
             setNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
             setUnreadCount(Number(response.data.unread_count || 0));
+            return true;
         } catch (error) {
             console.error('No se pudo marcar notificacion como leida:', error);
+            return false;
         }
     };
 
@@ -185,6 +207,62 @@ export default function NotificationCenter() {
             setUnreadCount(Number(response.data.unread_count || 0));
         } catch (error) {
             console.error('No se pudieron marcar todas como leidas:', error);
+        }
+    };
+
+    const buildRouteIfExists = (name, params = []) => {
+        try {
+            return route(name, params);
+        } catch (error) {
+            return null;
+        }
+    };
+
+    const resolveNotificationUrl = (notification) => {
+        const rol = String(auth?.user?.rol_nombre || '').toLowerCase();
+        const data = notification?.data || {};
+        const tipo = String(data.tipo || notification?.type || '').toUpperCase();
+        const solicitudId = data.solicitud_id;
+
+        if (tipo === 'RECHAZO_GERENTE' && solicitudId && rol === 'coordinador') {
+            return buildRouteIfExists('coordinador.solicitudes.show', solicitudId);
+        }
+
+        if (tipo === 'SOLICITUD_TOMADA_VERIFICADOR' && solicitudId && rol === 'coordinador') {
+            return buildRouteIfExists('coordinador.solicitudes.show', solicitudId);
+        }
+
+        if (tipo === 'CONCILIACION_PROCESADA') {
+            if (rol === 'gerente') {
+                return buildRouteIfExists('gerente.reportes');
+            }
+
+            if (rol === 'cajera') {
+                return buildRouteIfExists('cajera.conciliaciones');
+            }
+        }
+
+        if (tipo === 'LIMITE_AUTORIZADO' || tipo === 'ACTUALIZACION_CREDITO') {
+            if (rol === 'distribuidora') {
+                return buildRouteIfExists('distribuidora.estado-cuenta');
+            }
+        }
+
+        return null;
+    };
+
+    const handleNotificationClick = async (notification) => {
+        if (!notification) {
+            return;
+        }
+
+        if (!notification.read_at) {
+            await markAsRead(notification.id);
+        }
+
+        const targetUrl = resolveNotificationUrl(notification);
+        if (targetUrl) {
+            window.location.href = targetUrl;
         }
     };
 
@@ -210,14 +288,23 @@ export default function NotificationCenter() {
                 <div className="w-[360px] max-h-[70vh] mt-2 overflow-hidden bg-white border border-gray-200 rounded-xl shadow-2xl">
                     <div className="flex items-center justify-between p-3 border-b border-gray-100">
                         <h3 className="text-sm font-semibold text-gray-800">Notificaciones</h3>
-                        <button
-                            type="button"
-                            onClick={markAllAsRead}
-                            className="text-xs font-medium text-blue-600 hover:text-blue-700"
-                            disabled={unreadCount === 0}
-                        >
-                            Marcar todas
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={toggleSound}
+                                className={`text-xs font-medium ${soundEnabled ? 'text-emerald-700' : 'text-gray-500'} hover:text-emerald-800`}
+                            >
+                                Sonido: {soundEnabled ? 'on' : 'off'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={markAllAsRead}
+                                className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                                disabled={unreadCount === 0}
+                            >
+                                Marcar todas
+                            </button>
+                        </div>
                     </div>
 
                     <div className="overflow-y-auto max-h-[55vh]">
@@ -235,11 +322,7 @@ export default function NotificationCenter() {
                                 <button
                                     key={notification.id}
                                     type="button"
-                                    onClick={() => {
-                                        if (isUnread) {
-                                            markAsRead(notification.id);
-                                        }
-                                    }}
+                                    onClick={() => handleNotificationClick(notification)}
                                     className={`w-full p-3 text-left border-b border-gray-100 hover:bg-gray-50 ${isUnread ? 'bg-blue-50/40' : 'bg-white'}`}
                                 >
                                     <div className="flex items-start justify-between gap-2">
@@ -258,10 +341,15 @@ export default function NotificationCenter() {
             {liveToasts.length > 0 && (
                 <div className="mt-2 space-y-2">
                     {liveToasts.map((toast) => (
-                        <div key={toast.id} className="w-[360px] p-3 bg-white border border-gray-200 rounded-xl shadow-xl">
+                        <button
+                            key={toast.id}
+                            type="button"
+                            onClick={() => handleNotificationClick(toast)}
+                            className="w-[360px] p-3 text-left bg-white border border-gray-200 rounded-xl shadow-xl hover:bg-gray-50"
+                        >
                             <p className="text-sm font-semibold text-gray-800">{toast.title}</p>
                             <p className="mt-1 text-sm text-gray-600">{toast.message}</p>
-                        </div>
+                        </button>
                     ))}
                 </div>
             )}
