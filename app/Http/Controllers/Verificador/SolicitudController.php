@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Verificador\VerificacionRequest;
 use App\Models\Solicitud;
 use App\Models\VerificacionesSolicitud;
+use App\Models\Usuario;
+use App\Notifications\SolicitudTomadaVerificadorNotification;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -316,6 +318,32 @@ class SolicitudController extends Controller
             'verificador_asignado_id' => $usuario->id,
             'tomada_en' => now(),
         ]);
+
+        if ($solicitud->coordinador_usuario_id) {
+            $coordinador = Usuario::query()->find($solicitud->coordinador_usuario_id);
+
+            if ($coordinador) {
+                $clienteNombre = trim(implode(' ', array_filter([
+                    $solicitud->persona?->primer_nombre,
+                    $solicitud->persona?->apellido_paterno,
+                    $solicitud->persona?->apellido_materno,
+                ])));
+
+                $verificadorNombre = trim(implode(' ', array_filter([
+                    $usuario->persona?->primer_nombre,
+                    $usuario->persona?->apellido_paterno,
+                    $usuario->persona?->apellido_materno,
+                ])));
+
+                DB::afterCommit(function () use ($coordinador, $solicitud, $clienteNombre, $verificadorNombre) {
+                    $coordinador->notify(new SolicitudTomadaVerificadorNotification(
+                        (int) $solicitud->id,
+                        $clienteNombre !== '' ? $clienteNombre : 'Cliente',
+                        $verificadorNombre !== '' ? $verificadorNombre : 'Verificador'
+                    ));
+                });
+            }
+        }
 
         return redirect()->route('verificador.solicitudes.show', $solicitud->id)
             ->with('success', 'Solicitud asignada correctamente. Ahora puedes proceder con la verificación en campo.');

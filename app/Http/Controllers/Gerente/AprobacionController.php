@@ -13,6 +13,7 @@ use App\Models\CuentaBancaria;
 use App\Models\Distribuidora;
 use App\Models\Rol;
 use App\Models\SucursalConfiguracion;
+use App\Notifications\RechazoSolicitudGerenteNotification;
 use App\Notifications\DistribuidoraAprobadaNotification;
 use App\Models\Solicitud;
 use App\Models\Usuario;
@@ -316,6 +317,8 @@ class AprobacionController extends Controller
                 'motivo_rechazo' => $request->string('motivo_rechazo')->toString(),
             ]);
 
+            $motivoRechazo = $request->string('motivo_rechazo')->toString();
+
             BitacoraDecisionGerente::query()->create([
                 'gerente_usuario_id' => $gerente->id,
                 'solicitud_id' => $solicitud->id,
@@ -324,6 +327,26 @@ class AprobacionController extends Controller
                 'monto_anterior' => 0,
                 'monto_nuevo' => 0,
             ]);
+
+            if ($solicitud->coordinador_usuario_id) {
+                $coordinador = Usuario::query()->find($solicitud->coordinador_usuario_id);
+
+                if ($coordinador) {
+                    $clienteNombre = trim(implode(' ', array_filter([
+                        $solicitud->persona?->primer_nombre,
+                        $solicitud->persona?->apellido_paterno,
+                        $solicitud->persona?->apellido_materno,
+                    ])));
+
+                    DB::afterCommit(function () use ($coordinador, $solicitud, $clienteNombre, $motivoRechazo) {
+                        $coordinador->notify(new RechazoSolicitudGerenteNotification(
+                            (int) $solicitud->id,
+                            $clienteNombre !== '' ? $clienteNombre : 'Cliente',
+                            $motivoRechazo
+                        ));
+                    });
+                }
+            }
 
             return redirect()
                 ->route('gerente.distribuidoras.rechazadas')

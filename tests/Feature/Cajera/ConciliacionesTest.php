@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Cajera;
 
+use App\Events\AlertaMorosidad;
 use App\Models\Persona;
 use App\Models\Rol;
 use App\Models\Corte;
@@ -9,10 +10,12 @@ use App\Models\RelacionCorte;
 use App\Models\Distribuidora;
 use App\Models\Sucursal;
 use App\Models\Usuario;
+use App\Notifications\ConciliacionProcesadaNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -61,6 +64,12 @@ CSV;
             'id' => $fixture['relacion']->id,
             'estado' => RelacionCorte::ESTADO_PAGADA,
         ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_type' => Usuario::class,
+            'notifiable_id' => $fixture['gerente']->id,
+            'type' => ConciliacionProcesadaNotification::class,
+        ]);
     }
 
     public function test_conciliacion_manual_con_diferencia_marca_relacion_parcial(): void
@@ -106,6 +115,44 @@ CSV;
             'id' => $fixture['relacion']->id,
             'estado' => RelacionCorte::ESTADO_PARCIAL,
         ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_type' => Usuario::class,
+            'notifiable_id' => $fixture['gerente']->id,
+            'type' => ConciliacionProcesadaNotification::class,
+        ]);
+    }
+
+    public function test_conciliacion_manual_rechazada_dispara_alerta_morosidad(): void
+    {
+        Event::fake([AlertaMorosidad::class]);
+
+        $fixture = $this->crearFixtureConciliacion();
+
+        $movimientoId = DB::table('movimientos_bancarios')->insertGetId([
+            'cuenta_banco_empresa_id' => null,
+            'referencia' => 'REF-MOR-001',
+            'fecha_movimiento' => '2026-04-08',
+            'hora_movimiento' => '11:10:00',
+            'monto' => 2100.00,
+            'tipo_movimiento' => 'Transferencia',
+            'folio' => 'MOR0001',
+            'nombre_pagador' => 'Pago Rechazado',
+            'concepto_raw' => 'Prueba de morosidad',
+            'creado_en' => now(),
+        ]);
+
+        $response = $this->actingAs($fixture['cajera'])
+            ->post(route('cajera.conciliaciones.manual'), [
+                'movimiento_bancario_id' => $movimientoId,
+                'relacion_corte_id' => $fixture['relacion']->id,
+                'estado' => 'RECHAZADA',
+                'observaciones' => 'Se rechaza por inconsistencia en referencia.',
+            ]);
+
+        $response->assertRedirect(route('cajera.conciliaciones'));
+
+        Event::assertDispatched(AlertaMorosidad::class);
     }
 
     public function test_importacion_xlsx_concilia_automaticamente(): void
@@ -338,6 +385,11 @@ CSV;
             ['nombre' => 'Cajera', 'activo' => true]
         );
 
+        $rolGerente = Rol::query()->firstOrCreate(
+            ['codigo' => 'GERENTE'],
+            ['nombre' => 'Gerente', 'activo' => true]
+        );
+
         $personaCajera = Persona::query()->create([
             'primer_nombre' => 'Ana',
             'apellido_paterno' => 'Caja',
@@ -355,6 +407,29 @@ CSV;
         DB::table('usuario_rol')->insert([
             'usuario_id' => $cajera->id,
             'rol_id' => $rolCajera->id,
+            'sucursal_id' => $sucursal->id,
+            'asignado_en' => now(),
+            'revocado_en' => null,
+            'es_principal' => true,
+        ]);
+
+        $personaGerente = Persona::query()->create([
+            'primer_nombre' => 'Gerardo',
+            'apellido_paterno' => 'Supervisor',
+        ]);
+
+        $gerente = Usuario::query()->create([
+            'persona_id' => $personaGerente->id,
+            'nombre_usuario' => 'gerente_cnc',
+            'clave_hash' => Hash::make('secreto123'),
+            'activo' => true,
+            'requiere_vpn' => false,
+            'canal_login' => Usuario::CANAL_WEB,
+        ]);
+
+        DB::table('usuario_rol')->insert([
+            'usuario_id' => $gerente->id,
+            'rol_id' => $rolGerente->id,
             'sucursal_id' => $sucursal->id,
             'asignado_en' => now(),
             'revocado_en' => null,
@@ -395,6 +470,7 @@ CSV;
 
         return [
             'cajera' => $cajera,
+            'gerente' => $gerente,
             'sucursal' => $sucursal,
             'distribuidora' => $distribuidora,
             'relacion' => $relacion,
