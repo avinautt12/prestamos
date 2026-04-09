@@ -72,9 +72,10 @@ class RelacionCortePruebaSeeder extends Seeder
             ]
         );
 
-        // Crear vales activos para cada cliente (necesarios para las partidas)
+        // Crear vales activos solo para los primeros 2 clientes (el 3ro queda libre para probar pre vale)
+        $clientesConVale = $clientes->take(2);
         $vales = [];
-        foreach ($clientes as $index => $cliente) {
+        foreach ($clientesConVale as $index => $cliente) {
             $vales[] = Vale::updateOrCreate(
                 ['numero_vale' => 'VALE-CORTE-PRUEBA-' . ($index + 1)],
                 [
