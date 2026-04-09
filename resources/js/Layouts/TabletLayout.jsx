@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import ApplicationLogo from '@/Components/ApplicationLogo';
+import NotificationCenter from '@/Components/NotificationCenter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faBars,
@@ -233,7 +234,9 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
                 </main>
             </div>
 
-            <div className="fixed z-50 space-y-2 top-4 right-4">
+            <NotificationCenter />
+
+            <div className="fixed z-50 space-y-2 top-16 right-4">
                 {toasts.map((toast) => (
                     <div key={toast.id} className="p-3 text-sm bg-white border border-gray-200 rounded-lg shadow-lg w-72">
                         <p className="font-semibold text-gray-800">{toast.titulo}</p>
