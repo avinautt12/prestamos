@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
+import ClabeInput from '@/Components/ClabeInput';
 import { formatCurrency, formatNumber, statusBadgeClass } from '../utils';
 
 export default function Create({
@@ -492,16 +493,20 @@ export default function Create({
                                     {/* Cuenta bancaria */}
                                     <div>
                                         <h3 className="mb-3 text-sm font-semibold text-gray-700">Cuenta bancaria</h3>
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Banco *</label>
-                                                <input type="text" value={form.cuenta_banco} onChange={(e) => actualizarCampo('cuenta_banco', e.target.value)} className="fin-input" placeholder="BBVA" />
-                                                {errors?.cuenta_banco && <p className="mt-1 text-xs text-red-600">{errors.cuenta_banco}</p>}
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                            <div className="md:col-span-2">
+                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">CLABE interbancaria *</label>
+                                                <ClabeInput
+                                                    value={form.cuenta_clabe}
+                                                    onChange={(val) => actualizarCampo('cuenta_clabe', val)}
+                                                    onBankDetected={(banco) => actualizarCampo('cuenta_banco', banco)}
+                                                    error={errors?.cuenta_clabe}
+                                                />
                                             </div>
                                             <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">CLABE interbancaria *</label>
-                                                <input type="text" value={form.cuenta_clabe} onChange={(e) => actualizarCampo('cuenta_clabe', e.target.value)} className="fin-input" placeholder="012345678901234567" maxLength={18} />
-                                                {errors?.cuenta_clabe && <p className="mt-1 text-xs text-red-600">{errors.cuenta_clabe}</p>}
+                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Banco</label>
+                                                <input type="text" value={form.cuenta_banco} readOnly className="fin-input bg-gray-50 cursor-not-allowed" placeholder="Se detecta automáticamente" />
+                                                {errors?.cuenta_banco && <p className="mt-1 text-xs text-red-600">{errors.cuenta_banco}</p>}
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Titular *</label>
