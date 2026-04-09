@@ -18,18 +18,23 @@ class DistribuidoraAprobadaNotification extends Notification implements ShouldQu
 
     public function via(object $notifiable): array
     {
-        return ['broadcast'];
+        return ['broadcast', 'database'];
+    }
+
+    public function toArray(object $notifiable): array
+    {
+        return [
+            'tipo' => 'LIMITE_AUTORIZADO',
+            'titulo' => 'Tu limite de credito fue autorizado',
+            'mensaje' => 'Tu solicitud fue aprobada con un limite de $' . number_format($this->limiteCredito, 2) . '.',
+            'numero_distribuidora' => $this->numeroDistribuidora,
+            'limite_credito' => $this->limiteCredito,
+            'timestamp' => now()->toIso8601String(),
+        ];
     }
 
     public function toBroadcast(object $notifiable): BroadcastMessage
     {
-        return new BroadcastMessage([
-            'tipo' => 'LIMITE_AUTORIZADO',
-            'titulo' => 'Tu límite de crédito fue autorizado',
-            'mensaje' => 'Tu solicitud fue aprobada con un límite de $' . number_format($this->limiteCredito, 2) . '.',
-            'numero_distribuidora' => $this->numeroDistribuidora,
-            'limite_credito' => $this->limiteCredito,
-            'timestamp' => now()->toIso8601String(),
-        ]);
+        return new BroadcastMessage($this->toArray($notifiable));
     }
 }

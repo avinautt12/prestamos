@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Coordinador\SolicitudController;
 use App\Http\Controllers\Gerente\AprobacionController;
 use App\Http\Controllers\Gerente\DashboardController;
+use App\Http\Controllers\NotificacionController;
 use App\Http\Controllers\Cajera\ConciliacionController;
 use App\Http\Controllers\Cajera\PrevaleController;
 use App\Models\Usuario;
@@ -24,6 +25,13 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
+
+    Route::get('/notificaciones', [NotificacionController::class, 'index'])
+        ->name('notificaciones.index');
+    Route::patch('/notificaciones/{id}/marcar-leida', [NotificacionController::class, 'marcarLeida'])
+        ->name('notificaciones.marcar-leida');
+    Route::patch('/notificaciones/marcar-todas-leidas', [NotificacionController::class, 'marcarTodasLeidas'])
+        ->name('notificaciones.marcar-todas-leidas');
 });
 
 // ============================================================

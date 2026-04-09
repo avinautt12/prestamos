@@ -17,16 +17,34 @@ function RealtimeNotificationsBridge({ auth }) {
             return;
         }
 
-        const channelName = `App.Models.Usuario.${userId}`;
-        const channel = window.Echo.private(channelName);
+        const channelNames = [
+            `App.Models.Usuario.${userId}`,
+            `App.Models.User.${userId}`,
+        ];
 
-        channel.notification((notification) => {
+        const attachedChannels = [];
+        const handleNotification = (notification) => {
             window.dispatchEvent(new CustomEvent('app-notification', { detail: notification }));
             console.log('Notificacion en tiempo real:', notification);
+        };
+
+        channelNames.forEach((channelName) => {
+            const channel = window.Echo.private(channelName);
+            attachedChannels.push(channelName);
+
+            if (typeof channel.error === 'function') {
+                channel.error((error) => {
+                    console.error(`Subscription error on ${channelName}:`, error);
+                });
+            }
+
+            channel.notification(handleNotification);
         });
 
         return () => {
-            window.Echo.leave(channelName);
+            attachedChannels.forEach((channelName) => {
+                window.Echo.leave(channelName);
+            });
         };
     }, [auth?.user?.id]);
 

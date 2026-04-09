@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import ApplicationLogo from '@/Components/ApplicationLogo';
+import NotificationCenter from '@/Components/NotificationCenter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faBars,
@@ -158,6 +159,8 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                 </main>
             </div>
 
+            <NotificationCenter />
+
             <nav className="fixed bottom-0 left-0 right-0 z-20 bg-white border-t md:hidden" style={{ borderColor: '#E5E7EB' }}>
                 <div className="grid grid-cols-5 gap-1 px-2 py-2">
                     {navigation.slice(0, 5).map((item) => {
@@ -176,7 +179,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                 </div>
             </nav>
 
-            <div className="fixed z-50 space-y-2 top-4 right-4">
+            <div className="fixed z-50 space-y-2 top-16 right-4">
                 {toasts.map((toast) => (
                     <div key={toast.id} className="w-72 p-3 bg-white border border-gray-200 rounded-xl shadow-lg">
                         <p className="font-semibold text-gray-800">{toast.titulo}</p>

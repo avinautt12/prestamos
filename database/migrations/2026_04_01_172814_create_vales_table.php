@@ -29,7 +29,7 @@ return new class extends Migration
                 'CANCELADO',
                 'REVERSADO'
             ])->default('BORRADOR');
-            $table->decimal('monto_principal', 12, 2);
+            $table->decimal('monto', 12, 2);
             $table->decimal('porcentaje_comision_empresa_snap', 8, 4)->default(0.0000);
             $table->decimal('monto_comision_empresa', 12, 2)->default(0.00);
             $table->decimal('monto_seguro_snap', 12, 2)->default(0.00);

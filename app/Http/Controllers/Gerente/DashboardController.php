@@ -50,15 +50,18 @@ class DashboardController extends Controller
             ->count();
 
         $valesActivosQuery = Vale::query()
-            ->where('sucursal_id', $sucursalId)
-            ->whereIn('estado', [
+            ->where('vales.sucursal_id', $sucursalId) // Especificamos 'vales.' por si acaso
+            ->whereIn('vales.estado', [
                 Vale::ESTADO_ACTIVO,
                 Vale::ESTADO_PAGO_PARCIAL,
             ]);
 
         $totalValesActivos = (clone $valesActivosQuery)->count();
 
-        $montoPrestado = (float) ((clone $valesActivosQuery)->sum('monto_principal') ?? 0);
+        // NUEVO: Hacemos join con productos_financieros para sumar la columna que movieron
+        $montoPrestado = (float) ((clone $valesActivosQuery)
+            ->join('productos_financieros', 'vales.producto_financiero_id', '=', 'productos_financieros.id')
+            ->sum('productos_financieros.monto_principal') ?? 0);
 
         $solicitudesPendientes = Solicitud::query()
             ->where('sucursal_id', $sucursalId)

@@ -793,7 +793,7 @@ export default function Conciliaciones({ resumen, alertas, filtros, movimientosP
                                 <button
                                     type="button"
                                     onClick={aplicarFiltrosHistorial}
-                                    className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
+                                    className="px-4 py-2 text-sm font-semibold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700"
                                 >
                                     Aplicar filtros
                                 </button>

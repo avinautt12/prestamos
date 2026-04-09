@@ -12,6 +12,15 @@ window.axios = axios;
 window.Pusher = Pusher;
 
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+window.axios.defaults.withCredentials = true;
+
+const csrfToken = document
+    .querySelector('meta[name="csrf-token"]')
+    ?.getAttribute('content');
+
+if (csrfToken) {
+    window.axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+}
 
 window.Echo = new Echo({
     broadcaster: 'pusher',
@@ -22,4 +31,18 @@ window.Echo = new Echo({
     wssPort: import.meta.env.VITE_PUSHER_PORT ?? 443,
     forceTLS: (import.meta.env.VITE_PUSHER_SCHEME ?? 'https') === 'https',
     enabledTransports: ['ws', 'wss'],
+    authEndpoint: '/broadcasting/auth',
+    auth: {
+        headers: csrfToken
+            ? {
+                'X-CSRF-TOKEN': csrfToken,
+            }
+            : {},
+    },
 });
+
+if (window.Echo?.connector?.pusher?.connection) {
+    window.Echo.connector.pusher.connection.bind('error', (error) => {
+        console.error('Pusher connection error:', error);
+    });
+}
