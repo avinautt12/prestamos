@@ -7,19 +7,38 @@ use App\Models\Usuario;
 use App\Models\Persona;
 use App\Models\Rol;
 use App\Models\Sucursal;
+use Database\Seeders\RolesSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class UsuarioTestSeeder extends Seeder
 {
     public function run(): void
     {
+        $tablasRequeridas = ['personas', 'usuarios', 'roles', 'sucursales', 'usuario_rol'];
+        $faltantes = array_values(array_filter(
+            $tablasRequeridas,
+            static fn(string $tabla): bool => !Schema::hasTable($tabla)
+        ));
+
+        if (!empty($faltantes)) {
+            $lista = implode(', ', $faltantes);
+            throw new \RuntimeException(
+                "Faltan tablas requeridas para UsuarioTestSeeder: {$lista}. Ejecuta 'php artisan migrate' y vuelve a correr el seeder."
+            );
+        }
+
+        if (!Rol::query()->exists()) {
+            $this->call(RolesSeeder::class);
+        }
+
         $sucursal = Sucursal::updateOrCreate(
-            ['codigo' => 'SUC-MATRIZ'],
+            ['codigo' => 'SUC-TRC-CENTRO'],
             [
-                'nombre' => 'Sucursal Matriz',
-                'direccion_texto' => 'Sucursal de prueba principal',
-                'telefono' => '5550000000',
+                'nombre' => 'Sucursal Torreon Centro',
+                'direccion_texto' => 'Blvd. Independencia 1200, Centro, Torreon, Coahuila, Mexico',
+                'telefono' => '8711000000',
                 'activo' => true,
                 'creado_en' => now(),
                 'actualizado_en' => now(),
@@ -34,8 +53,11 @@ class UsuarioTestSeeder extends Seeder
                 'apellido_paterno' => 'Sistema',
                 'apellido_materno' => 'Prestamo',
                 'sexo' => 'M',
-                'telefono_celular' => '1234567890',
+                'telefono_celular' => '8711234500',
                 'correo_electronico' => 'admin@prestamofacil.com',
+                'ciudad' => 'Torreon',
+                'estado' => 'Coahuila',
+                'codigo_postal' => '27000',
                 'creado_en' => now(),
                 'actualizado_en' => now(),
             ],
@@ -45,8 +67,11 @@ class UsuarioTestSeeder extends Seeder
                 'apellido_paterno' => 'Prueba',
                 'apellido_materno' => 'Sistema',
                 'sexo' => 'M',
-                'telefono_celular' => '1234567891',
+                'telefono_celular' => '8711234501',
                 'correo_electronico' => 'coordinador@prestamofacil.com',
+                'ciudad' => 'Torreon',
+                'estado' => 'Coahuila',
+                'codigo_postal' => '27000',
                 'creado_en' => now(),
                 'actualizado_en' => now(),
             ],
@@ -56,8 +81,11 @@ class UsuarioTestSeeder extends Seeder
                 'apellido_paterno' => 'Prueba',
                 'apellido_materno' => 'Sistema',
                 'sexo' => 'M',
-                'telefono_celular' => '1234567892',
+                'telefono_celular' => '8711234502',
                 'correo_electronico' => 'verificador@prestamofacil.com',
+                'ciudad' => 'Torreon',
+                'estado' => 'Coahuila',
+                'codigo_postal' => '27000',
                 'creado_en' => now(),
                 'actualizado_en' => now(),
             ],
@@ -67,8 +95,11 @@ class UsuarioTestSeeder extends Seeder
                 'apellido_paterno' => 'Prueba',
                 'apellido_materno' => 'Sistema',
                 'sexo' => 'F',
-                'telefono_celular' => '1234567893',
+                'telefono_celular' => '8711234503',
                 'correo_electronico' => 'cajera@prestamofacil.com',
+                'ciudad' => 'Torreon',
+                'estado' => 'Coahuila',
+                'codigo_postal' => '27000',
                 'creado_en' => now(),
                 'actualizado_en' => now(),
             ],
@@ -78,8 +109,11 @@ class UsuarioTestSeeder extends Seeder
                 'apellido_paterno' => 'Prueba',
                 'apellido_materno' => 'Sistema',
                 'sexo' => 'F',
-                'telefono_celular' => '1234567894',
+                'telefono_celular' => '8711234504',
                 'correo_electronico' => 'distribuidora@prestamofacil.com',
+                'ciudad' => 'Torreon',
+                'estado' => 'Coahuila',
+                'codigo_postal' => '27000',
                 'creado_en' => now(),
                 'actualizado_en' => now(),
             ],

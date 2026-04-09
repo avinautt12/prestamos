@@ -11,10 +11,10 @@ class SucursalesSeeder extends Seeder
     {
         $sucursales = [
             [
-                'codigo' => 'SUC-MATRIZ',
-                'nombre' => 'Sucursal Matriz',
-                'direccion_texto' => 'Sucursal principal del sistema',
-                'telefono' => '5550000000',
+                'codigo' => 'SUC-TRC-CENTRO',
+                'nombre' => 'Sucursal Torreon Centro',
+                'direccion_texto' => 'Av. Hidalgo 450 Sur, Centro, Torreon, Coahuila, Mexico',
+                'telefono' => '8711000000',
                 'activo' => true,
                 'creado_en' => now(),
                 'actualizado_en' => now(),

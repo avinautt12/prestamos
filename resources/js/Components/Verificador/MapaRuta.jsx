@@ -1,34 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import TabletLayout from '@/Layouts/TabletLayout';
 import { Head, router } from '@inertiajs/react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLocationDot, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 
-// Icono personalizado para los marcadores
-const markerIcon = new L.Icon({
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-});
-
-// Componente para centrar el mapa en la ubicación del verificador
-function MapController({ center }) {
-    const map = useMap();
-    useEffect(() => {
-        if (center) {
-            map.flyTo(center, 13);
-        }
-    }, [center, map]);
-    return null;
-}
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 export default function MapaRuta({ solicitudes, ubicacionActual }) {
-    const [centro, setCentro] = useState(ubicacionActual || [19.4326, -99.1332]);
+    const { isLoaded } = useJsApiLoader({
+        id: 'google-map-script',
+        googleMapsApiKey: GOOGLE_MAPS_API_KEY
+    });
+
+    const [map, setMap] = useState(null);
+    const [infoWindowAbierto, setInfoWindowAbierto] = useState(null);
+    const [centro, setCentro] = useState(
+        ubicacionActual
+            ? { lat: ubicacionActual[0], lng: ubicacionActual[1] }
+            : { lat: 19.4326, lng: -99.1332 }
+    );
+
+    const onLoad = useCallback(function callback(map) {
+        setMap(map);
+    }, []);
+
+    const onUnmount = useCallback(function callback() {
+        setMap(null);
+    }, []);
+
+    if (!isLoaded) {
+        return (
+            <TabletLayout title="Mapa de Ruta">
+                <Head title="Mapa de Ruta - Verificador" />
+                <div className="flex items-center justify-center h-96">
+                    <div className="text-center">
+                        <div className="inline-block w-8 h-8 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                        <p className="mt-2 text-sm text-gray-600">Cargando Google Maps...</p>
+                    </div>
+                </div>
+            </TabletLayout>
+        );
+    }
 
     return (
         <TabletLayout title="Mapa de Ruta">
@@ -43,33 +56,44 @@ export default function MapaRuta({ solicitudes, ubicacionActual }) {
 
             {/* Mapa */}
             <div className="overflow-hidden border border-gray-300 rounded-lg shadow-lg" style={{ height: '70vh' }}>
-                <MapContainer
+                <GoogleMap
+                    mapContainerStyle={{ width: '100%', height: '100%' }}
                     center={centro}
                     zoom={12}
-                    style={{ height: '100%', width: '100%' }}
+                    onLoad={onLoad}
+                    onUnmount={onUnmount}
+                    options={{
+                        streetViewControl: false,
+                        mapTypeControl: false,
+                        fullscreenControl: true,
+                    }}
                 >
-                    <MapController center={centro} />
-                    <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-
                     {/* Marcador de ubicación actual del verificador */}
                     {ubicacionActual && (
-                        <Marker
-                            position={ubicacionActual}
-                            icon={markerIcon}
-                        >
-                            <Popup>
-                                <div className="text-center">
-                                    <p className="inline-flex items-center gap-1 font-bold text-green-600">
-                                        <FontAwesomeIcon icon={faLocationDot} />
-                                        Tu ubicación
-                                    </p>
-                                    <p className="text-xs">Estás aquí</p>
-                                </div>
-                            </Popup>
-                        </Marker>
+                        <>
+                            <Marker
+                                position={{ lat: ubicacionActual[0], lng: ubicacionActual[1] }}
+                                icon={{
+                                    url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+                                }}
+                                title="Tu ubicación"
+                                onClick={() => setInfoWindowAbierto('actual')}
+                            />
+                            {infoWindowAbierto === 'actual' && (
+                                <InfoWindow
+                                    position={{ lat: ubicacionActual[0], lng: ubicacionActual[1] }}
+                                    onCloseClick={() => setInfoWindowAbierto(null)}
+                                >
+                                    <div className="text-center">
+                                        <p className="inline-flex items-center gap-1 font-bold text-green-600">
+                                            <FontAwesomeIcon icon={faLocationDot} />
+                                            Tu ubicación
+                                        </p>
+                                        <p className="text-xs">Estás aquí</p>
+                                    </div>
+                                </InfoWindow>
+                            )}
+                        </>
                     )}
 
                     {/* Marcadores de solicitudes */}
@@ -77,32 +101,44 @@ export default function MapaRuta({ solicitudes, ubicacionActual }) {
                         const persona = solicitud.persona;
                         if (!persona.latitud || !persona.longitud) return null;
 
+                        const lat = parseFloat(persona.latitud);
+                        const lng = parseFloat(persona.longitud);
+
                         return (
-                            <Marker
-                                key={solicitud.id}
-                                position={[parseFloat(persona.latitud), parseFloat(persona.longitud)]}
-                                icon={markerIcon}
-                            >
-                                <Popup>
-                                    <div className="min-w-[200px]">
-                                        <p className="font-bold">{persona.primer_nombre} {persona.apellido_paterno}</p>
-                                        <p className="text-xs text-gray-600">{persona.calle} {persona.numero_exterior}</p>
-                                        <p className="text-xs text-gray-600">{persona.colonia}, {persona.ciudad}</p>
-                                        <button
-                                            onClick={() => router.get(route('verificador.solicitudes.show', solicitud.id))}
-                                            className="w-full px-2 py-1 mt-2 text-xs text-white bg-blue-600 rounded hover:bg-blue-700"
-                                        >
-                                            <span className="inline-flex items-center gap-2">
-                                                <FontAwesomeIcon icon={faArrowRight} />
-                                                Ver detalles
-                                            </span>
-                                        </button>
-                                    </div>
-                                </Popup>
-                            </Marker>
+                            <React.Fragment key={solicitud.id}>
+                                <Marker
+                                    position={{ lat, lng }}
+                                    icon={{
+                                        url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                                    }}
+                                    title={`${persona.primer_nombre} ${persona.apellido_paterno}`}
+                                    onClick={() => setInfoWindowAbierto(solicitud.id)}
+                                />
+                                {infoWindowAbierto === solicitud.id && (
+                                    <InfoWindow
+                                        position={{ lat, lng }}
+                                        onCloseClick={() => setInfoWindowAbierto(null)}
+                                    >
+                                        <div className="min-w-[200px]">
+                                            <p className="font-bold">{persona.primer_nombre} {persona.apellido_paterno}</p>
+                                            <p className="text-xs text-gray-600">{persona.calle} {persona.numero_exterior}</p>
+                                            <p className="text-xs text-gray-600">{persona.colonia}, {persona.ciudad}</p>
+                                            <button
+                                                onClick={() => router.get(route('verificador.solicitudes.show', solicitud.id))}
+                                                className="w-full px-2 py-1 mt-2 text-xs text-white bg-blue-600 rounded hover:bg-blue-700"
+                                            >
+                                                <span className="inline-flex items-center gap-2">
+                                                    <FontAwesomeIcon icon={faArrowRight} />
+                                                    Ver detalles
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </InfoWindow>
+                                )}
+                            </React.Fragment>
                         );
                     })}
-                </MapContainer>
+                </GoogleMap>
             </div>
 
             {/* Lista de solicitudes */}

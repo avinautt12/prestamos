@@ -11,7 +11,7 @@ use App\Models\VerificacionesSolicitud;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class SolicitudController extends Controller
 {
@@ -24,7 +24,6 @@ class SolicitudController extends Controller
         $usuario = auth()->user();
         $sucursal = $usuario->sucursales()->first();
 
-        // Obtener ubicación actual del verificador (desde el request o desde sesión)
         $latitudActual = $request->latitud ?? session('verificador_latitud');
         $longitudActual = $request->longitud ?? session('verificador_longitud');
 
@@ -39,9 +38,8 @@ class SolicitudController extends Controller
                         ->orWhere('curp', 'LIKE', "%{$search}%");
                 });
             })
-            ->get(); // Traemos todas para calcular distancia
+            ->get();
 
-        // Calcular distancia para cada solicitud y ordenar
         if ($latitudActual && $longitudActual) {
             $solicitudes = $solicitudes->map(function ($solicitud) use ($latitudActual, $longitudActual) {
                 if ($solicitud->persona->latitud && $solicitud->persona->longitud) {
@@ -55,10 +53,9 @@ class SolicitudController extends Controller
                     $solicitud->distancia = null;
                 }
                 return $solicitud;
-            })->sortBy('distancia'); // Ordenar por cercanía
+            })->sortBy('distancia');
         }
 
-        // Paginar después de ordenar
         $solicitudes = $this->paginateCollection($solicitudes, 10);
 
         return Inertia::render('Verificador/Solicitudes/Index', [
@@ -104,7 +101,6 @@ class SolicitudController extends Controller
         ]);
     }
 
-    // Helper para paginar colecciones
     private function paginateCollection($items, $perPage)
     {
         $page = request()->get('page', 1);
@@ -130,44 +126,32 @@ class SolicitudController extends Controller
             'persona',
             'sucursal',
             'coordinador.persona',
-            'verificacion'  // Cargar la verificación si existe
+            'verificacion'
         ])
             ->where('estado', 'EN_REVISION')
             ->findOrFail($id);
 
-        // Verificar que pertenece a su sucursal
         $sucursal = $usuario->sucursales()->first();
         if ($solicitud->sucursal_id !== $sucursal?->id) {
             abort(403, 'No tienes permiso para verificar esta solicitud');
         }
 
-        // Si ya fue tomada por otro verificador, no debe poder verse/abrirse
         if ($solicitud->verificador_asignado_id && $solicitud->verificador_asignado_id !== $usuario->id) {
             abort(403, 'Esta solicitud ya fue asignada a otro verificador');
         }
 
-        // Decodificar JSONs
         $solicitud->datos_familiares = $solicitud->datos_familiares_json ? json_decode($solicitud->datos_familiares_json, true) : null;
         $solicitud->afiliaciones = $solicitud->afiliaciones_externas_json ? json_decode($solicitud->afiliaciones_externas_json, true) : null;
         $solicitud->vehiculos = $solicitud->vehiculos_json ? json_decode($solicitud->vehiculos_json, true) : null;
 
-        // Decodificar checklist si existe
         if ($solicitud->verificacion && $solicitud->verificacion->checklist_json) {
             $solicitud->verificacion->checklist = json_decode($solicitud->verificacion->checklist_json, true);
         }
 
         if ($solicitud->verificacion) {
-            $spacesUrl = rtrim((string) config('filesystems.disks.spaces.url'), '/');
-
-            $solicitud->verificacion->foto_fachada_url = $solicitud->verificacion->foto_fachada
-                ? $spacesUrl . '/' . ltrim($solicitud->verificacion->foto_fachada, '/')
-                : null;
-            $solicitud->verificacion->foto_ine_con_persona_url = $solicitud->verificacion->foto_ine_con_persona
-                ? $spacesUrl . '/' . ltrim($solicitud->verificacion->foto_ine_con_persona, '/')
-                : null;
-            $solicitud->verificacion->foto_comprobante_url = $solicitud->verificacion->foto_comprobante
-                ? $spacesUrl . '/' . ltrim($solicitud->verificacion->foto_comprobante, '/')
-                : null;
+            $solicitud->verificacion->foto_fachada_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_fachada);
+            $solicitud->verificacion->foto_ine_con_persona_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_ine_con_persona);
+            $solicitud->verificacion->foto_comprobante_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_comprobante);
         }
 
         return Inertia::render('Verificador/Solicitudes/Show', [
@@ -192,8 +176,6 @@ class SolicitudController extends Controller
                 ->where('verificador_asignado_id', $usuario->id)
                 ->findOrFail($id);
 
-            // Calcular distancia
-
             $distancia = null;
             $distanciaPermitida = 100;
             if ($request->latitud_verificacion && $solicitud->persona->latitud) {
@@ -211,6 +193,21 @@ class SolicitudController extends Controller
                 ]);
             }
 
+            $checklist = (array) $request->input('checklist', []);
+            $tieneIncumplimientos = in_array(false, [
+                (bool) ($checklist['domicilio_correcto'] ?? false),
+                (bool) ($checklist['persona_identificada'] ?? false),
+                (bool) ($checklist['vehiculos_visibles'] ?? false),
+                (bool) ($checklist['documentos_validos'] ?? false),
+            ], true);
+
+            if ($request->resultado === 'VERIFICADA' && $tieneIncumplimientos) {
+                DB::rollBack();
+                return back()->withErrors([
+                    'error' => 'No puedes marcar como VERIFICADA una solicitud con puntos negativos en el checklist. Usa resultado RECHAZADA y agrega observaciones.'
+                ]);
+            }
+
             $verificacionExistente = $solicitud->verificacion;
 
             $fotoFachadaPath = $request->hasFile('foto_fachada')
@@ -225,8 +222,7 @@ class SolicitudController extends Controller
                 ? $request->file('foto_comprobante')->store('verificaciones/comprobante', 'spaces')
                 : $verificacionExistente?->foto_comprobante;
 
-            // Guardar en verificaciones_solicitud
-            $verificacion = VerificacionesSolicitud::updateOrCreate(
+            VerificacionesSolicitud::updateOrCreate(
                 ['solicitud_id' => $solicitud->id],
                 [
                     'verificador_usuario_id' => $usuario->id,
@@ -235,7 +231,7 @@ class SolicitudController extends Controller
                     'latitud_verificacion' => $request->latitud_verificacion,
                     'longitud_verificacion' => $request->longitud_verificacion,
                     'fecha_visita' => now(),
-                    'checklist_json' => json_encode($request->checklist),
+                    'checklist_json' => json_encode($checklist),
                     'foto_fachada' => $fotoFachadaPath,
                     'foto_ine_con_persona' => $fotoIneConPersonaPath,
                     'foto_comprobante' => $fotoComprobantePath,
@@ -243,12 +239,10 @@ class SolicitudController extends Controller
                 ]
             );
 
-            // Cambiar estado de la solicitud
             $nuevoEstado = $request->resultado === 'VERIFICADA' ? 'VERIFICADA' : 'RECHAZADA';
             $solicitud->update([
                 'estado' => $nuevoEstado,
                 'revisada_en' => now(),
-                'observaciones_validacion' => $request->observaciones,
             ]);
 
             $clienteNombre = trim(implode(' ', array_filter([
@@ -315,7 +309,7 @@ class SolicitudController extends Controller
 
         $solicitud = Solicitud::where('estado', 'EN_REVISION')
             ->where('sucursal_id', $sucursal?->id)
-            ->whereNull('verificador_asignado_id')  // Que no esté ya tomada
+            ->whereNull('verificador_asignado_id')
             ->findOrFail($id);
 
         $solicitud->update([
@@ -341,5 +335,22 @@ class SolicitudController extends Controller
         return Inertia::render('Verificador/MapaRuta', [
             'solicitudes' => $solicitudes,
         ]);
+    }
+
+    private function generarUrlEvidencia(?string $ruta): ?string
+    {
+        if (!$ruta) {
+            return null;
+        }
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('spaces');
+        $expiraEnMinutos = (int) config('filesystems.disks.spaces.signed_url_ttl', 15);
+
+        try {
+            return $disk->temporaryUrl($ruta, now()->addMinutes($expiraEnMinutos));
+        } catch (\Throwable $e) {
+            return $disk->url($ruta);
+        }
     }
 }

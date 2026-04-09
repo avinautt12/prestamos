@@ -3,6 +3,8 @@ import TabletLayout from '@/Layouts/TabletLayout';
 import { Head, Link } from '@inertiajs/react';
 
 export default function Dashboard({ stats, usuario }) {
+    const estatus = stats.estatus_solicitudes || {};
+
     const quickActions = [
         { title: 'Nueva Solicitud', description: 'Registrar una nueva solicitud de préstamo', href: route('coordinador.solicitudes.create'), icon: 'M12 4v16m8-8H4', variant: 'primary' },
         { title: 'Ver Solicitudes', description: 'Gestionar solicitudes pendientes', href: route('coordinador.solicitudes.index'), icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', variant: 'secondary' },
@@ -67,6 +69,32 @@ export default function Dashboard({ stats, usuario }) {
                                 </svg>
                             </Link>
                         ))}
+                    </div>
+                </div>
+
+                <div className="mb-6 fin-card">
+                    <h2 className="mb-3 text-lg font-semibold">Seguimiento de Prospectos</h2>
+                    <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-5">
+                        <div className="p-3 border rounded-lg bg-gray-50">
+                            <p className="text-gray-500">Pre-solicitud</p>
+                            <p className="text-lg font-semibold text-gray-900">{estatus.pre_solicitud ?? 0}</p>
+                        </div>
+                        <div className="p-3 border rounded-lg bg-yellow-50">
+                            <p className="text-yellow-700">En verificación</p>
+                            <p className="text-lg font-semibold text-yellow-900">{estatus.en_verificacion ?? 0}</p>
+                        </div>
+                        <div className="p-3 border rounded-lg bg-blue-50">
+                            <p className="text-blue-700">Verificada</p>
+                            <p className="text-lg font-semibold text-blue-900">{estatus.verificada ?? 0}</p>
+                        </div>
+                        <div className="p-3 border rounded-lg bg-green-50">
+                            <p className="text-green-700">Activa</p>
+                            <p className="text-lg font-semibold text-green-900">{estatus.activa ?? 0}</p>
+                        </div>
+                        <div className="p-3 border rounded-lg bg-red-50">
+                            <p className="text-red-700">Rechazada</p>
+                            <p className="text-lg font-semibold text-red-900">{estatus.rechazada ?? 0}</p>
+                        </div>
                     </div>
                 </div>
 

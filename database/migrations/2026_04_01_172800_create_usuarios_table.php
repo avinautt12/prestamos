@@ -16,6 +16,7 @@ return new class extends Migration
             $table->boolean('activo')->default(true);
             $table->boolean('requiere_vpn')->default(false);
             $table->enum('canal_login', ['WEB', 'VPN_WEB', 'MOVIL'])->default('WEB');
+            $table->string('remember_token', 100)->nullable();
             $table->timestamp('ultimo_acceso_en')->nullable();
             $table->timestamp('creado_en')->useCurrent();
             $table->timestamp('actualizado_en')->useCurrent()->useCurrentOnUpdate();

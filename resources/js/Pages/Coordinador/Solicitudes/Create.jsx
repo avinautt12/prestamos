@@ -16,14 +16,16 @@ import {
     faCircleInfo,
     faUser,
     faCarSide,
+    faCamera,
+    faFileUpload,
+    faCheckCircle
 } from '@fortawesome/free-solid-svg-icons';
-
 
 // Componentes de pestañas
 const TabButton = ({ active, index, onClick, children }) => (
     <button
         onClick={onClick}
-        className={`flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-center transition-colors rounded-lg ${active
+        className={`flex items-center justify-center w-full gap-2 px-3 py-3 text-sm font-medium text-center transition-colors rounded-xl ${active
             ? 'text-blue-700 bg-blue-50 border border-blue-200'
             : 'text-gray-600 bg-white border border-transparent hover:border-gray-200 hover:bg-gray-50'
             }`}
@@ -35,34 +37,67 @@ const TabButton = ({ active, index, onClick, children }) => (
     </button>
 );
 
-
 export default function Create({ sucursal, usuario, solicitud, formData, isEditing = false }) {
     const [activeTab, setActiveTab] = useState(0);
 
     const fieldTabMap = useMemo(() => ({
-        primer_nombre: 0,
-        segundo_nombre: 0,
-        apellido_paterno: 0,
-        apellido_materno: 0,
-        sexo: 0,
-        fecha_nacimiento: 0,
-        curp: 0,
-        rfc: 0,
-        telefono_personal: 0,
-        telefono_celular: 0,
-        correo_electronico: 0,
-        calle: 2,
-        numero_exterior: 2,
-        numero_interior: 2,
-        colonia: 2,
-        ciudad: 2,
-        estado: 2,
-        codigo_postal: 2,
-        latitud: 2,
-        longitud: 2,
-        afiliaciones: 3,
-        vehiculos: 4,
+        primer_nombre: 0, segundo_nombre: 0, apellido_paterno: 0, apellido_materno: 0,
+        sexo: 0, fecha_nacimiento: 0, curp: 0, rfc: 0, telefono_personal: 0, telefono_celular: 0, correo_electronico: 0,
+        calle: 2, numero_exterior: 2, numero_interior: 2, colonia: 2, ciudad: 2, estado: 2, codigo_postal: 2, latitud: 2, longitud: 2,
+        afiliaciones: 3, vehiculos: 4,
+        ine_frente: 5, ine_reverso: 5, comprobante_domicilio: 5, reporte_buro: 5,
     }), []);
+
+    const comprimirImagen = (file, maxDimension = 1600, quality = 0.82) => new Promise((resolve) => {
+        if (!file || !file.type?.startsWith('image/')) {
+            resolve(file);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                let { width, height } = img;
+
+                if (width > height && width > maxDimension) {
+                    height = Math.round((height * maxDimension) / width);
+                    width = maxDimension;
+                } else if (height >= width && height > maxDimension) {
+                    width = Math.round((width * maxDimension) / height);
+                    height = maxDimension;
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext('2d');
+
+                if (!context) {
+                    resolve(file);
+                    return;
+                }
+
+                context.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        resolve(file);
+                        return;
+                    }
+
+                    const nombreBase = (file.name || 'imagen').replace(/\.[^/.]+$/, '');
+                    resolve(new File([blob], `${nombreBase}.jpg`, { type: 'image/jpeg' }));
+                }, 'image/jpeg', quality);
+            };
+
+            img.onerror = () => resolve(file);
+            img.src = event.target?.result;
+        };
+
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+    });
 
     const parseMaybeJson = (value, fallback) => {
         if (value === null || value === undefined || value === '') {
@@ -92,7 +127,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         telefono_personal: formData?.telefono_personal ?? '',
         telefono_celular: formData?.telefono_celular ?? '',
         correo_electronico: formData?.correo_electronico ?? '',
-        limite_credito_solicitado: formData?.limite_credito_solicitado ?? '',
+        limite_credito_solicitado: 0,
         familiares: parseMaybeJson(formData?.familiares, {
             conyuge: {
                 nombre: '',
@@ -116,7 +151,15 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         longitud: formData?.longitud ?? null,
         afiliaciones: parseMaybeJson(formData?.afiliaciones, []),
         vehiculos: parseMaybeJson(formData?.vehiculos, []),
-        observaciones: formData?.observaciones ?? ''
+        observaciones: formData?.observaciones ?? '',
+        ine_frente: null,
+        ine_reverso: null,
+        comprobante_domicilio: null,
+        reporte_buro: null,
+        ine_frente_path: formData?.ine_frente_path ?? null,
+        ine_reverso_path: formData?.ine_reverso_path ?? null,
+        comprobante_domicilio_path: formData?.comprobante_domicilio_path ?? null,
+        reporte_buro_path: formData?.reporte_buro_path ?? null,
     }), [formData]);
 
     // Configuración del formulario
@@ -124,12 +167,23 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         ...initialData
     });
 
+    const handleDocumentoChange = async (field, file, optimizar = true) => {
+        if (!file) {
+            setData(field, null);
+            return;
+        }
+
+        const archivoFinal = optimizar ? await comprimirImagen(file) : file;
+        setData(field, archivoFinal);
+    };
+
     // Manejadores para cada pestaña
     const handleSubmit = (e) => {
         e.preventDefault();
 
         if (isEditing && solicitud) {
             put(route('coordinador.solicitudes.update', solicitud.id), {
+                forceFormData: true,
                 onError: (submitErrors) => {
                     const firstErrorKey = Object.keys(submitErrors || {})[0];
                     const errorTab = fieldTabMap[firstErrorKey];
@@ -140,6 +194,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
             });
         } else {
             post(route('coordinador.solicitudes.store'), {
+                forceFormData: true,
                 onError: (submitErrors) => {
                     const firstErrorKey = Object.keys(submitErrors || {})[0];
                     const errorTab = fieldTabMap[firstErrorKey];
@@ -243,28 +298,39 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
             <Head title="Nueva Solicitud" />
 
             <div className="max-w-6xl mx-auto tablet-form">
-                <div className="mb-4">
-                    <div className="flex items-center gap-2">
-                        <FontAwesomeIcon icon={faFileCirclePlus} className="text-blue-600" />
-                        <h1 className="text-xl font-bold text-gray-900">
-                            {isEditing ? 'Editar Solicitud' : 'Nueva Pre-solicitud'}
-                        </h1>
+                <div className="mb-4 overflow-hidden bg-white border border-gray-200 shadow-sm rounded-2xl">
+                    <div className="flex flex-col gap-4 p-4 md:flex-row md:items-start md:justify-between md:p-5">
+                        <div className="flex items-start gap-3">
+                            <div className="inline-flex items-center justify-center text-blue-600 w-11 h-11 rounded-xl bg-blue-50">
+                                <FontAwesomeIcon icon={faFileCirclePlus} />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold text-gray-900">
+                                    {isEditing ? 'Editar Solicitud' : 'Nueva Pre-solicitud'}
+                                </h1>
+                                <p className="mt-1 text-sm text-gray-500">Completa todos los campos requeridos</p>
+                                <p className="mt-2 text-xs text-gray-500">
+                                    Sucursal: <span className="font-medium text-gray-700">{sucursal?.nombre || 'No asignada'}</span> ·
+                                    Coordinador: <span className="font-medium text-gray-700">{usuario?.persona?.primer_nombre} {usuario?.persona?.apellido_paterno}</span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
-                    <p className="text-sm text-gray-500">Completa todos los campos requeridos</p>
                 </div>
 
-                {/* Tabs */}
-                <div className="grid grid-cols-2 gap-2 mb-4 md:grid-cols-3 lg:grid-cols-6">
-                    {tabs.map((tab, index) => (
-                        <TabButton
-                            key={index}
-                            index={index}
-                            active={activeTab === index}
-                            onClick={() => setActiveTab(index)}
-                        >
-                            {tab.name}
-                        </TabButton>
-                    ))}
+                <div className="sticky z-20 mb-4 border border-gray-200 shadow-sm top-3 rounded-2xl bg-white/95 backdrop-blur">
+                    <div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-3 lg:grid-cols-6">
+                        {tabs.map((tab, index) => (
+                            <TabButton
+                                key={index}
+                                index={index}
+                                active={activeTab === index}
+                                onClick={() => setActiveTab(index)}
+                            >
+                                {tab.name}
+                            </TabButton>
+                        ))}
+                    </div>
                 </div>
 
                 <div className="mb-4">
@@ -278,15 +344,15 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                 </div>
 
                 {/* Formulario */}
-                <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="tablet-panel">
+                <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="overflow-hidden bg-white border border-gray-200 shadow-sm tablet-panel rounded-2xl">
                     {errors.error && (
-                        <div className="p-3 mx-4 mt-4 text-sm text-red-700 border border-red-200 rounded-md bg-red-50">
+                        <div className="p-3 mx-4 mt-4 text-sm text-red-700 border border-red-200 rounded-xl bg-red-50">
                             {errors.error}
                         </div>
                     )}
 
                     {Object.keys(errors).length > 0 && !errors.error && (
-                        <div className="p-3 mx-4 mt-4 text-sm text-yellow-800 border border-yellow-200 rounded-md bg-yellow-50">
+                        <div className="p-3 mx-4 mt-4 text-sm text-yellow-800 border border-yellow-200 rounded-xl bg-yellow-50">
                             Hay campos pendientes o con formato incorrecto. Te llevamos automáticamente a la pestaña con el primer error.
                         </div>
                     )}
@@ -303,15 +369,17 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                         removeAfiliacion={removeAfiliacion}
                         addVehiculo={addVehiculo}
                         removeVehiculo={removeVehiculo}
+                        handleDocumentoChange={handleDocumentoChange}
+                        isEditing={isEditing}
                     />
 
                     {/* Botones de navegación */}
-                    <div className="flex justify-between p-4 border-t border-gray-200">
+                    <div className="flex flex-col gap-3 p-4 border-t border-gray-200 md:flex-row md:items-center md:justify-between">
                         <button
                             type="button"
                             onClick={() => setActiveTab(activeTab - 1)}
                             disabled={activeTab === 0}
-                            className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 0
+                            className={`px-4 py-3 text-sm font-medium rounded-xl md:py-2 ${activeTab === 0
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
@@ -326,7 +394,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                             <button
                                 type="button"
                                 onClick={() => setActiveTab(activeTab + 1)}
-                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                className="px-4 py-3 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 md:py-2"
                             >
                                 <span className="inline-flex items-center gap-2">
                                     Siguiente
@@ -337,7 +405,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+                                className="px-4 py-3 text-sm font-medium text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:opacity-50 md:py-2"
                             >
                                 <span className="inline-flex items-center gap-2">
                                     <FontAwesomeIcon icon={processing ? faCircleInfo : (isEditing ? faFloppyDisk : faPaperPlane)} className={processing ? 'animate-pulse' : ''} />
@@ -695,64 +763,33 @@ function DatosFamiliaresTab({ data, updateFamiliares, addHijo, removeHijo, updat
 // ============================================
 // PESTAÑA 2: DOMICILIO CON MAPA INTERACTIVO
 // ============================================
-async function geocodeEstructurado({ street = '', city = '', state = '' }) {
-    const streetValue = normalize(street);
-    const cityValue = normalize(city);
-    const stateValue = normalize(state);
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-    if (!cityValue && !stateValue && !streetValue) {
-        return null;
-    }
+async function geocodeGoogleMaps(direccionCompleta) {
+    if (!direccionCompleta) return null;
 
     const params = new URLSearchParams({
-        format: 'json',
-        country: 'Mexico',
-        limit: '1',
-        addressdetails: '1',
+        address: direccionCompleta,
+        key: GOOGLE_MAPS_API_KEY,
+        region: 'mx' // Obliga a Google a dar prioridad a resultados en México
     });
 
-    if (streetValue) params.set('street', streetValue);
-    if (cityValue) params.set('city', cityValue);
-    if (stateValue) params.set('state', stateValue);
+    try {
+        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`);
+        const data = await response.json();
 
-    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
-    const resultados = await response.json();
-
-    if (!Array.isArray(resultados) || resultados.length === 0) {
+        if (data.status === 'OK' && data.results.length > 0) {
+            const location = data.results[0].geometry.location;
+            return {
+                lat: location.lat,
+                lng: location.lng
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error("Error con Google Geocoding:", error);
         return null;
     }
-
-    return {
-        lat: parseFloat(resultados[0].lat),
-        lng: parseFloat(resultados[0].lon),
-    };
-}
-
-async function geocodeAproximadoPorColonia({ colonia = '', ciudad = '', estado = '' }) {
-    const q = normalize(`${colonia}, ${ciudad}, ${estado}, Mexico`);
-    if (!q) {
-        return null;
-    }
-
-    const params = new URLSearchParams({
-        format: 'json',
-        q,
-        limit: '1',
-        countrycodes: 'mx',
-        addressdetails: '1',
-    });
-
-    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
-    const resultados = await response.json();
-
-    if (!Array.isArray(resultados) || resultados.length === 0) {
-        return null;
-    }
-
-    return {
-        lat: parseFloat(resultados[0].lat),
-        lng: parseFloat(resultados[0].lon),
-    };
 }
 
 function normalize(text) {
@@ -766,10 +803,49 @@ function normalize(text) {
 function DomicilioTab({ data, setData, errors }) {
     const [sincronizandoMapa, setSincronizandoMapa] = useState(false);
     const [mensajeMapa, setMensajeMapa] = useState('');
+    
+    const [buscandoCp, setBuscandoCp] = useState(false);
+    const [coloniasDisponibles, setColoniasDisponibles] = useState([]);
 
     const handlePositionChange = (position) => {
         setData('latitud', position.lat);
         setData('longitud', position.lng);
+    };
+
+    const buscarPorCP = async (cpStr) => {
+        if (cpStr.length !== 5) return;
+        
+        setBuscandoCp(true);
+        try {
+            const res = await fetch(`https://blackisp.tech/api/cp/get/${cpStr}`);
+            if (!res.ok) throw new Error('CP no encontrado');
+            
+            const info = await res.json();
+
+            setData(prev => ({
+                ...prev,
+                estado: info.estado,
+                ciudad: info.municipio,
+                colonia: info.colonias[0] || '' 
+            }));
+            setColoniasDisponibles(info.colonias);
+        } catch (error) {
+            console.log("No se pudo obtener el CP de la API pública.");
+            setColoniasDisponibles([]);
+        } finally {
+            setBuscandoCp(false);
+        }
+    };
+
+    const handleCpChange = (e) => {
+        const cp = e.target.value.replace(/\D/g, ''); 
+        setData('codigo_postal', cp);
+        
+        if (cp.length === 5) {
+            buscarPorCP(cp);
+        } else {
+            setColoniasDisponibles([]); 
+        }
     };
 
     const buscarUbicacionEnMapa = async () => {
@@ -778,21 +854,6 @@ function DomicilioTab({ data, setData, errors }) {
         const colonia = normalize(data.colonia);
         const ciudad = normalize(data.ciudad);
         const estado = normalize(data.estado);
-
-        const intentos = [
-            {
-                nombre: 'intento 1',
-                payload: { street: `${calle} ${numero}`, city: ciudad, state: estado },
-            },
-            {
-                nombre: 'intento 2',
-                payload: { street: calle, city: ciudad, state: estado },
-            },
-            {
-                nombre: 'intento 3',
-                payload: { city: ciudad, state: estado },
-            },
-        ];
 
         if (!estado || !ciudad) {
             setMensajeMapa('Completa al menos ciudad y estado para ubicar en mapa.');
@@ -803,39 +864,18 @@ function DomicilioTab({ data, setData, errors }) {
             setSincronizandoMapa(true);
             setMensajeMapa('');
 
-            let resultado = null;
-            let intentoExitoso = '';
+            const direccionCompleta = `${calle} ${numero}, ${colonia}, ${ciudad}, ${estado}, Mexico`;
+            const resultado = await geocodeGoogleMaps(direccionCompleta);
 
-            for (const intento of intentos) {
-                const r = await geocodeEstructurado(intento.payload);
-                if (r && Number.isFinite(r.lat) && Number.isFinite(r.lng)) {
-                    resultado = r;
-                    intentoExitoso = intento.nombre;
-                    break;
-                }
-            }
-
-            if (!resultado && colonia) {
-                const aproximado = await geocodeAproximadoPorColonia({ colonia, ciudad, estado });
-                if (aproximado && Number.isFinite(aproximado.lat) && Number.isFinite(aproximado.lng)) {
-                    resultado = aproximado;
-                    intentoExitoso = 'fallback aproximado por colonia';
-                }
-            }
-
-            if (!resultado || !Number.isFinite(resultado.lat) || !Number.isFinite(resultado.lng)) {
-                setMensajeMapa('No se pudo ubicar esa direccion. Revisa los datos y vuelve a intentar.');
+            if (!resultado) {
+                setMensajeMapa('No se pudo ubicar esa direccion. Revisa los datos e intenta de nuevo.');
                 return;
             }
 
             setData('latitud', resultado.lat);
             setData('longitud', resultado.lng);
-            const esAproximado = intentoExitoso.includes('aproximado');
-            setMensajeMapa(
-                esAproximado
-                    ? `Ubicacion localizada (${intentoExitoso}). Es una aproximacion; ajusta el pin manualmente para precision.`
-                    : `Ubicacion localizada en mapa (${intentoExitoso}). Puedes mover el pin para ajustar con precision.`
-            );
+            setMensajeMapa('¡Ubicación localizada con Google Maps! Mueve el pin para ajuste fino.');
+
         } catch (error) {
             console.error('Error al buscar ubicacion en mapa:', error);
             setMensajeMapa('Ocurrio un error al buscar la ubicacion. Intenta nuevamente.');
@@ -863,18 +903,35 @@ function DomicilioTab({ data, setData, errors }) {
                 Domicilio
             </h2>
             <p className="text-xs text-gray-500">
-                Primero captura la direccion manualmente.
-                Luego ubica en el mapa y ajusta solo latitud/longitud con el pin.
+                Teclea el Código Postal para autocompletar el Estado y Municipio.
             </p>
 
             <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 md:col-span-1">
+                    <label className="block text-sm font-medium text-gray-700">
+                        Código Postal <span className="text-red-600">*</span>
+                        {buscandoCp && <span className="ml-2 text-xs font-bold text-blue-600 animate-pulse">Buscando...</span>}
+                    </label>
+                    <input
+                        type="text"
+                        value={data.codigo_postal}
+                        onChange={handleCpChange}
+                        maxLength="5"
+                        placeholder="Ej. 27000"
+                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                    />
+                    {errors.codigo_postal && <p className="text-xs text-red-600">{errors.codigo_postal}</p>}
+                </div>
+
+                <div className="hidden md:block"></div>
+
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Estado <span className="text-red-600">*</span></label>
                     <input
                         type="text"
                         value={data.estado}
                         onChange={e => setData('estado', e.target.value)}
-                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md bg-gray-50"
                     />
                 </div>
 
@@ -884,18 +941,31 @@ function DomicilioTab({ data, setData, errors }) {
                         type="text"
                         value={data.ciudad}
                         onChange={e => setData('ciudad', e.target.value)}
-                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md bg-gray-50"
                     />
                 </div>
 
                 <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700">Colonia <span className="text-red-600">*</span></label>
-                    <input
-                        type="text"
-                        value={data.colonia}
-                        onChange={e => setData('colonia', e.target.value)}
-                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
-                    />
+                    {coloniasDisponibles.length > 0 ? (
+                        <select
+                            value={data.colonia}
+                            onChange={e => setData('colonia', e.target.value)}
+                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md bg-blue-50"
+                        >
+                            {coloniasDisponibles.map((col, idx) => (
+                                <option key={idx} value={col}>{col}</option>
+                            ))}
+                        </select>
+                    ) : (
+                        <input
+                            type="text"
+                            value={data.colonia}
+                            onChange={e => setData('colonia', e.target.value)}
+                            placeholder="Escribe la colonia..."
+                            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                        />
+                    )}
                     {errors.colonia && <p className="text-xs text-red-600">{errors.colonia}</p>}
                 </div>
 
@@ -932,37 +1002,24 @@ function DomicilioTab({ data, setData, errors }) {
                     />
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Código Postal <span className="text-red-600">*</span></label>
-                    <input
-                        type="text"
-                        value={data.codigo_postal}
-                        onChange={e => setData('codigo_postal', e.target.value)}
-                        maxLength="5"
-                        className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
-                    />
-                    {errors.codigo_postal && <p className="text-xs text-red-600">{errors.codigo_postal}</p>}
-                </div>
-
-                <div className="col-span-2">
+                <div className="col-span-2 pt-2">
                     <button
                         type="button"
                         onClick={buscarUbicacionEnMapa}
                         disabled={sincronizandoMapa}
-                        className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                        className="w-full px-4 py-3 text-sm font-medium text-white transition-colors bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 disabled:opacity-50"
                     >
-                        {sincronizandoMapa ? 'Buscando ubicacion...' : 'Ubicar direccion en el mapa'}
+                        {sincronizandoMapa ? 'Buscando con Google...' : 'Ubicar dirección exacta en el mapa'}
                     </button>
-                    {mensajeMapa && <p className="mt-2 text-xs text-gray-600">{mensajeMapa}</p>}
+                    {mensajeMapa && <p className="mt-2 text-xs font-medium text-green-700">{mensajeMapa}</p>}
                 </div>
             </div>
 
             <div className="pt-4 mt-4 border-t border-gray-200">
                 <p className="mb-2 text-sm text-gray-600">
-                    Este mapa solo sirve para corroborar y ajustar el punto exacto del domicilio.
-                    Mover el pin no cambia la direccion escrita; solo actualiza latitud y longitud internas.
+                    Mueve el pin en caso de que la ubicación automática necesite un ajuste fino.
                 </p>
-                <div className="mx-auto max-w-4xl">
+                <div className="max-w-4xl mx-auto rounded-lg overflow-hidden border border-gray-300">
                     <MapaUbicacion
                         initialPosition={initialPosition}
                         onPositionChange={handlePositionChange}
@@ -1140,35 +1197,94 @@ function VehiculosTab({ data, setData, addVehiculo, removeVehiculo }) {
 }
 
 // ============================================
+// COMPONENTE: TARJETA DE DOCUMENTO (AFUERA DE LA PESTAÑA)
+// ============================================
+const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file, isEditing, onFileChange }) => {
+    const hasFile = file || (isEditing && path);
+    const fileName = file?.name || (isEditing && path ? 'Archivo guardado' : 'Sin documento cargado');
+
+    return (
+        <div className={`p-4 rounded-xl border ${error ? 'border-red-300 bg-red-50' : 'border-blue-100 bg-blue-50/30'}`}>
+            <label className="block mb-3 text-sm font-semibold text-gray-800">
+                {label} <span className="text-red-600">*</span>
+            </label>
+            
+            <div className="flex flex-col gap-2">
+                {/* BOTÓN CÁMARA (Usando htmlFor para celulares) */}
+                <label htmlFor={`${id}_camera`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
+                    <FontAwesomeIcon icon={faCamera} className="text-lg" /> Tomar Foto
+                </label>
+                <input 
+                    id={`${id}_camera`}
+                    type="file" 
+                    accept="image/*" 
+                    capture={capture} 
+                    className="hidden" 
+                    onChange={(e) => onFileChange(fieldName, e.target.files?.[0], true)} 
+                />
+
+                {/* BOTÓN SUBIR ARCHIVO */}
+                <label htmlFor={`${id}_file`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
+                    <FontAwesomeIcon icon={faFileUpload} className="text-lg" /> Subir Archivo
+                </label>
+                <input 
+                    id={`${id}_file`}
+                    type="file" 
+                    accept={accept} 
+                    className="hidden" 
+                    onChange={(e) => onFileChange(fieldName, e.target.files?.[0], true)} 
+                />
+            </div>
+
+            <div className="mt-3 text-xs">
+                {hasFile ? (
+                    <span className="flex items-center gap-1 font-medium text-green-700">
+                        <FontAwesomeIcon icon={faCheckCircle} />
+                        Listo: <span className="truncate max-w-[150px] inline-block align-bottom">{fileName}</span>
+                    </span>
+                ) : ( <span className="text-gray-500">{fileName}</span> )}
+            </div>
+            {error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}
+        </div>
+    );
+};
+
+
+// ============================================
 // PESTAÑA 5: FINALIZAR
 // ============================================
-function FinalizarTab({ data, setData, errors }) {
+function FinalizarTab({ data, errors, handleDocumentoChange, isEditing }) {
     return (
         <div className="p-4 space-y-4">
             <h2 className="text-lg font-semibold">Finalizar Solicitud</h2>
 
-            {/* Nuevo campo: Límite de Crédito Solicitado */}
-            <div className="p-4 border border-gray-200 rounded-lg">
-                <label className="block mb-1 text-sm font-medium text-gray-700">
-                    Límite de Crédito Solicitado (MXN) <span className="text-red-600">*</span>
-                </label>
-                <input
-                    type="number"
-                    step="0.01"
-                    value={data.limite_credito_solicitado}
-                    onChange={e => setData('limite_credito_solicitado', e.target.value)}
-                    placeholder="Ej: 50000.00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                    Monto de crédito que el prospecto distribuidora solicita para operar
-                </p>
-                {errors.limite_credito_solicitado && (
-                    <p className="mt-1 text-xs text-red-600">{errors.limite_credito_solicitado}</p>
-                )}
+            <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                <h3 className="mb-4 text-sm font-semibold text-gray-800">Documentos obligatorios</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <DocumentCard 
+                        id="ine_frente" fieldName="ine_frente" label="INE frente" 
+                        accept="image/*" capture="environment" error={errors.ine_frente} 
+                        path={data.ine_frente_path} file={data.ine_frente} isEditing={isEditing} onFileChange={handleDocumentoChange} 
+                    />
+                    <DocumentCard 
+                        id="ine_reverso" fieldName="ine_reverso" label="INE reverso" 
+                        accept="image/*" capture="environment" error={errors.ine_reverso} 
+                        path={data.ine_reverso_path} file={data.ine_reverso} isEditing={isEditing} onFileChange={handleDocumentoChange} 
+                    />
+                    <DocumentCard 
+                        id="comprobante_domicilio" fieldName="comprobante_domicilio" label="Comprobante de domicilio" 
+                        accept="image/*,.pdf" error={errors.comprobante_domicilio} 
+                        path={data.comprobante_domicilio_path} file={data.comprobante_domicilio} isEditing={isEditing} onFileChange={handleDocumentoChange} 
+                    />
+                    <DocumentCard 
+                        id="reporte_buro" fieldName="reporte_buro" label="Reporte de buró" 
+                        accept="image/*,.pdf" error={errors.reporte_buro} 
+                        path={data.reporte_buro_path} file={data.reporte_buro} isEditing={isEditing} onFileChange={handleDocumentoChange} 
+                    />
+                </div>
+                <p className="mt-4 text-xs text-gray-500">Las imágenes se optimizan automáticamente antes del envío.</p>
             </div>
 
-            {/* Resumen existente */}
             <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
                 <h3 className="mb-2 font-medium text-blue-800">Resumen de la solicitud</h3>
                 <div className="space-y-1 text-sm">
@@ -1176,7 +1292,8 @@ function FinalizarTab({ data, setData, errors }) {
                     <p><span className="font-medium">CURP:</span> {data.curp || 'No registrado'}</p>
                     <p><span className="font-medium">Teléfono:</span> {data.telefono_celular}</p>
                     <p><span className="font-medium">Domicilio:</span> {data.calle} {data.numero_exterior}, {data.colonia}</p>
-                    <p><span className="font-medium">Límite solicitado:</span> ${data.limite_credito_solicitado ? Number(data.limite_credito_solicitado).toLocaleString() : 'No especificado'}</p>
+                    <p><span className="font-medium">Categoría inicial:</span> Cobre (3%)</p>
+                    <p><span className="font-medium">Límite crédito:</span> Se define en Gerencia</p>
                     <p><span className="font-medium">Vehículos:</span> {data.vehiculos.length}</p>
                     <p><span className="font-medium">Referencias:</span> {data.afiliaciones.length}</p>
                 </div>
@@ -1184,22 +1301,13 @@ function FinalizarTab({ data, setData, errors }) {
 
             <div>
                 <label className="block text-sm font-medium text-gray-700">Observaciones adicionales</label>
-                <textarea
-                    rows="4"
-                    value={data.observaciones}
-                    onChange={e => setData('observaciones', e.target.value)}
-                    placeholder="Agrega cualquier observación importante sobre el prospecto..."
-                    className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
-                />
+                <textarea rows="4" value={data.observaciones} onChange={e => setData('observaciones', e.target.value)} placeholder="Agrega cualquier observación..." className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm" />
             </div>
 
             <div className="p-3 border border-yellow-200 rounded-lg bg-yellow-50">
                 <p className="flex items-start gap-2 text-sm text-yellow-800">
                     <FontAwesomeIcon icon={faTriangleExclamation} className="mt-0.5" />
-                    <span>
-                        Al finalizar, la solicitud será enviada al Verificador para su análisis.
-                        Asegúrate de que todos los campos obligatorios estén completos.
-                    </span>
+                    <span>Al finalizar, la solicitud será enviada al Verificador para su análisis. Asegúrate de que todos los campos obligatorios estén completos.</span>
                 </p>
             </div>
         </div>

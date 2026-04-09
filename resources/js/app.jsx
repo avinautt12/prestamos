@@ -1,20 +1,6 @@
 import './bootstrap';
 import '../css/app.css';
 
-// Importar estilos de Leaflet
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-control-geocoder/dist/Control.Geocoder.css';
-
-// Importar iconos de Leaflet (solución para que funcionen los marcadores)
-import L from 'leaflet';
-
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
 import { createRoot } from 'react-dom/client';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';

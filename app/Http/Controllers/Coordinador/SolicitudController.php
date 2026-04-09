@@ -14,6 +14,8 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 
 class SolicitudController extends Controller
 {
@@ -41,14 +43,17 @@ class SolicitudController extends Controller
         try {
             $usuario = auth()->user();
 
-            // 1. Validar si la persona ya existe (por CURP)
-            $persona = Persona::where('curp', $request->curp)->first();
+            $persona = Persona::where('curp', $request->curp)
+                ->orWhere('rfc', $request->rfc)
+                ->first();
 
-            // Anti-duplicado: no permitir pre-solicitud si ya existe una distribuidora activa
             $esDistribuidoraActiva = Distribuidora::where('estado', Distribuidora::ESTADO_ACTIVA)
-                ->whereHas('persona', function ($query) use ($request) {
-                    $query->where('curp', $request->curp)
-                        ->orWhere('rfc', $request->rfc);
+                ->where(function ($query) use ($persona) {
+                    if ($persona) {
+                        $query->where('persona_id', $persona->id);
+                    } else {
+                        $query->whereRaw('1 = 0');
+                    }
                 })
                 ->exists();
 
@@ -61,18 +66,17 @@ class SolicitudController extends Controller
             DB::beginTransaction();
 
             if ($persona) {
-                // Verificar si tiene solicitudes activas o es moroso
                 $solicitudActiva = Solicitud::where('persona_solicitante_id', $persona->id)
                     ->whereIn('estado', ['PRE', 'EN_REVISION', 'VERIFICADA', 'APROBADA'])
                     ->exists();
 
                 if ($solicitudActiva) {
+                    DB::rollBack();
                     return back()->withErrors([
                         'curp' => 'Esta persona ya tiene una solicitud activa en el sistema'
                     ]);
                 }
 
-                // Actualizar datos de la persona
                 $persona->update($request->only([
                     'primer_nombre',
                     'segundo_nombre',
@@ -94,7 +98,6 @@ class SolicitudController extends Controller
                     'longitud'
                 ]));
             } else {
-                // Crear nueva persona
                 $persona = Persona::create($request->only([
                     'primer_nombre',
                     'segundo_nombre',
@@ -118,33 +121,46 @@ class SolicitudController extends Controller
                 ]));
             }
 
-            /** @var Usuario $usuario */
-            // 2. Obtener la sucursal activa del coordinador
             $sucursal = $this->obtenerSucursalActivaCoordinador($usuario);
 
             if (!$sucursal) {
                 throw new \Exception('No tienes una sucursal activa asignada para el rol de coordinador');
             }
 
-            // 3. Crear la solicitud
             $solicitud = Solicitud::create([
                 'persona_solicitante_id' => $persona->id,
                 'sucursal_id' => $sucursal->id,
                 'capturada_por_usuario_id' => $usuario->id,
                 'coordinador_usuario_id' => $usuario->id,
-                'estado' => 'PRE',
-                'limite_credito_solicitado' => $request->limite_credito_solicitado,
+                'estado' => Solicitud::ESTADO_EN_REVISION,
+                'categoria_inicial_codigo' => 'COBRE',
+                'limite_credito_solicitado' => 0,
                 'datos_familiares_json' => $request->has('familiares') ? json_encode($request->familiares) : null,
                 'afiliaciones_externas_json' => $request->has('afiliaciones') ? json_encode($request->afiliaciones) : null,
                 'vehiculos_json' => $request->has('vehiculos') ? json_encode($request->vehiculos) : null,
+                'ine_frente_path' => $this->subirDocumentoSolicitud($request->file('ine_frente'), 'ine_frente'),
+                'ine_reverso_path' => $this->subirDocumentoSolicitud($request->file('ine_reverso'), 'ine_reverso'),
+                'comprobante_domicilio_path' => $this->subirDocumentoSolicitud($request->file('comprobante_domicilio'), 'comprobante_domicilio'),
+                'reporte_buro_path' => $this->subirDocumentoSolicitud($request->file('reporte_buro'), 'reporte_buro'),
                 'enviada_en' => now(),
-                'observaciones_validacion' => $request->observaciones,
             ]);
 
-            // 4. Disparar evento para notificar al verificador
-            // event(new SolicitudCreadaEvent($solicitud));
+            $clienteNombre = trim(implode(' ', array_filter([
+                $solicitud->persona?->primer_nombre,
+                $solicitud->persona?->apellido_paterno,
+                $solicitud->persona?->apellido_materno,
+            ])));
 
-            // 5. Registrar log
+            if ($solicitud->sucursal_id) {
+                DB::afterCommit(function () use ($solicitud, $clienteNombre) {
+                    event(new SolicitudPendienteVerificacion(
+                        (int) $solicitud->sucursal_id,
+                        (int) $solicitud->id,
+                        $clienteNombre !== '' ? $clienteNombre : 'Cliente'
+                    ));
+                });
+            }
+
             Log::info('Nueva solicitud creada', [
                 'solicitud_id' => $solicitud->id,
                 'coordinador_id' => $usuario->id,
@@ -154,7 +170,7 @@ class SolicitudController extends Controller
             DB::commit();
 
             return redirect()->route('coordinador.solicitudes.index')
-                ->with('success', 'Solicitud guardada correctamente');
+                ->with('success', 'Solicitud enviada a verificación correctamente');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error al guardar solicitud: ' . $e->getMessage());
@@ -172,7 +188,7 @@ class SolicitudController extends Controller
         $sucursal = $this->obtenerSucursalActivaCoordinador($usuario);
         $sucursalId = $sucursal?->id;
 
-        $solicitudes = Solicitud::with(['persona', 'sucursal'])
+        $solicitudes = Solicitud::with(['persona', 'sucursal', 'verificacion'])
             ->where(function ($query) use ($usuario, $sucursalId) {
                 $query->where('coordinador_usuario_id', $usuario->id);
 
@@ -226,18 +242,15 @@ class SolicitudController extends Controller
         $solicitud->vehiculos = $solicitud->vehiculos_json ? json_decode($solicitud->vehiculos_json, true) : null;
 
         if ($solicitud->verificacion) {
-            $spacesUrl = rtrim((string) config('filesystems.disks.spaces.url'), '/');
-
-            $solicitud->verificacion->foto_fachada_url = $solicitud->verificacion->foto_fachada
-                ? $spacesUrl . '/' . ltrim($solicitud->verificacion->foto_fachada, '/')
-                : null;
-            $solicitud->verificacion->foto_ine_con_persona_url = $solicitud->verificacion->foto_ine_con_persona
-                ? $spacesUrl . '/' . ltrim($solicitud->verificacion->foto_ine_con_persona, '/')
-                : null;
-            $solicitud->verificacion->foto_comprobante_url = $solicitud->verificacion->foto_comprobante
-                ? $spacesUrl . '/' . ltrim($solicitud->verificacion->foto_comprobante, '/')
-                : null;
+            $solicitud->verificacion->foto_fachada_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_fachada);
+            $solicitud->verificacion->foto_ine_con_persona_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_ine_con_persona);
+            $solicitud->verificacion->foto_comprobante_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_comprobante);
         }
+
+        $solicitud->ine_frente_url = $this->generarUrlEvidencia($solicitud->ine_frente_path);
+        $solicitud->ine_reverso_url = $this->generarUrlEvidencia($solicitud->ine_reverso_path);
+        $solicitud->comprobante_domicilio_url = $this->generarUrlEvidencia($solicitud->comprobante_domicilio_path);
+        $solicitud->reporte_buro_url = $this->generarUrlEvidencia($solicitud->reporte_buro_path);
 
         return Inertia::render('Coordinador/Solicitudes/Show', [
             'solicitud' => $solicitud,
@@ -297,18 +310,58 @@ class SolicitudController extends Controller
             ]));
 
             // Actualizar solicitud
+            $ineFrentePath = $request->hasFile('ine_frente')
+                ? $this->subirDocumentoSolicitud($request->file('ine_frente'), 'ine_frente')
+                : $solicitud->ine_frente_path;
+            $ineReversoPath = $request->hasFile('ine_reverso')
+                ? $this->subirDocumentoSolicitud($request->file('ine_reverso'), 'ine_reverso')
+                : $solicitud->ine_reverso_path;
+            $comprobanteDomicilioPath = $request->hasFile('comprobante_domicilio')
+                ? $this->subirDocumentoSolicitud($request->file('comprobante_domicilio'), 'comprobante_domicilio')
+                : $solicitud->comprobante_domicilio_path;
+            $reporteBuroPath = $request->hasFile('reporte_buro')
+                ? $this->subirDocumentoSolicitud($request->file('reporte_buro'), 'reporte_buro')
+                : $solicitud->reporte_buro_path;
+
+            if (!$ineFrentePath || !$ineReversoPath || !$comprobanteDomicilioPath || !$reporteBuroPath) {
+                DB::rollBack();
+                return back()->withErrors(['error' => 'Debes completar todos los documentos obligatorios para reenviar la solicitud.']);
+            }
+
             $solicitud->update([
-                'limite_credito_solicitado' => $request->limite_credito_solicitado,
+                'estado' => Solicitud::ESTADO_EN_REVISION,
+                'limite_credito_solicitado' => 0,
+                'categoria_inicial_codigo' => $solicitud->categoria_inicial_codigo ?: 'COBRE',
                 'datos_familiares_json' => $request->has('familiares') ? json_encode($request->familiares) : null,
                 'afiliaciones_externas_json' => $request->has('afiliaciones') ? json_encode($request->afiliaciones) : null,
                 'vehiculos_json' => $request->has('vehiculos') ? json_encode($request->vehiculos) : null,
-                'observaciones_validacion' => $request->observaciones,
+                'ine_frente_path' => $ineFrentePath,
+                'ine_reverso_path' => $ineReversoPath,
+                'comprobante_domicilio_path' => $comprobanteDomicilioPath,
+                'reporte_buro_path' => $reporteBuroPath,
+                'enviada_en' => now(),
             ]);
+
+            $clienteNombre = trim(implode(' ', array_filter([
+                $solicitud->persona?->primer_nombre,
+                $solicitud->persona?->apellido_paterno,
+                $solicitud->persona?->apellido_materno,
+            ])));
+
+            if ($solicitud->sucursal_id) {
+                DB::afterCommit(function () use ($solicitud, $clienteNombre) {
+                    event(new SolicitudPendienteVerificacion(
+                        (int) $solicitud->sucursal_id,
+                        (int) $solicitud->id,
+                        $clienteNombre !== '' ? $clienteNombre : 'Cliente'
+                    ));
+                });
+            }
 
             DB::commit();
 
-            return redirect()->route('coordinador.solicitudes.show', $solicitud->id)
-                ->with('success', 'Solicitud actualizada correctamente');
+            return redirect()->route('coordinador.solicitudes.index')
+                ->with('success', 'Solicitud actualizada y reenviada a verificación correctamente');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error al actualizar solicitud: ' . $e->getMessage());
@@ -344,11 +397,7 @@ class SolicitudController extends Controller
                 ->with('error', 'No se puede editar una solicitud en proceso de verificación');
         }
 
-        $sucursal = $this->obtenerSucursalActivaCoordinador($usuario);
-
-        // Preparar datos para el formulario
         $formData = [
-            // Datos personales
             'primer_nombre' => $solicitud->persona->primer_nombre,
             'segundo_nombre' => $solicitud->persona->segundo_nombre,
             'apellido_paterno' => $solicitud->persona->apellido_paterno,
@@ -360,9 +409,8 @@ class SolicitudController extends Controller
             'telefono_personal' => $solicitud->persona->telefono_personal,
             'telefono_celular' => $solicitud->persona->telefono_celular,
             'correo_electronico' => $solicitud->persona->correo_electronico,
-            'limite_credito_solicitado' => $solicitud->limite_credito_solicitado,
+            'limite_credito_solicitado' => 0,
 
-            // Domicilio
             'calle' => $solicitud->persona->calle,
             'numero_exterior' => $solicitud->persona->numero_exterior,
             'numero_interior' => $solicitud->persona->numero_interior,
@@ -373,17 +421,13 @@ class SolicitudController extends Controller
             'latitud' => $solicitud->persona->latitud,
             'longitud' => $solicitud->persona->longitud,
 
-            // Datos familiares
             'familiares' => $solicitud->datos_familiares_json,
-
-            // Referencias laborales
             'afiliaciones' => $solicitud->afiliaciones_externas_json,
-
-            // Vehículos
             'vehiculos' => $solicitud->vehiculos_json,
-
-            // Observaciones
-            'observaciones' => $solicitud->observaciones_validacion,
+            'ine_frente_path' => $solicitud->ine_frente_path,
+            'ine_reverso_path' => $solicitud->ine_reverso_path,
+            'comprobante_domicilio_path' => $solicitud->comprobante_domicilio_path,
+            'reporte_buro_path' => $solicitud->reporte_buro_path,
         ];
 
         return Inertia::render('Coordinador/Solicitudes/Create', [
@@ -421,7 +465,6 @@ class SolicitudController extends Controller
                 return back()->withErrors(['error' => 'La solicitud ya fue enviada a verificación']);
             }
 
-            // Validar que tenga todos los campos obligatorios
             if (!$this->validarCamposObligatorios($solicitud)) {
                 DB::rollBack();
                 return back()->withErrors(['error' => 'Faltan campos obligatorios por llenar']);
@@ -467,7 +510,6 @@ class SolicitudController extends Controller
     {
         $persona = $solicitud->persona;
 
-        // Campos obligatorios
         $required = [
             $persona->curp,
             $persona->rfc,
@@ -476,7 +518,11 @@ class SolicitudController extends Controller
             $persona->telefono_celular,
             $persona->calle,
             $persona->colonia,
-            $persona->codigo_postal
+            $persona->codigo_postal,
+            $solicitud->ine_frente_path,
+            $solicitud->ine_reverso_path,
+            $solicitud->comprobante_domicilio_path,
+            $solicitud->reporte_buro_path,
         ];
 
         foreach ($required as $field) {
@@ -507,5 +553,34 @@ class SolicitudController extends Controller
 
         // Fallback para entornos donde el usuario tiene rol pero sin sucursal_id en pivote.
         return Sucursal::where('activo', true)->orderBy('id')->first();
+    }
+
+    private function generarUrlEvidencia(?string $ruta): ?string
+    {
+        if (!$ruta) {
+            return null;
+        }
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('spaces');
+        $expiraEnMinutos = (int) config('filesystems.disks.spaces.signed_url_ttl', 15);
+
+        try {
+            return $disk->temporaryUrl($ruta, now()->addMinutes($expiraEnMinutos));
+        } catch (\Throwable $e) {
+            return $disk->url($ruta);
+        }
+    }
+
+    private function subirDocumentoSolicitud(?UploadedFile $archivo, string $tipo): ?string
+    {
+        if (!$archivo) {
+            return null;
+        }
+
+        $extension = strtolower((string) $archivo->getClientOriginalExtension());
+        $nombre = sprintf('%s_%s.%s', $tipo, now()->format('YmdHisv'), $extension ?: 'bin');
+
+        return $archivo->storeAs('solicitudes/documentos/' . $tipo, $nombre, 'spaces');
     }
 }

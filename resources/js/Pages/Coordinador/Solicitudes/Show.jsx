@@ -25,9 +25,9 @@ export default function Show({ solicitud, edit_url }) {
 
     const estadoConfig = {
         'PRE': { label: 'Borrador', color: 'bg-gray-100 text-gray-800', icon: faFileLines },
-        'EN_REVISION': { label: 'En Revisión', color: 'bg-yellow-100 text-yellow-800', icon: faMagnifyingGlass },
+        'EN_REVISION': { label: 'En Verificación', color: 'bg-yellow-100 text-yellow-800', icon: faMagnifyingGlass },
         'VERIFICADA': { label: 'Verificada', color: 'bg-blue-100 text-blue-800', icon: faCircleCheck },
-        'APROBADA': { label: 'Aprobada', color: 'bg-green-100 text-green-800', icon: faTrophy },
+        'APROBADA': { label: 'Activa', color: 'bg-green-100 text-green-800', icon: faTrophy },
         'RECHAZADA': { label: 'Rechazada', color: 'bg-red-100 text-red-800', icon: faCircleXmark },
         'POSIBLE_DISTRIBUIDORA': { label: 'Posible Distribuidora', color: 'bg-purple-100 text-purple-800', icon: faStore }
     };
@@ -114,10 +114,10 @@ export default function Show({ solicitud, edit_url }) {
                     <FontAwesomeIcon icon={estadoInfo.icon} className="text-xl" />
                     <span className="font-medium">Estado: {estadoInfo.label}</span>
                 </div>
-                {solicitud.observaciones_validacion && solicitud.estado === 'RECHAZADA' && (
+                {solicitud.verificacion?.observaciones && solicitud.estado === 'RECHAZADA' && (
                     <div className="p-2 mt-2 bg-red-100 rounded">
                         <p className="text-sm font-medium text-red-800">Motivo del rechazo:</p>
-                        <p className="text-sm text-red-700">{solicitud.observaciones_validacion}</p>
+                        <p className="text-sm text-red-700">{solicitud.verificacion.observaciones}</p>
                     </div>
                 )}
             </div>
@@ -152,6 +152,51 @@ export default function Show({ solicitud, edit_url }) {
                     </div>
                 </div>
             )}
+
+            <div className="p-4 mb-4 bg-white border border-gray-200 shadow-sm rounded-xl">
+                <h2 className="flex items-center gap-2 mb-3 text-lg font-semibold text-gray-900">
+                    <FontAwesomeIcon icon={faClipboard} className="text-gray-700" />
+                    Documentos de Pre-solicitud
+                </h2>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {[
+                        { label: 'INE frente', url: solicitud.ine_frente_url },
+                        { label: 'INE reverso', url: solicitud.ine_reverso_url },
+                        { label: 'Comprobante de domicilio', url: solicitud.comprobante_domicilio_url },
+                        { label: 'Reporte de buró', url: solicitud.reporte_buro_url },
+                    ].map((doc) => {
+                        const esPdf = (doc.url || '').toLowerCase().includes('.pdf');
+
+                        return (
+                            <div key={doc.label} className="overflow-hidden border border-gray-200 rounded-lg">
+                                <div className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50">
+                                    {doc.label}
+                                </div>
+
+                                {!doc.url && (
+                                    <div className="flex items-center justify-center h-48 text-sm text-gray-400">
+                                        Sin documento cargado
+                                    </div>
+                                )}
+
+                                {doc.url && esPdf && (
+                                    <div className="flex items-center justify-center h-48">
+                                        <a href={doc.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800">
+                                            Abrir PDF
+                                        </a>
+                                    </div>
+                                )}
+
+                                {doc.url && !esPdf && (
+                                    <a href={doc.url} target="_blank" rel="noreferrer">
+                                        <img src={doc.url} alt={doc.label} className="object-cover w-full h-48" />
+                                    </a>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
 
             {/* Datos Personales */}
             <div className="p-4 mb-4 bg-white rounded-lg shadow">

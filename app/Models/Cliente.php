@@ -52,8 +52,7 @@ class Cliente extends Model
                 'observaciones_parentesco',
                 'vinculado_en',
                 'desvinculado_en'
-            )
-            ->withTimestamps();
+            );
     }
 
     public function vales(): HasMany

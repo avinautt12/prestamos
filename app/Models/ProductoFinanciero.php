@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProductoFinanciero extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'productos_financieros';
 
     public $timestamps = false;

@@ -11,9 +11,9 @@ export default function Index({ solicitudes, filters }) {
     // Estados y sus colores
     const estadoConfig = {
         'PRE': { label: 'Borrador', color: 'bg-gray-100 text-gray-800' },
-        'EN_REVISION': { label: 'En Revisión', color: 'bg-yellow-100 text-yellow-800' },
+        'EN_REVISION': { label: 'En Verificación', color: 'bg-yellow-100 text-yellow-800' },
         'VERIFICADA': { label: 'Verificada', color: 'bg-blue-100 text-blue-800' },
-        'APROBADA': { label: 'Aprobada', color: 'bg-green-100 text-green-800' },
+        'APROBADA': { label: 'Activa', color: 'bg-green-100 text-green-800' },
         'RECHAZADA': { label: 'Rechazada', color: 'bg-red-100 text-red-800' },
         'POSIBLE_DISTRIBUIDORA': { label: 'Posible Distribuidora', color: 'bg-purple-100 text-purple-800' }
     };
@@ -79,9 +79,9 @@ export default function Index({ solicitudes, filters }) {
                         >
                             <option value="">Todos</option>
                             <option value="PRE">Borrador</option>
-                            <option value="EN_REVISION">En Revisión</option>
+                            <option value="EN_REVISION">En Verificación</option>
                             <option value="VERIFICADA">Verificada</option>
-                            <option value="APROBADA">Aprobada</option>
+                            <option value="APROBADA">Activa</option>
                             <option value="RECHAZADA">Rechazada</option>
                         </select>
                     </div>
@@ -152,9 +152,9 @@ export default function Index({ solicitudes, filters }) {
                                     </div>
                                 </div>
 
-                                {solicitud.observaciones_validacion && (
+                                {solicitud.verificacion?.observaciones && (
                                     <div className="p-2 mt-2 text-xs text-gray-600 rounded bg-gray-50">
-                                        <span className="font-medium">Observaciones:</span> {solicitud.observaciones_validacion}
+                                        <span className="font-medium">Observaciones:</span> {solicitud.verificacion.observaciones}
                                     </div>
                                 )}
                             </Link>

@@ -16,10 +16,17 @@ import {
     faBriefcase,
 } from '@fortawesome/free-solid-svg-icons';
 
-export default function Show({ solicitud, categorias }) {
+export default function Show({ solicitud, categorias, configuracionSucursal }) {
+    const limiteSugerido = solicitud.limite_credito_solicitado
+        ? Number(solicitud.limite_credito_solicitado)
+        : Number(configuracionSucursal?.linea_credito_default || 0) > 0
+            ? Number(configuracionSucursal?.linea_credito_default)
+            : '';
+
     const aprobarForm = useForm({
-        limite_credito: solicitud.limite_credito_solicitado || '',
+        limite_credito: limiteSugerido,
         categoria_id: '',
+        resultado_buro: '',
     });
 
     const rechazarForm = useForm({
@@ -212,6 +219,24 @@ export default function Show({ solicitud, categorias }) {
                                 {aprobarForm.errors.limite_credito && <p className="text-xs text-red-600 mt-1">{aprobarForm.errors.limite_credito}</p>}
                             </div>
 
+                            {/* CAMPO 2: Buró de Crédito */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Resultado Buró de Crédito <span className="text-red-600">*</span></label>
+                                <select
+                                    value={aprobarForm.data.resultado_buro}
+                                    onChange={(event) => aprobarForm.setData('resultado_buro', event.target.value)}
+                                    className="fin-input mt-1"
+                                >
+                                    <option value="">Selecciona el dictamen</option>
+                                    <option value="Apto / Excelente historial">Apto / Excelente historial</option>
+                                    <option value="Apto / Buen historial">Apto / Buen historial</option>
+                                    <option value="Apto / Sin historial previo">Apto / Sin historial previo</option>
+                                    <option value="Riesgo Medio / Aprobado por excepción">Riesgo Medio / Aprobado por excepción</option>
+                                </select>
+                                {aprobarForm.errors.resultado_buro && <p className="text-xs text-red-600 mt-1">{aprobarForm.errors.resultado_buro}</p>}
+                            </div>
+
+                            {/* CAMPO 3: Categoría */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Categoría <span className="text-red-600">*</span></label>
                                 <select
@@ -230,6 +255,7 @@ export default function Show({ solicitud, categorias }) {
                             </div>
 
                             {aprobarForm.errors.general && <p className="text-xs text-red-600">{aprobarForm.errors.general}</p>}
+                            {aprobarForm.errors.security && <p className="text-xs text-red-600">{aprobarForm.errors.security}</p>}
 
                             <button type="submit" disabled={aprobarForm.processing} className="fin-btn-primary w-full">
                                 {aprobarForm.processing ? 'Aprobando...' : 'Aprobar solicitud'}
@@ -254,6 +280,7 @@ export default function Show({ solicitud, categorias }) {
                                     className="fin-input mt-1"
                                 />
                                 {rechazarForm.errors.motivo_rechazo && <p className="text-xs text-red-600 mt-1">{rechazarForm.errors.motivo_rechazo}</p>}
+                                {rechazarForm.errors.security && <p className="text-xs text-red-600 mt-1">{rechazarForm.errors.security}</p>}
                             </div>
 
                             <button type="submit" disabled={rechazarForm.processing} className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 font-medium rounded-lg text-white bg-red-600 hover:bg-red-700">

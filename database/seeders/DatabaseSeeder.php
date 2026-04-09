@@ -20,6 +20,9 @@ class DatabaseSeeder extends Seeder
             DistribuidoraPruebaSeeder::class,
             ClientesPruebaSeeder::class,
             SolicitudesPruebaSeeder::class,
+            DatosPruebaAmpliosSeeder::class,
+            PrevalesCajeraSeeder::class,
+            ConciliacionesCajeraSeeder::class,
         ]);
     }
 }
