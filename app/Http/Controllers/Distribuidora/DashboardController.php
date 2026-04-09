@@ -186,7 +186,9 @@ class DashboardController extends Controller
             ->map(fn (Vale $vale) => $this->transformarVale($vale))
             ->values();
 
-        $valeSeleccionado = $vales->firstWhere('id', (int) $filtros['seleccionado']) ?: $vales->first();
+        $valeSeleccionado = $filtros['seleccionado']
+            ? $vales->firstWhere('id', (int) $filtros['seleccionado'])
+            : null;
 
         $clientesOpciones = DB::table('clientes_distribuidora as cd')
             ->join('clientes as c', 'c.id', '=', 'cd.cliente_id')
@@ -227,6 +229,7 @@ class DashboardController extends Controller
             'opciones' => [
                 'estados' => [
                     'TODOS',
+                    Vale::ESTADO_BORRADOR,
                     Vale::ESTADO_ACTIVO,
                     Vale::ESTADO_PAGO_PARCIAL,
                     Vale::ESTADO_MOROSO,
@@ -483,6 +486,37 @@ class DashboardController extends Controller
                 : 'Ocurrió un error al crear el pre vale. Intenta de nuevo.';
             return back()->withErrors(['general' => $mensaje]);
         }
+    }
+
+    public function cancelarVale(int $valeId): RedirectResponse
+    {
+        $distribuidora = $this->obtenerDistribuidoraActual();
+
+        if (!$distribuidora) {
+            return back()->withErrors(['general' => 'No se encontró una distribuidora ligada a tu acceso.']);
+        }
+
+        $vale = Vale::where('id', $valeId)
+            ->where('distribuidora_id', $distribuidora->id)
+            ->first();
+
+        if (!$vale) {
+            return back()->withErrors(['general' => 'El vale no fue encontrado o no pertenece a tu distribuidora.']);
+        }
+
+        if ($vale->estado !== Vale::ESTADO_BORRADOR) {
+            return back()->withErrors(['general' => 'Solo puedes cancelar vales en estado borrador.']);
+        }
+
+        $vale->update([
+            'estado'       => Vale::ESTADO_CANCELADO,
+            'cancelado'    => true,
+            'cancelado_en' => now(),
+        ]);
+
+        return redirect()
+            ->route('distribuidora.vales')
+            ->with('success', "Vale {$vale->numero_vale} cancelado exitosamente.");
     }
 
     private function generarCodigoCliente(): string

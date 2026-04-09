@@ -459,6 +459,7 @@ export default function Create({
                                                 <input
                                                     type="file"
                                                     accept="image/*"
+                                                    capture="environment"
                                                     onChange={(e) => actualizarCampo('foto_ine_frente', e.target.files[0] || null)}
                                                     className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                                                 />
@@ -470,6 +471,7 @@ export default function Create({
                                                 <input
                                                     type="file"
                                                     accept="image/*"
+                                                    capture="environment"
                                                     onChange={(e) => actualizarCampo('foto_ine_reverso', e.target.files[0] || null)}
                                                     className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                                                 />
@@ -481,6 +483,7 @@ export default function Create({
                                                 <input
                                                     type="file"
                                                     accept="image/*"
+                                                    capture="user"
                                                     onChange={(e) => actualizarCampo('foto_selfie_ine', e.target.files[0] || null)}
                                                     className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                                                 />

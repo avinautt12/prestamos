@@ -134,11 +134,10 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                                         <span className="fin-badge fin-badge-pending">REVISAR ANTES DEL PRE VALE</span>
                                                     )}
                                                 </div>
-                                                <p className="mt-1 text-sm text-gray-500">{cliente.codigo_cliente || 'Sin código de cliente'}</p>
                                             </div>
                                             <div className="flex flex-wrap gap-2">
-                                                <span className={statusBadgeClass(cliente.estado_relacion)}>{cliente.estado_relacion}</span>
-                                                <span className={statusBadgeClass(cliente.estado_cliente)}>{cliente.estado_cliente}</span>
+                                                <span className={statusBadgeClass(cliente.estado_relacion)}>Relación: {cliente.estado_relacion}</span>
+                                                <span className={statusBadgeClass(cliente.estado_cliente)}>Cliente: {cliente.estado_cliente}</span>
                                             </div>
                                         </div>
 
@@ -180,14 +179,16 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                                 href={route('distribuidora.vales', { cliente_id: cliente.id })}
                                                 className="fin-btn-secondary"
                                             >
-                                                Ver vales del cliente
+                                                Ver vales
                                             </Link>
-                                            <Link
-                                                href={route('distribuidora.vales.create', { cliente_id: cliente.id })}
-                                                className={cliente.puede_solicitar_vale ? 'fin-btn-primary' : 'fin-btn-secondary'}
-                                            >
-                                                Pre vale
-                                            </Link>
+                                            {cliente.puede_solicitar_vale && (
+                                                <Link
+                                                    href={route('distribuidora.vales.create')}
+                                                    className="fin-btn-primary"
+                                                >
+                                                    Pre vale
+                                                </Link>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

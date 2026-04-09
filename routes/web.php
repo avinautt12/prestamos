@@ -96,6 +96,7 @@ Route::middleware(['auth', 'role:DISTRIBUIDORA'])->prefix('distribuidora')->name
     Route::get('/vales', [App\Http\Controllers\Distribuidora\DashboardController::class, 'vales'])->name('vales');
     Route::get('/vales/crear', [App\Http\Controllers\Distribuidora\DashboardController::class, 'crearVale'])->name('vales.create');
     Route::post('/vales/crear', [App\Http\Controllers\Distribuidora\DashboardController::class, 'guardarPreVale'])->name('vales.store');
+    Route::post('/vales/{vale}/cancelar', [App\Http\Controllers\Distribuidora\DashboardController::class, 'cancelarVale'])->name('vales.cancelar');
     Route::get('/puntos', [App\Http\Controllers\Distribuidora\DashboardController::class, 'puntos'])->name('puntos');
     Route::get('/clientes', [App\Http\Controllers\Distribuidora\DashboardController::class, 'misClientes'])->name('clientes');
     Route::get('/estado-cuenta', [App\Http\Controllers\Distribuidora\DashboardController::class, 'estadoCuenta'])->name('estado-cuenta');
