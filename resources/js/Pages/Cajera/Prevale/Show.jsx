@@ -13,7 +13,7 @@ import {
     faBuildingColumns
 } from '@fortawesome/free-solid-svg-icons';
 
-export default function ShowPrevale({ vale }) {
+export default function Show({ vale }) {
     // 1. EXTRACCIÓN DE DATOS
     const cp = vale.cliente?.persona || {}; // Cliente Persona
     const dp = vale.distribuidora?.persona || {}; // Distribuidora Persona
@@ -253,7 +253,7 @@ export default function ShowPrevale({ vale }) {
                                 <p className="text-xs text-gray-500 mb-2 font-bold uppercase text-center">INE Frente</p>
                                 <div className="h-48 flex items-center justify-center bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 overflow-hidden">
                                     {cliente.foto_ine_frente ? (
-                                        <img src={`/storage/${cliente.foto_ine_frente}`} alt="INE Frente" className="w-full h-full object-cover" />
+                                        <img src={cliente.ine_frente_url} alt="INE Frente" className="w-full h-full object-cover" />
                                     ) : (
                                         <span className="text-sm font-medium text-gray-400">Sin Imagen</span>
                                     )}
@@ -263,7 +263,7 @@ export default function ShowPrevale({ vale }) {
                                 <p className="text-xs text-gray-500 mb-2 font-bold uppercase text-center">INE Reverso</p>
                                 <div className="h-48 flex items-center justify-center bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 overflow-hidden">
                                     {cliente.foto_ine_reverso ? (
-                                        <img src={`/storage/${cliente.foto_ine_reverso}`} alt="INE Reverso" className="w-full h-full object-cover" />
+                                        <img src={cliente.ine_reverso_url} alt="INE Reverso" className="w-full h-full object-cover" />
                                     ) : (
                                         <span className="text-sm font-medium text-gray-400">Sin Imagen</span>
                                     )}
@@ -273,7 +273,7 @@ export default function ShowPrevale({ vale }) {
                                 <p className="text-xs text-blue-600 mb-2 font-bold uppercase text-center">Prueba de Vida (Selfie)</p>
                                 <div className="h-48 flex items-center justify-center bg-blue-50 rounded-xl border-2 border-dashed border-blue-300 overflow-hidden">
                                     {cliente.foto_selfie_ine ? (
-                                        <img src={`/storage/${cliente.foto_selfie_ine}`} alt="Selfie" className="w-full h-full object-cover" />
+                                        <img src={cliente.selfie_url} alt="Selfie" className="w-full h-full object-cover" />
                                     ) : (
                                         <span className="text-sm font-medium text-blue-400">Sin Selfie</span>
                                     )}

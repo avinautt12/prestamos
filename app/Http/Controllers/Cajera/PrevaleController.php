@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage; // <-- IMPORTANTE: Librería para Digital Ocean
 use Inertia\Inertia;
 use App\Models\Vale;
 use App\Models\Cliente; 
@@ -38,6 +39,21 @@ class PrevaleController extends Controller
             'productoFinanciero'
         ])->findOrFail($id);
         
+        $cliente = $vale->cliente;
+        if ($cliente) {
+            $cliente->ine_frente_url = $cliente->foto_ine_frente 
+                ? Storage::disk('spaces')->url($cliente->foto_ine_frente) 
+                : null;
+                
+            $cliente->ine_reverso_url = $cliente->foto_ine_reverso 
+                ? Storage::disk('spaces')->url($cliente->foto_ine_reverso) 
+                : null;
+                
+            $cliente->selfie_url = $cliente->foto_selfie_ine 
+                ? Storage::disk('spaces')->url($cliente->foto_selfie_ine) 
+                : null;
+        }
+
         return Inertia::render('Cajera/Prevale/Show', [
             'vale' => $vale
         ]);
@@ -48,11 +64,10 @@ class PrevaleController extends Controller
         // Candados estrictos ampliados: Anti-fraude y PLD
         $request->validate([
             'check_identidad' => 'accepted',
-            'check_direccion' => 'accepted',
+            'check_domicilio' => 'accepted',
             'check_parentesco' => 'accepted',
-            'check_selfie' => 'accepted', 
-            'check_vigencia' => 'accepted', 
-            'check_titular_cuenta' => 'accepted', 
+            'check_biometria' => 'accepted', // Ajustado al nombre real en tu frontend
+            'check_pld' => 'accepted',       // Ajustado al nombre real en tu frontend
         ], [
             'accepted' => 'Debes confirmar esta verificación para continuar.'
         ]);
@@ -82,7 +97,7 @@ class PrevaleController extends Controller
             // 2. Activar Vale (De BORRADOR a ACTIVO)
             $vale->estado = Vale::ESTADO_ACTIVO;
             $vale->aprobado_por_usuario_id = Auth::id(); 
-            $vale->notas = "Verificación completa (Identidad, Dirección, Parentesco, Prueba de Vida, Vigencia y Titularidad) realizada por la Cajera.";
+            $vale->notas = "Verificación completa (Identidad, Dirección, Parentesco, Prueba de Vida y PLD) realizada por la Cajera.";
             $vale->save();
 
             // 3. Activar Cliente (De EN_VERIFICACION a ACTIVO)
@@ -132,15 +147,13 @@ class PrevaleController extends Controller
             }
 
             // 1. Rechazar Vale (De BORRADOR a RECHAZADO / CANCELADO)
-            // Asegúrate de que el modelo Vale tenga esta constante, usualmente es CANCELADO si no declaraste RECHAZADO explícitamente en tu enum de la BD. 
-            // Si la BD dice 'CANCELADO', usamos esa. Si agregaste 'RECHAZADO' a tu migración, cambialo aquí.
             $vale->estado = Vale::ESTADO_CANCELADO; 
             $vale->notas = "RECHAZADO POR CAJERA: " . $motivo;
             $vale->cancelado_en = now();
             $vale->save();
 
             // 2. Bloquear Cliente
-            $cliente->estado = Cliente::ESTADO_BLOQUEADO; // Marcamos como bloqueado por fraude o problemas en prevale
+            $cliente->estado = Cliente::ESTADO_BLOQUEADO; 
             $cliente->notas = "Rechazado en etapa de prevale: " . $motivo;
             $cliente->save();
 
