@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             UsuarioTestSeeder::class,
             DistribuidoraPruebaSeeder::class,
             ClientesPruebaSeeder::class,
+            RelacionCortePruebaSeeder::class,
             SolicitudesPruebaSeeder::class,
             DatosPruebaAmpliosSeeder::class,
             PrevalesCajeraSeeder::class,

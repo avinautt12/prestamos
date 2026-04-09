@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Distribuidora;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Distribuidora\StorePreValeRequest;
 use App\Models\Cliente;
+use App\Models\CuentaBancaria;
 use App\Models\Distribuidora;
 use App\Models\MovimientoPunto;
 use App\Models\PagoDistribuidora;
@@ -847,6 +848,15 @@ class DashboardController extends Controller
             'relaciones' => $relacionesTransformadas,
             'relacionSeleccionada' => $relacionSeleccionada,
             'pagos' => $pagos,
+            'cuentasEmpresa' => CuentaBancaria::where('tipo_propietario', CuentaBancaria::TIPO_EMPRESA)
+                ->orderByDesc('es_principal')
+                ->get(['banco', 'nombre_titular', 'clabe', 'convenio'])
+                ->map(fn ($c) => [
+                    'banco' => $c->banco,
+                    'titular' => $c->nombre_titular,
+                    'clabe' => $c->clabe,
+                    'convenio' => $c->convenio,
+                ])->values(),
         ]);
     }
 
@@ -1197,9 +1207,12 @@ class DashboardController extends Controller
             'fecha_limite_pago' => optional($relacion->fecha_limite_pago)->toDateString(),
             'fecha_inicio_pago_anticipado' => optional($relacion->fecha_inicio_pago_anticipado)->toDateString(),
             'fecha_fin_pago_anticipado' => optional($relacion->fecha_fin_pago_anticipado)->toDateString(),
+            'total_comision' => (float) $relacion->total_comision,
             'total_a_pagar' => (float) $relacion->total_a_pagar,
             'total_pago' => (float) $relacion->total_pago,
             'total_recargos' => (float) $relacion->total_recargos,
+            'limite_credito_snapshot' => (float) $relacion->limite_credito_snapshot,
+            'credito_disponible_snapshot' => (float) $relacion->credito_disponible_snapshot,
             'puntos_snapshot' => (float) $relacion->puntos_snapshot,
             'estado' => $relacion->estado,
             'generada_en' => optional($relacion->generada_en)->toDateTimeString(),
@@ -1215,6 +1228,7 @@ class DashboardController extends Controller
                         'nombre_producto_snapshot' => $partida->nombre_producto_snapshot,
                         'pagos_realizados' => (int) $partida->pagos_realizados,
                         'pagos_totales' => (int) $partida->pagos_totales,
+                        'monto_comision' => (float) $partida->monto_comision,
                         'monto_pago' => (float) $partida->monto_pago,
                         'monto_recargo' => (float) $partida->monto_recargo,
                         'monto_total_linea' => (float) $partida->monto_total_linea,
