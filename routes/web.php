@@ -69,6 +69,7 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
 Route::middleware(['auth', 'role:COORDINADOR'])->prefix('coordinador')->name('coordinador.')->group(function () {
     // Dashboard
     Route::get('/dashboard', [App\Http\Controllers\Coordinador\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/reportes', [App\Http\Controllers\Coordinador\DashboardController::class, 'reportes'])->name('reportes');
 
     // Gestión de clientes y distribuidoras
     Route::get('/clientes', [App\Http\Controllers\Coordinador\DashboardController::class, 'clientes'])->name('clientes');

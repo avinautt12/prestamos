@@ -8,6 +8,7 @@ import {
     faRightFromBracket,
     faXmark,
     faHouse,
+    faChartLine,
     faFileLines,
     faFileCirclePlus,
     faUsers,
@@ -102,12 +103,14 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
     if (auth.user?.rol_nombre === 'coordinador') {
         navigation = [
             { name: 'Dashboard', href: route('coordinador.dashboard'), icon: faHouse, active: route().current('coordinador.dashboard') },
+            { name: 'Reportes', href: route('coordinador.reportes'), icon: faChartLine, active: route().current('coordinador.reportes') },
             { name: 'Nueva Solicitud', href: route('coordinador.solicitudes.create'), icon: faFileCirclePlus, active: route().current('coordinador.solicitudes.create') },
             { name: 'Solicitudes', href: route('coordinador.solicitudes.index'), icon: faFileLines, active: route().current('coordinador.solicitudes.*') },
             { name: 'Clientes', href: route('coordinador.clientes'), icon: faUsers, active: route().current('coordinador.clientes') },
             { name: 'Mis Distribuidoras', href: route('coordinador.mis-distribuidoras'), icon: faPeopleGroup, active: route().current('coordinador.mis-distribuidoras') }
         ];
         shortcuts = [
+            { name: 'Reportes', href: route('coordinador.reportes') },
             { name: 'Captura Rápida', href: route('coordinador.solicitudes.create') },
             { name: 'Ver Cartera', href: route('coordinador.clientes') },
         ];
