@@ -30,9 +30,9 @@ class ProductoFinanciero extends Model
 
     protected $casts = [
         'monto_principal' => 'decimal:2',
-        'porcentaje_comision_empresa' => 'decimal:4',
+        'porcentaje_comision_empresa' => 'float',
         'monto_seguro' => 'decimal:2',
-        'porcentaje_interes_quincenal' => 'decimal:4',
+        'porcentaje_interes_quincenal' => 'float',
         'monto_multa_tardia' => 'decimal:2',
         'activo' => 'boolean',
         'creado_en' => 'datetime',

@@ -12,6 +12,7 @@ use Illuminate\Filesystem\FilesystemAdapter;
 use Inertia\Inertia;
 use App\Models\Vale;
 use App\Models\Cliente;
+use App\Models\EgresoEmpresaSimulado;
 use App\Services\Distribuidora\DistribuidoraNotificationService;
 
 class PrevaleController extends Controller
@@ -84,6 +85,8 @@ class PrevaleController extends Controller
             $vale          = Vale::findOrFail($id);
             $distribuidora = $vale->distribuidora;
             $cliente       = $vale->cliente;
+            $fechaTransferencia = now();
+            $referenciaTransferencia = 'INT-' . $vale->numero_vale . '-' . $fechaTransferencia->format('YmdHis');
 
             if (!$distribuidora || !$cliente) {
                 throw new \Exception('Faltan relaciones del vale.');
@@ -103,10 +106,12 @@ class PrevaleController extends Controller
 
             // 2. Vale: BORRADOR -> ACTIVO
             DB::table('vales')->where('id', $id)->update([
-                'estado'                  => Vale::ESTADO_ACTIVO,
-                'aprobado_por_usuario_id' => Auth::user()->id,
-                'fecha_emision'           => now(),
-                'actualizado_en'          => now(),
+                'estado'                   => Vale::ESTADO_ACTIVO,
+                'aprobado_por_usuario_id'  => Auth::user()->id,
+                'fecha_emision'            => now(),
+                'fecha_transferencia'      => $fechaTransferencia,
+                'referencia_transferencia' => $referenciaTransferencia,
+                'actualizado_en'           => now(),
             ]);
 
             // 3. Cliente: EN_VERIFICACION -> ACTIVO
@@ -127,17 +132,32 @@ class PrevaleController extends Controller
                 ]
             );
 
+            EgresoEmpresaSimulado::updateOrCreate(
+                ['vale_id' => $vale->id],
+                [
+                    'distribuidora_id' => $distribuidora->id,
+                    'cliente_id' => $cliente->id,
+                    'ejecutado_por_usuario_id' => Auth::id(),
+                    'origen' => 'VALE_FERIADO',
+                    'referencia_interna' => $referenciaTransferencia,
+                    'monto' => $montoPrestamo,
+                    'fecha_operacion' => $fechaTransferencia,
+                    'notas' => 'Desembolso interno simulado al feriar el vale.',
+                ]
+            );
+
             DB::commit();
 
-            DB::afterCommit(function () use ($distribuidora, $vale) {
+            DB::afterCommit(function () use ($distribuidora, $vale, $referenciaTransferencia) {
                 $this->distribuidoraNotificationService->notificar(
                     $distribuidora,
                     'VALE_FERIADO',
                     'Tu vale fue feriado',
-                    "El vale {$vale->numero_vale} ya fue transferido y activado.",
+                    "El vale {$vale->numero_vale} ya fue dispersado internamente y activado.",
                     [
                         'vale_id' => (int) $vale->id,
                         'numero_vale' => (string) $vale->numero_vale,
+                        'referencia_transferencia' => $referenciaTransferencia,
                     ]
                 );
             });

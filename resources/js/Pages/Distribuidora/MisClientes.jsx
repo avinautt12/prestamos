@@ -174,10 +174,10 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                     <div className="p-4 space-y-4">
                                         <div className="flex items-start gap-3">
                                             <div className={`flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold ${cliente.puede_solicitar_vale
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : cliente.bloqueado_por_parentesco
-                                                        ? 'bg-red-100 text-red-700'
-                                                        : 'bg-gray-100 text-gray-600'
+                                                ? 'bg-green-100 text-green-700'
+                                                : cliente.bloqueado_por_parentesco
+                                                    ? 'bg-red-100 text-red-700'
+                                                    : 'bg-gray-100 text-gray-600'
                                                 }`}>
                                                 {iniciales(cliente.nombre)}
                                             </div>

@@ -52,6 +52,11 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
     Route::put('/configuraciones/categorias/{categoria}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarCategoria'])->name('configuraciones.categorias.activar');
     Route::delete('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarCategoria'])->name('configuraciones.categorias.delete');
     Route::put('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarProducto'])->name('configuraciones.productos.update');
+    Route::post('/configuraciones/productos', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearProducto'])->name('configuraciones.productos.store');
+    Route::put('/configuraciones/productos/{producto}/inactivar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'inactivarProducto'])->name('configuraciones.productos.inactivar');
+    Route::put('/configuraciones/productos/{producto}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarProducto'])->name('configuraciones.productos.activar');
+    Route::post('/configuraciones/productos/{producto}/restaurar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'restaurarProducto'])->name('configuraciones.productos.restaurar');
+    Route::delete('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarProducto'])->name('configuraciones.productos.delete');
     Route::get('/distribuidoras', [App\Http\Controllers\Gerente\AprobacionController::class, 'index'])->name('distribuidoras');
     Route::get('/distribuidoras/rechazadas', [App\Http\Controllers\Gerente\AprobacionController::class, 'rechazadas'])->name('distribuidoras.rechazadas');
     Route::get('/distribuidoras/{id}', [App\Http\Controllers\Gerente\AprobacionController::class, 'show'])->name('distribuidoras.show');
