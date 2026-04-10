@@ -477,8 +477,8 @@ export default function Create({
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">INE frente *</label>
-                                                <button 
-                                                    type="button" 
+                                                <button
+                                                    type="button"
                                                     onClick={() => { setCurrentScanType('frente'); setScannerOpen(true); }}
                                                     className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_frente ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
                                                 >
@@ -489,8 +489,8 @@ export default function Create({
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">INE reverso *</label>
-                                                <button 
-                                                    type="button" 
+                                                <button
+                                                    type="button"
                                                     onClick={() => { setCurrentScanType('reverso'); setScannerOpen(true); }}
                                                     className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_reverso ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
                                                 >
@@ -501,8 +501,8 @@ export default function Create({
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Selfie con INE *</label>
-                                                <button 
-                                                    type="button" 
+                                                <button
+                                                    type="button"
                                                     onClick={() => { setCurrentScanType('selfie'); setScannerOpen(true); }}
                                                     className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_selfie_ine ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
                                                 >

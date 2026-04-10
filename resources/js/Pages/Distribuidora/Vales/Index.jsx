@@ -6,6 +6,19 @@ import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from '../utils';
 
 function ValeDetailModal({ vale, open, onClose }) {
+    const [cancelando, setCancelando] = useState(false);
+
+    const cancelarVale = () => {
+        if (!window.confirm('¿Seguro que deseas cancelar este vale? Esta acción no se puede deshacer.')) return;
+        setCancelando(true);
+        router.post(route('distribuidora.vales.cancelar', vale.id), {}, {
+            onFinish: () => {
+                setCancelando(false);
+                onClose();
+            },
+        });
+    };
+
     useEffect(() => {
         if (!open) {
             return undefined;
@@ -126,6 +139,19 @@ function ValeDetailModal({ vale, open, onClose }) {
                             {vale.notas && (
                                 <p className="mt-2 text-sm text-gray-600">Notas: {vale.notas}</p>
                             )}
+                        </div>
+                    )}
+
+                    {vale.estado === 'BORRADOR' && (
+                        <div className="flex justify-end pt-3 border-t border-gray-200">
+                            <button
+                                type="button"
+                                onClick={cancelarVale}
+                                disabled={cancelando}
+                                className="px-5 py-2 text-sm font-semibold text-white transition bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {cancelando ? 'Cancelando...' : 'Cancelar vale'}
+                            </button>
                         </div>
                     )}
                 </div>

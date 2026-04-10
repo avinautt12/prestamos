@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Distribuidora;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Distribuidora\CanjearPuntosRequest;
 use App\Http\Requests\Distribuidora\StorePreValeRequest;
 use App\Models\Cliente;
+use App\Models\CuentaBancaria;
 use App\Models\Distribuidora;
 use App\Models\MovimientoPunto;
 use App\Models\PagoDistribuidora;
@@ -186,7 +188,9 @@ class DashboardController extends Controller
             ->map(fn (Vale $vale) => $this->transformarVale($vale))
             ->values();
 
-        $valeSeleccionado = $vales->firstWhere('id', (int) $filtros['seleccionado']) ?: $vales->first();
+        $valeSeleccionado = $filtros['seleccionado']
+            ? $vales->firstWhere('id', (int) $filtros['seleccionado'])
+            : null;
 
         $clientesOpciones = DB::table('clientes_distribuidora as cd')
             ->join('clientes as c', 'c.id', '=', 'cd.cliente_id')
@@ -227,6 +231,7 @@ class DashboardController extends Controller
             'opciones' => [
                 'estados' => [
                     'TODOS',
+                    Vale::ESTADO_BORRADOR,
                     Vale::ESTADO_ACTIVO,
                     Vale::ESTADO_PAGO_PARCIAL,
                     Vale::ESTADO_MOROSO,
@@ -485,6 +490,95 @@ class DashboardController extends Controller
         }
     }
 
+    public function cancelarVale(int $valeId): RedirectResponse
+    {
+        $distribuidora = $this->obtenerDistribuidoraActual();
+
+        if (!$distribuidora) {
+            return back()->withErrors(['general' => 'No se encontró una distribuidora ligada a tu acceso.']);
+        }
+
+        $vale = Vale::where('id', $valeId)
+            ->where('distribuidora_id', $distribuidora->id)
+            ->first();
+
+        if (!$vale) {
+            return back()->withErrors(['general' => 'El vale no fue encontrado o no pertenece a tu distribuidora.']);
+        }
+
+        if ($vale->estado !== Vale::ESTADO_BORRADOR) {
+            return back()->withErrors(['general' => 'Solo puedes cancelar vales en estado borrador.']);
+        }
+
+        $vale->update([
+            'estado'       => Vale::ESTADO_CANCELADO,
+            'cancelado'    => true,
+            'cancelado_en' => now(),
+        ]);
+
+        return redirect()
+            ->route('distribuidora.vales')
+            ->with('success', "Vale {$vale->numero_vale} cancelado exitosamente.");
+    }
+
+    public function canjearPuntos(CanjearPuntosRequest $request): RedirectResponse
+    {
+        $distribuidora = $this->obtenerDistribuidoraActual();
+
+        if (!$distribuidora) {
+            return back()->withErrors(['general' => 'No se encontró una distribuidora ligada a tu acceso.']);
+        }
+
+        $puntosACanjear = (int) $request->puntos_a_canjear;
+        $puntosDisponibles = (int) $distribuidora->puntos_actuales;
+
+        if ($puntosACanjear > $puntosDisponibles) {
+            return back()->withErrors(['puntos_a_canjear' => "Solo tienes {$puntosDisponibles} puntos disponibles."]);
+        }
+
+        $relacion = RelacionCorte::where('id', $request->relacion_corte_id)
+            ->where('distribuidora_id', $distribuidora->id)
+            ->whereIn('estado', [
+                RelacionCorte::ESTADO_GENERADA,
+                RelacionCorte::ESTADO_PARCIAL,
+                RelacionCorte::ESTADO_VENCIDA,
+            ])
+            ->first();
+
+        if (!$relacion) {
+            return back()->withErrors(['relacion_corte_id' => 'La relación seleccionada no está pendiente de pago.']);
+        }
+
+        $valorPorPunto = (float) ($distribuidora->categoria?->valor_punto ?? 2);
+        $valorEnPesos = round($puntosACanjear * $valorPorPunto, 2);
+        $totalPendiente = (float) $relacion->total_a_pagar;
+
+        if ($valorEnPesos > $totalPendiente) {
+            $puntosMaximo = (int) floor($totalPendiente / $valorPorPunto);
+            return back()->withErrors(['puntos_a_canjear' => "El descuento ($" . number_format($valorEnPesos, 2) . ") supera la deuda. Máximo: {$puntosMaximo} puntos."]);
+        }
+
+        try {
+            DB::transaction(function () use ($distribuidora, $relacion, $puntosACanjear, $valorEnPesos, $valorPorPunto) {
+                MovimientoPunto::create([
+                    'distribuidora_id'     => $distribuidora->id,
+                    'corte_id'             => $relacion->corte_id,
+                    'tipo_movimiento'      => MovimientoPunto::TIPO_CANJE,
+                    'puntos'               => -$puntosACanjear,
+                    'valor_punto_snapshot' => $valorPorPunto,
+                    'motivo'               => "Canje aplicado a {$relacion->numero_relacion} (-\${$valorEnPesos})",
+                ]);
+
+                $distribuidora->decrement('puntos_actuales', $puntosACanjear);
+                $relacion->decrement('total_a_pagar', $valorEnPesos);
+            });
+
+            return back()->with('success', "Se canjearon {$puntosACanjear} puntos (-\${$valorEnPesos}) en la relación {$relacion->numero_relacion}.");
+        } catch (\Exception $e) {
+            return back()->withErrors(['general' => 'Error al canjear puntos. Intenta de nuevo.']);
+        }
+    }
+
     private function generarCodigoCliente(): string
     {
         do {
@@ -576,6 +670,23 @@ class DashboardController extends Controller
                 ],
             ],
             'movimientos' => $movimientos,
+            'relacionesPendientes' => RelacionCorte::query()
+                ->where('distribuidora_id', $distribuidora->id)
+                ->whereIn('estado', [
+                    RelacionCorte::ESTADO_GENERADA,
+                    RelacionCorte::ESTADO_PARCIAL,
+                    RelacionCorte::ESTADO_VENCIDA,
+                ])
+                ->orderBy('fecha_limite_pago')
+                ->get(['id', 'numero_relacion', 'total_a_pagar', 'fecha_limite_pago', 'estado'])
+                ->map(fn ($r) => [
+                    'id' => $r->id,
+                    'numero_relacion' => $r->numero_relacion,
+                    'total_a_pagar' => (float) $r->total_a_pagar,
+                    'fecha_limite_pago' => optional($r->fecha_limite_pago)->toDateString(),
+                    'estado' => $r->estado,
+                ])
+                ->values(),
         ]);
     }
 
@@ -813,6 +924,15 @@ class DashboardController extends Controller
             'relaciones' => $relacionesTransformadas,
             'relacionSeleccionada' => $relacionSeleccionada,
             'pagos' => $pagos,
+            'cuentasEmpresa' => CuentaBancaria::where('tipo_propietario', CuentaBancaria::TIPO_EMPRESA)
+                ->orderByDesc('es_principal')
+                ->get(['banco', 'nombre_titular', 'clabe', 'convenio'])
+                ->map(fn ($c) => [
+                    'banco' => $c->banco,
+                    'titular' => $c->nombre_titular,
+                    'clabe' => $c->clabe,
+                    'convenio' => $c->convenio,
+                ])->values(),
         ]);
     }
 
@@ -1163,9 +1283,12 @@ class DashboardController extends Controller
             'fecha_limite_pago' => optional($relacion->fecha_limite_pago)->toDateString(),
             'fecha_inicio_pago_anticipado' => optional($relacion->fecha_inicio_pago_anticipado)->toDateString(),
             'fecha_fin_pago_anticipado' => optional($relacion->fecha_fin_pago_anticipado)->toDateString(),
+            'total_comision' => (float) $relacion->total_comision,
             'total_a_pagar' => (float) $relacion->total_a_pagar,
             'total_pago' => (float) $relacion->total_pago,
             'total_recargos' => (float) $relacion->total_recargos,
+            'limite_credito_snapshot' => (float) $relacion->limite_credito_snapshot,
+            'credito_disponible_snapshot' => (float) $relacion->credito_disponible_snapshot,
             'puntos_snapshot' => (float) $relacion->puntos_snapshot,
             'estado' => $relacion->estado,
             'generada_en' => optional($relacion->generada_en)->toDateTimeString(),
@@ -1181,6 +1304,7 @@ class DashboardController extends Controller
                         'nombre_producto_snapshot' => $partida->nombre_producto_snapshot,
                         'pagos_realizados' => (int) $partida->pagos_realizados,
                         'pagos_totales' => (int) $partida->pagos_totales,
+                        'monto_comision' => (float) $partida->monto_comision,
                         'monto_pago' => (float) $partida->monto_pago,
                         'monto_recargo' => (float) $partida->monto_recargo,
                         'monto_total_linea' => (float) $partida->monto_total_linea,
