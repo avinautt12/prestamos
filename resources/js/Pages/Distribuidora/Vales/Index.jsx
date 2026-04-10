@@ -44,9 +44,9 @@ function ValeDetailModal({ vale, open, onClose }) {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 bg-black/40 sm:items-center sm:p-4" onClick={onClose}>
-            <div className="w-full max-w-3xl bg-white shadow-2xl rounded-t-3xl sm:rounded-3xl" onClick={(event) => event.stopPropagation()}>
-                <div className="flex items-start justify-between gap-4 p-5 border-b border-gray-200">
+        <div className="fin-modal-backdrop" onClick={onClose}>
+            <div className="fin-modal-sheet max-w-3xl" onClick={(event) => event.stopPropagation()}>
+                <div className="fin-modal-head">
                     <div>
                         <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Detalle del vale</p>
                         <h2 className="mt-1 text-xl font-semibold text-gray-900">{vale.numero_vale}</h2>
@@ -64,7 +64,7 @@ function ValeDetailModal({ vale, open, onClose }) {
                     </div>
                 </div>
 
-                <div className="p-5 space-y-5 overflow-y-auto max-h-[80vh]">
+                <div className="fin-modal-body space-y-5">
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                         <div className="p-3 border rounded-xl border-gray-200">
                             <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto principal</p>
@@ -143,7 +143,7 @@ function ValeDetailModal({ vale, open, onClose }) {
                     )}
 
                     {vale.estado === 'BORRADOR' && (
-                        <div className="flex justify-end pt-3 border-t border-gray-200">
+                        <div className="fin-modal-foot flex justify-end">
                             <button
                                 type="button"
                                 onClick={cancelarVale}
@@ -220,36 +220,36 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
             <Head title="Vales" />
 
             {sinConfig ? (
-                <div className="fin-card">
+                <div className="fin-card bg-white/95 backdrop-blur">
                     <p className="fin-title">No se encontró una distribuidora ligada a tu acceso</p>
                     <p className="mt-2 fin-subtitle">Cuando exista el registro operativo, aquí verás los vales emitidos para tus clientes.</p>
                 </div>
             ) : (
                 <>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-                        <div className="fin-card">
+                        <div className="fin-card border-green-100 bg-green-50/50">
                             <p className="text-sm font-medium text-gray-600">Total visibles</p>
                             <p className="fin-stat-value">{formatNumber(resumen.total)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-green-100 bg-green-50/60">
                             <p className="text-sm font-medium text-gray-600">Activos</p>
                             <p className="fin-stat-value">{formatNumber(resumen.activos)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-indigo-100 bg-indigo-50/60">
                             <p className="text-sm font-medium text-gray-600">Pago parcial</p>
                             <p className="fin-stat-value">{formatNumber(resumen.parciales)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-amber-100 bg-amber-50/60">
                             <p className="text-sm font-medium text-gray-600">Morosos</p>
                             <p className="fin-stat-value">{formatNumber(resumen.morosos)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-rose-100 bg-rose-50/60">
                             <p className="text-sm font-medium text-gray-600">Cancelados</p>
                             <p className="fin-stat-value">{formatNumber(resumen.cancelados)}</p>
                         </div>
                     </div>
 
-                    <div className="mt-6 fin-card">
+                    <div className="mt-6 fin-card bg-white/95 backdrop-blur">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div className="max-w-2xl">
                                 <h2 className="fin-title">Listado de vales</h2>
@@ -305,18 +305,19 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
                         </form>
                     </div>
 
-                    <div className="mt-6 space-y-3">
+                    <div className="mt-6 space-y-3 fin-enter">
                         {!vales.length ? (
                             <div className="fin-card">
                                 <p className="text-sm text-gray-500">No hay vales que cumplan con el filtro actual.</p>
                             </div>
                         ) : (
-                            vales.map((vale) => (
+                            vales.map((vale, index) => (
                                 <button
                                     key={vale.id}
                                     type="button"
                                     onClick={() => selectVale(vale.id)}
-                                    className={`w-full p-4 text-left border rounded-xl transition ${valeSeleccionado?.id === vale.id && modalOpen ? 'border-green-300 bg-green-50/40' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                                    className={`w-full p-4 text-left border rounded-xl fin-interactive fin-stagger-item ${valeSeleccionado?.id === vale.id && modalOpen ? 'border-green-300 bg-green-50/50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                                    style={{ animationDelay: `${Math.min(index * 35, 210)}ms` }}
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div>
@@ -354,3 +355,5 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
         </DistribuidoraLayout>
     );
 }
+
+

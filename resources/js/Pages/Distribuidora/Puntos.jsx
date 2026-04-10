@@ -48,7 +48,7 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
         setCanjeando(true);
         router.post(route('distribuidora.puntos.canjear'), canje, {
             onSuccess: () => { setModalCanje(false); setCanje({ relacion_corte_id: '', puntos_a_canjear: '' }); },
-            onError: () => {},
+            onError: () => { },
             onFinish: () => setCanjeando(false),
         });
     };
@@ -60,7 +60,7 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
             <Head title="Puntos" />
 
             {sinConfig ? (
-                <div className="fin-card">
+                <div className="fin-card bg-white/95 backdrop-blur">
                     <p className="fin-title">Todavía no hay una distribuidora ligada a tu acceso</p>
                     <p className="mt-2 fin-subtitle">Cuando exista el registro operativo, aquí verás tus puntos.</p>
                 </div>
@@ -68,19 +68,19 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                 <>
                     {/* Resumen + botón canjear */}
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                        <div className="fin-card">
+                        <div className="fin-card border-green-100 bg-green-50/50">
                             <p className="text-xs font-medium text-gray-500">Saldo</p>
                             <p className="mt-1 text-xl font-bold text-gray-900">{formatNumber(resumen.saldo_actual)} pts</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-indigo-100 bg-indigo-50/60">
                             <p className="text-xs font-medium text-gray-500">Equivale a</p>
                             <p className="mt-1 text-xl font-bold text-green-700">{formatCurrency(resumen.saldo_actual * valorPorPunto)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-green-100 bg-green-50/60">
                             <p className="text-xs font-medium text-gray-500">Ganados</p>
                             <p className="mt-1 text-xl font-bold text-green-600">+{formatNumber(resumen.positivos)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-rose-100 bg-rose-50/60">
                             <p className="text-xs font-medium text-gray-500">Descontados</p>
                             <p className="mt-1 text-xl font-bold text-red-600">-{formatNumber(resumen.negativos)}</p>
                         </div>
@@ -136,9 +136,9 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                             <p className="text-sm text-gray-400">No hay movimientos con ese filtro.</p>
                         </div>
                     ) : (
-                        <div className="mt-6 space-y-2">
-                            {movimientos.map((mov) => (
-                                <div key={mov.id} className="flex items-center justify-between gap-4 p-3 border rounded-xl border-gray-200 bg-white">
+                        <div className="mt-6 space-y-2 fin-enter">
+                            {movimientos.map((mov, index) => (
+                                <div key={mov.id} className="flex items-center justify-between gap-4 p-3 border rounded-xl border-gray-200 bg-white fin-interactive fin-stagger-item" style={{ animationDelay: `${Math.min(index * 30, 180)}ms` }}>
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${mov.puntos >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                             {mov.puntos >= 0 ? '+' : '-'}
@@ -161,13 +161,13 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
 
                     {/* Modal de canje */}
                     {modalCanje && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setModalCanje(false)}>
-                            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl" onClick={(e) => e.stopPropagation()}>
-                                <div className="p-5 border-b">
+                        <div className="fin-modal-backdrop" onClick={() => setModalCanje(false)}>
+                            <div className="fin-modal-sheet max-w-md" onClick={(e) => e.stopPropagation()}>
+                                <div className="fin-modal-head">
                                     <h2 className="text-lg font-bold text-gray-900">Canjear puntos</h2>
                                     <p className="mt-1 text-sm text-gray-500">2 puntos = $1 peso de descuento en tu deuda.</p>
                                 </div>
-                                <div className="p-5 space-y-4">
+                                <div className="fin-modal-body space-y-4">
                                     <div>
                                         <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Aplicar a relación</label>
                                         <select
@@ -209,7 +209,7 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex justify-end gap-3 p-5 border-t">
+                                <div className="fin-modal-foot flex justify-end gap-3">
                                     <button type="button" onClick={() => setModalCanje(false)} className="px-5 py-2 fin-btn-secondary">Cancelar</button>
                                     <button
                                         type="button"
@@ -228,3 +228,5 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
         </DistribuidoraLayout>
     );
 }
+
+

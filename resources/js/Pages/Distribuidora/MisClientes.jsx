@@ -35,31 +35,31 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
             <Head title="Clientes" />
 
             {sinConfig ? (
-                <div className="fin-card">
+                <div className="fin-card bg-white/95 backdrop-blur">
                     <p className="fin-title">Tu cuenta todavía no tiene una distribuidora ligada</p>
                     <p className="mt-2 fin-subtitle">Cuando el registro operativo exista, aquí verás tu cartera de clientes.</p>
                 </div>
             ) : (
                 <>
                     {/* Resumen compacto */}
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                        <div className="fin-card">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-5 fin-enter">
+                        <div className="fin-card border-green-100 bg-green-50/50">
                             <p className="text-xs font-medium text-gray-500">Total</p>
                             <p className="mt-1 text-xl font-bold text-gray-900">{formatNumber(resumen.total)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-green-100 bg-green-50/60">
                             <p className="text-xs font-medium text-gray-500">Activos</p>
                             <p className="mt-1 text-xl font-bold text-green-600">{formatNumber(resumen.activos)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-rose-100 bg-rose-50/60">
                             <p className="text-xs font-medium text-gray-500">Bloqueados</p>
                             <p className="mt-1 text-xl font-bold text-red-600">{formatNumber(resumen.bloqueados)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-indigo-100 bg-indigo-50/60">
                             <p className="text-xs font-medium text-gray-500">Elegibles</p>
-                            <p className="mt-1 text-xl font-bold text-blue-600">{formatNumber(resumen.elegibles)}</p>
+                            <p className="mt-1 text-xl font-bold text-green-600">{formatNumber(resumen.elegibles)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-amber-100 bg-amber-50/60">
                             <p className="text-xs font-medium text-gray-500">Con saldo</p>
                             <p className="mt-1 text-xl font-bold text-amber-600">{formatNumber(resumen.con_saldo)}</p>
                         </div>
@@ -106,18 +106,17 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                             <p className="text-sm text-gray-400">No hay clientes que cumplan con el filtro actual.</p>
                         </div>
                     ) : (
-                        <div className="mt-6 space-y-3">
-                            {clientes.map((cliente) => (
-                                <div key={cliente.id} className="overflow-hidden border rounded-xl border-gray-200 bg-white">
+                        <div className="mt-6 space-y-3 fin-enter">
+                            {clientes.map((cliente, index) => (
+                                <div key={cliente.id} className="overflow-hidden border rounded-xl border-gray-200 bg-white fin-interactive fin-stagger-item" style={{ animationDelay: `${Math.min(index * 28, 196)}ms` }}>
                                     <div className="flex items-center gap-4 p-4">
                                         {/* Avatar con iniciales */}
-                                        <div className={`flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold ${
-                                            cliente.puede_solicitar_vale
+                                        <div className={`flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold ${cliente.puede_solicitar_vale
                                                 ? 'bg-green-100 text-green-700'
                                                 : cliente.bloqueado_por_parentesco
                                                     ? 'bg-red-100 text-red-700'
                                                     : 'bg-gray-100 text-gray-600'
-                                        }`}>
+                                            }`}>
                                             {iniciales(cliente.nombre)}
                                         </div>
 
@@ -158,7 +157,7 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                         </div>
                                     )}
                                     {!cliente.puede_solicitar_vale && !cliente.bloqueado_por_parentesco && cliente.saldo_pendiente > 0 && (
-                                        <div className="px-4 py-2 text-sm border-t bg-blue-50 border-blue-100 text-blue-700">
+                                        <div className="px-4 py-2 text-sm border-t bg-green-50 border-green-100 text-green-700">
                                             Deuda vigente — Debe liquidar antes de solicitar un nuevo pre vale.
                                         </div>
                                     )}
@@ -171,3 +170,5 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
         </DistribuidoraLayout>
     );
 }
+
+

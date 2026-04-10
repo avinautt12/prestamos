@@ -289,7 +289,8 @@ class AprobacionController extends Controller
             $usuarioDistribuidora->notify(
                 new DistribuidoraAprobadaNotification(
                     $montoNuevo,
-                    $distribuidora->numero_distribuidora
+                    $distribuidora->numero_distribuidora,
+                    $distribuidoraActual && $montoNuevo > $montoAnterior
                 )
             );
 

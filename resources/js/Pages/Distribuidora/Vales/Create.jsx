@@ -128,7 +128,7 @@ export default function Create({
         } else if (currentScanType === 'selfie') {
             actualizarCampo('foto_selfie_ine', file);
         }
-        setScannerOpen(false); 
+        setScannerOpen(false);
     };
     // ------------------------------------------------
 
@@ -174,27 +174,27 @@ export default function Create({
             <Head title="Nuevo pre vale" />
 
             {sinConfig ? (
-                <div className="fin-card">
+                <div className="fin-card bg-white/95 backdrop-blur">
                     <p className="fin-title">No se encontró una distribuidora ligada a tu acceso</p>
                     <p className="mt-2 fin-subtitle">Cuando exista el registro operativo, aquí podrás crear pre vales.</p>
                 </div>
             ) : (
                 <>
                     {/* Tarjetas de estado */}
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                        <div className="fin-card">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 fin-enter">
+                        <div className="fin-card border-green-100 bg-green-50/50">
                             <p className="text-xs font-medium text-gray-500">Emisión</p>
                             <p className="mt-1 text-lg font-bold text-gray-900">{prevalidacion.puede_emitir_vales ? 'Habilitada' : 'Bloqueada'}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-green-100 bg-green-50/60">
                             <p className="text-xs font-medium text-gray-500">Crédito disponible</p>
                             <p className="mt-1 text-lg font-bold text-gray-900">{prevalidacion.sin_limite ? 'Sin límite' : formatCurrency(prevalidacion.credito_disponible)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-indigo-100 bg-indigo-50/60">
                             <p className="text-xs font-medium text-gray-500">Clientes elegibles</p>
                             <p className="mt-1 text-lg font-bold text-gray-900">{formatNumber((clientes.elegibles || []).length)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-amber-100 bg-amber-50/60">
                             <p className="text-xs font-medium text-gray-500">Por conciliar</p>
                             <p className="mt-1 text-lg font-bold text-gray-900">{formatNumber(prevalidacion.pagos_pendientes_conciliar)}</p>
                         </div>
@@ -207,7 +207,7 @@ export default function Create({
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-3 fin-enter">
                         {/* Columna izquierda */}
                         <div className="space-y-4 xl:col-span-2">
                             {/* Producto */}
@@ -243,7 +243,7 @@ export default function Create({
                                     <button
                                         type="button"
                                         onClick={() => cambiarModo('nuevo')}
-                                        className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors ${modoCliente === 'nuevo' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                        className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors ${modoCliente === 'nuevo' ? 'bg-green-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                                     >
                                         Cliente nuevo
                                     </button>
@@ -251,7 +251,7 @@ export default function Create({
                                         <button
                                             type="button"
                                             onClick={() => cambiarModo('existente')}
-                                            className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors ${modoCliente === 'existente' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                            className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors ${modoCliente === 'existente' ? 'bg-green-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                                         >
                                             Cliente existente ({(clientes.elegibles || []).length})
                                         </button>
@@ -418,13 +418,13 @@ export default function Create({
 
                     {/* Modal de registro de cliente nuevo */}
                     {modalCliente && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setModalCliente(false)}>
-                            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl" onClick={(e) => e.stopPropagation()}>
-                                <div className="sticky top-0 z-10 flex items-center justify-between p-5 bg-white border-b rounded-t-2xl">
+                        <div className="fin-modal-backdrop" onClick={() => setModalCliente(false)}>
+                            <div className="fin-modal-sheet max-w-2xl" onClick={(e) => e.stopPropagation()}>
+                                <div className="fin-modal-head">
                                     <h2 className="text-lg font-bold text-gray-900">Datos del cliente nuevo</h2>
                                     <button type="button" onClick={() => setModalCliente(false)} className="text-2xl leading-none text-gray-400 hover:text-gray-600">&times;</button>
                                 </div>
-                                <div className="p-5 space-y-5">
+                                <div className="fin-modal-body space-y-5">
                                     <div>
                                         <h3 className="mb-3 text-sm font-semibold text-gray-700">Datos personales</h3>
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -564,7 +564,7 @@ export default function Create({
                                                 <button
                                                     type="button"
                                                     onClick={() => { setCurrentScanType('frente'); setScannerOpen(true); }}
-                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_frente ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
+                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_frente ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-green-300 text-green-600 hover:bg-green-50'}`}
                                                 >
                                                     <FontAwesomeIcon icon={form.foto_ine_frente ? faCheckCircle : faCamera} />
                                                     {form.foto_ine_frente ? 'Escaneada ✓' : 'Escanear Frente'}
@@ -576,7 +576,7 @@ export default function Create({
                                                 <button
                                                     type="button"
                                                     onClick={() => { setCurrentScanType('reverso'); setScannerOpen(true); }}
-                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_reverso ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
+                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_reverso ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-green-300 text-green-600 hover:bg-green-50'}`}
                                                 >
                                                     <FontAwesomeIcon icon={form.foto_ine_reverso ? faCheckCircle : faCamera} />
                                                     {form.foto_ine_reverso ? 'Escaneada ✓' : 'Escanear Reverso'}
@@ -588,7 +588,7 @@ export default function Create({
                                                 <button
                                                     type="button"
                                                     onClick={() => { setCurrentScanType('selfie'); setScannerOpen(true); }}
-                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_selfie_ine ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
+                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_selfie_ine ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-green-300 text-green-600 hover:bg-green-50'}`}
                                                 >
                                                     <FontAwesomeIcon icon={form.foto_selfie_ine ? faCheckCircle : faCamera} />
                                                     {form.foto_selfie_ine ? 'Capturada ✓' : 'Tomar Selfie'}
@@ -624,7 +624,7 @@ export default function Create({
                                         </div>
                                     </div>
                                 </div>
-                                <div className="sticky bottom-0 p-5 bg-white border-t rounded-b-2xl">
+                                <div className="fin-modal-foot">
                                     {(() => {
                                         const faltantes = [];
                                         if (!form.primer_nombre.trim()) faltantes.push('Primer nombre');
@@ -667,11 +667,11 @@ export default function Create({
 
             {/* --- COMPONENTE DEL ESCÁNER MONTADO AL FINAL --- */}
             {scannerOpen && (
-                <DocumentScanner 
+                <DocumentScanner
                     title={
-                        currentScanType === 'frente' ? "Escanea el Frente del INE" : 
-                        currentScanType === 'reverso' ? "Escanea el Reverso del INE" : 
-                        "Tómale una Selfie al cliente con su INE"
+                        currentScanType === 'frente' ? "Escanea el Frente del INE" :
+                            currentScanType === 'reverso' ? "Escanea el Reverso del INE" :
+                                "Tómale una Selfie al cliente con su INE"
                     }
                     onCapture={handleCapture}
                     onCancel={() => setScannerOpen(false)}
@@ -681,3 +681,4 @@ export default function Create({
         </DistribuidoraLayout>
     );
 }
+

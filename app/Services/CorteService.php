@@ -10,12 +10,17 @@ use App\Models\Sucursal;
 use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
 use App\Models\Vale;
+use App\Services\Distribuidora\DistribuidoraNotificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class CorteService
 {
+    public function __construct(
+        private readonly DistribuidoraNotificationService $distribuidoraNotificationService
+    ) {}
+
     public function sincronizarProximoCorteProgramado(Sucursal $sucursal, SucursalConfiguracion $configuracion): ?Corte
     {
         $diaCorte = $configuracion->dia_corte;
@@ -154,8 +159,17 @@ class CorteService
             }
 
             DB::transaction(function () use (
-                $distribuidora, $vales, $corte, $sucursalCodigo, $year, $ymd,
-                $fechaLimite, $fechaInicioAnticipado, $fechaFinAnticipado, &$consecutivo, &$relacionesCreadas
+                $distribuidora,
+                $vales,
+                $corte,
+                $sucursalCodigo,
+                $year,
+                $ymd,
+                $fechaLimite,
+                $fechaInicioAnticipado,
+                $fechaFinAnticipado,
+                &$consecutivo,
+                &$relacionesCreadas
             ) {
                 $totalComision = 0.0;
                 $totalPago = 0.0;
@@ -216,6 +230,37 @@ class CorteService
                     $partida['relacion_corte_id'] = $relacion->id;
                     PartidaRelacionCorte::create($partida);
                 }
+
+                DB::afterCommit(function () use ($corte, $distribuidora, $relacion) {
+                    if ($corte->tipo_corte === Corte::TIPO_PUNTOS) {
+                        $this->distribuidoraNotificationService->notificar(
+                            $distribuidora,
+                            'CORTE_PUNTOS_LISTO',
+                            'Tu corte de puntos esta listo',
+                            "Se genero el corte de puntos {$relacion->numero_relacion}. Revisa tus movimientos de puntos.",
+                            [
+                                'corte_id' => (int) $corte->id,
+                                'relacion_corte_id' => (int) $relacion->id,
+                                'numero_relacion' => (string) $relacion->numero_relacion,
+                            ]
+                        );
+
+                        return;
+                    }
+
+                    $this->distribuidoraNotificationService->notificar(
+                        $distribuidora,
+                        'CORTE_LISTO',
+                        'Tu corte esta listo',
+                        "Se genero tu relacion {$relacion->numero_relacion} por un total de $" . number_format((float) $relacion->total_a_pagar, 2) . '.',
+                        [
+                            'corte_id' => (int) $corte->id,
+                            'relacion_corte_id' => (int) $relacion->id,
+                            'numero_relacion' => (string) $relacion->numero_relacion,
+                            'total_a_pagar' => (float) $relacion->total_a_pagar,
+                        ]
+                    );
+                });
 
                 $relacionesCreadas++;
             });

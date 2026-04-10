@@ -178,27 +178,27 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
             <Head title="Estado de Cuenta" />
 
             {sinConfig ? (
-                <div className="fin-card">
+                <div className="fin-card bg-white/95 backdrop-blur">
                     <p className="fin-title">Aún no existe una distribuidora operativa ligada a tu acceso</p>
                     <p className="mt-2 fin-subtitle">Cuando se complete el alta formal, aquí aparecerán tus relaciones y pagos a empresa.</p>
                 </div>
             ) : (
                 <>
                     {/* Resumen compacto */}
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                        <div className="fin-card">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 fin-enter">
+                        <div className="fin-card border-green-100 bg-green-50/50">
                             <p className="text-xs font-medium text-gray-500">Abiertas</p>
                             <p className="mt-1 text-lg font-bold text-gray-900">{formatNumber(resumen.relaciones_abiertas)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-amber-100 bg-amber-50/60">
                             <p className="text-xs font-medium text-gray-500">Pendiente</p>
                             <p className="mt-1 text-lg font-bold text-gray-900">{formatCurrency(resumen.total_pendiente)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-indigo-100 bg-indigo-50/60">
                             <p className="text-xs font-medium text-gray-500">Última relación</p>
                             <p className="mt-1 text-sm font-bold text-gray-900">{resumen.ultima_relacion?.numero_relacion || '—'}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-green-100 bg-green-50/60">
                             <p className="text-xs font-medium text-gray-500">Pagos pendientes</p>
                             <p className="mt-1 text-lg font-bold text-gray-900">{formatNumber(resumen.pagos_pendientes)}</p>
                         </div>
@@ -245,19 +245,20 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                         )}
                     </form>
 
-                    <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-5">
+                    <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-5 fin-enter">
                         {/* Lista de relaciones */}
                         <div className="space-y-2 xl:col-span-2">
                             {!relaciones.data?.length ? (
                                 <p className="p-4 text-sm text-gray-500">Sin relaciones con ese filtro.</p>
                             ) : (
                                 <>
-                                    {relaciones.data.map((r) => (
+                                    {relaciones.data.map((r, index) => (
                                         <button
                                             key={r.id}
                                             type="button"
                                             onClick={() => selectRelacion(r.id)}
-                                            className={`w-full p-3 text-left border rounded-xl transition ${relacionSeleccionada?.id === r.id ? 'border-green-300 bg-green-50/40' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                                            className={`w-full p-3 text-left border rounded-xl transition fin-interactive fin-stagger-item ${relacionSeleccionada?.id === r.id ? 'border-green-300 bg-green-50/50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                                            style={{ animationDelay: `${Math.min(index * 30, 210)}ms` }}
                                         >
                                             <div className="flex items-center justify-between gap-2">
                                                 <div>
@@ -475,8 +476,8 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
 
                                     {/* Cuentas bancarias de la empresa (inline, compacto) */}
                                     {cuentasEmpresa.length > 0 && (
-                                        <div className="p-4 border-t border-gray-100 bg-blue-50/40">
-                                            <p className="text-xs font-semibold text-blue-800 uppercase">Depositar a</p>
+                                        <div className="p-4 border-t border-gray-100 bg-green-50/50">
+                                            <p className="text-xs font-semibold text-green-700 uppercase">Depositar a</p>
                                             <div className="flex flex-wrap gap-4 mt-2">
                                                 {cuentasEmpresa.map((c, i) => (
                                                     <div key={i} className="text-sm">
@@ -580,3 +581,5 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
         </DistribuidoraLayout>
     );
 }
+
+

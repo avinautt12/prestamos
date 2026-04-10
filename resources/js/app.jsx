@@ -7,6 +7,17 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { useEffect } from 'react';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+        .then((registrations) => {
+            registrations.forEach((registration) => {
+                registration.unregister();
+            });
+        })
+        .catch((error) => {
+            console.warn('No se pudieron limpiar service workers existentes:', error);
+        });
+}
 
 function RealtimeNotificationsBridge({ auth }) {
 
