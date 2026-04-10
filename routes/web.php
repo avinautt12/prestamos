@@ -114,6 +114,7 @@ Route::middleware(['auth', 'role:CAJERA'])->prefix('cajera')->name('cajera.')->g
     Route::get('/cobros', [App\Http\Controllers\Cajera\DashboardController::class, 'cobros'])->name('cobros');
     Route::get('/conciliaciones', [ConciliacionController::class, 'index'])->name('conciliaciones');
     Route::get('/conciliaciones/exportar', [ConciliacionController::class, 'exportarHistorial'])->name('conciliaciones.exportar');
+    Route::get('/conciliaciones/simular-archivo', [ConciliacionController::class, 'simularArchivoBancario'])->name('conciliaciones.simular-archivo');
     Route::post('/conciliaciones/importar', [ConciliacionController::class, 'importar'])->name('conciliaciones.importar');
     Route::post('/conciliaciones/manual', [ConciliacionController::class, 'conciliarManual'])->name('conciliaciones.manual');
     Route::get('/pagos-distribuidora', [App\Http\Controllers\Cajera\DashboardController::class, 'pagosDistribuidora'])->name('pagos-distribuidora');
@@ -143,6 +144,7 @@ Route::middleware(['auth', 'role:DISTRIBUIDORA'])->prefix('distribuidora')->name
     Route::post('/puntos/canjear', [App\Http\Controllers\Distribuidora\DashboardController::class, 'canjearPuntos'])->name('puntos.canjear');
     Route::get('/clientes', [App\Http\Controllers\Distribuidora\DashboardController::class, 'misClientes'])->name('clientes');
     Route::get('/estado-cuenta', [App\Http\Controllers\Distribuidora\DashboardController::class, 'estadoCuenta'])->name('estado-cuenta');
+    Route::post('/relaciones/{relacion}/reportar-pago', [App\Http\Controllers\Distribuidora\DashboardController::class, 'reportarPago'])->name('relaciones.reportar-pago');
 });
 
 // Redirección por defecto según rol

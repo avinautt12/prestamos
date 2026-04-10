@@ -56,6 +56,31 @@ export default function Create({
 
     const [enviando, setEnviando] = useState(false);
     const [modalCliente, setModalCliente] = useState(false);
+    const [formTouched, setFormTouched] = useState({});
+
+    // Validación client-side de datos del cliente nuevo
+    const CURP_REGEX = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const soloDigitos = (s) => /^\d+$/.test(s);
+    const fieldErrors = modoCliente === 'nuevo' ? {
+        primer_nombre: !form.primer_nombre.trim() ? 'El primer nombre es obligatorio' : (form.primer_nombre.length > 100 ? 'Máximo 100 caracteres' : null),
+        apellido_paterno: !form.apellido_paterno.trim() ? 'El apellido paterno es obligatorio' : (form.apellido_paterno.length > 100 ? 'Máximo 100 caracteres' : null),
+        segundo_nombre: form.segundo_nombre.length > 100 ? 'Máximo 100 caracteres' : null,
+        apellido_materno: form.apellido_materno.length > 100 ? 'Máximo 100 caracteres' : null,
+        curp: form.curp && form.curp.length !== 18
+            ? 'La CURP debe tener 18 caracteres'
+            : (form.curp && !CURP_REGEX.test(form.curp) ? 'Formato de CURP inválido' : null),
+        correo_electronico: form.correo_electronico && !EMAIL_REGEX.test(form.correo_electronico) ? 'Correo electrónico inválido' : null,
+        telefono_celular: form.telefono_celular && (!soloDigitos(form.telefono_celular) || form.telefono_celular.length !== 10)
+            ? 'Debe ser 10 dígitos numéricos' : null,
+        codigo_postal: form.codigo_postal && (!soloDigitos(form.codigo_postal) || form.codigo_postal.length !== 5)
+            ? 'Debe ser 5 dígitos numéricos' : null,
+        cuenta_clabe: form.cuenta_clabe && form.cuenta_clabe.length !== 18 ? 'La CLABE debe tener 18 dígitos' : null,
+        cuenta_titular: !form.cuenta_titular.trim() && (form.foto_ine_frente || form.cuenta_clabe) ? 'El titular es obligatorio' : null,
+    } : {};
+    const hayCamposValidos = modoCliente === 'nuevo'
+        ? !Object.values(fieldErrors).some((e) => e !== null)
+        : true;
 
     const productoSeleccionado = useMemo(
         () => (productos || []).find((item) => Number(item.id) === Number(form.producto_id)),
@@ -371,7 +396,7 @@ export default function Create({
                                     <button
                                         type="button"
                                         onClick={confirmarPreVale}
-                                        disabled={enviando || !clienteListo}
+                                        disabled={enviando || !clienteListo || !hayCamposValidos}
                                         className="w-full mt-3 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {enviando ? 'Creando pre vale...' : 'Confirmar pre vale'}
@@ -379,6 +404,11 @@ export default function Create({
                                     {!clienteListo && (
                                         <p className="mt-2 text-xs text-amber-700">
                                             {modoCliente === 'existente' ? 'Selecciona un cliente para continuar.' : 'Registra los datos del cliente para continuar.'}
+                                        </p>
+                                    )}
+                                    {clienteListo && !hayCamposValidos && modoCliente === 'nuevo' && (
+                                        <p className="mt-2 text-xs text-red-600">
+                                            Hay datos del cliente con formato inválido. Revísalos antes de continuar.
                                         </p>
                                     )}
                                 </div>
@@ -400,23 +430,50 @@ export default function Create({
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Primer nombre *</label>
-                                                <input type="text" value={form.primer_nombre} onChange={(e) => actualizarCampo('primer_nombre', e.target.value)} className="fin-input" placeholder="María" />
+                                                <input
+                                                    type="text"
+                                                    maxLength={100}
+                                                    value={form.primer_nombre}
+                                                    onChange={(e) => actualizarCampo('primer_nombre', e.target.value)}
+                                                    onBlur={() => setFormTouched((t) => ({ ...t, primer_nombre: true }))}
+                                                    className={`fin-input ${formTouched.primer_nombre && fieldErrors.primer_nombre ? 'border-red-400' : ''}`}
+                                                    placeholder="María"
+                                                />
+                                                {formTouched.primer_nombre && fieldErrors.primer_nombre && <p className="mt-1 text-xs text-red-600">{fieldErrors.primer_nombre}</p>}
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Segundo nombre</label>
-                                                <input type="text" value={form.segundo_nombre} onChange={(e) => actualizarCampo('segundo_nombre', e.target.value)} className="fin-input" placeholder="Guadalupe" />
+                                                <input type="text" maxLength={100} value={form.segundo_nombre} onChange={(e) => actualizarCampo('segundo_nombre', e.target.value)} className="fin-input" placeholder="Guadalupe" />
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Apellido paterno *</label>
-                                                <input type="text" value={form.apellido_paterno} onChange={(e) => actualizarCampo('apellido_paterno', e.target.value)} className="fin-input" placeholder="López" />
+                                                <input
+                                                    type="text"
+                                                    maxLength={100}
+                                                    value={form.apellido_paterno}
+                                                    onChange={(e) => actualizarCampo('apellido_paterno', e.target.value)}
+                                                    onBlur={() => setFormTouched((t) => ({ ...t, apellido_paterno: true }))}
+                                                    className={`fin-input ${formTouched.apellido_paterno && fieldErrors.apellido_paterno ? 'border-red-400' : ''}`}
+                                                    placeholder="López"
+                                                />
+                                                {formTouched.apellido_paterno && fieldErrors.apellido_paterno && <p className="mt-1 text-xs text-red-600">{fieldErrors.apellido_paterno}</p>}
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Apellido materno</label>
-                                                <input type="text" value={form.apellido_materno} onChange={(e) => actualizarCampo('apellido_materno', e.target.value)} className="fin-input" placeholder="García" />
+                                                <input type="text" maxLength={100} value={form.apellido_materno} onChange={(e) => actualizarCampo('apellido_materno', e.target.value)} className="fin-input" placeholder="García" />
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">CURP</label>
-                                                <input type="text" value={form.curp} onChange={(e) => actualizarCampo('curp', e.target.value.toUpperCase())} className="fin-input" placeholder="LOPM850101MDFRRL09" maxLength={18} />
+                                                <input
+                                                    type="text"
+                                                    value={form.curp}
+                                                    onChange={(e) => actualizarCampo('curp', e.target.value.toUpperCase())}
+                                                    onBlur={() => setFormTouched((t) => ({ ...t, curp: true }))}
+                                                    className={`fin-input ${formTouched.curp && fieldErrors.curp ? 'border-red-400' : ''}`}
+                                                    placeholder="LOPM850101MDFRRL09"
+                                                    maxLength={18}
+                                                />
+                                                {formTouched.curp && fieldErrors.curp && <p className="mt-1 text-xs text-red-600">{fieldErrors.curp}</p>}
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Sexo</label>
@@ -429,15 +486,33 @@ export default function Create({
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Fecha de nacimiento</label>
-                                                <input type="date" value={form.fecha_nacimiento} onChange={(e) => actualizarCampo('fecha_nacimiento', e.target.value)} className="fin-input" />
+                                                <input type="date" value={form.fecha_nacimiento} onChange={(e) => actualizarCampo('fecha_nacimiento', e.target.value)} className="fin-input" max={new Date().toISOString().split('T')[0]} />
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Teléfono celular</label>
-                                                <input type="tel" value={form.telefono_celular} onChange={(e) => actualizarCampo('telefono_celular', e.target.value)} className="fin-input" placeholder="5512345678" />
+                                                <input
+                                                    type="tel"
+                                                    value={form.telefono_celular}
+                                                    onChange={(e) => actualizarCampo('telefono_celular', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                                    onBlur={() => setFormTouched((t) => ({ ...t, telefono_celular: true }))}
+                                                    className={`fin-input ${formTouched.telefono_celular && fieldErrors.telefono_celular ? 'border-red-400' : ''}`}
+                                                    placeholder="5512345678"
+                                                    maxLength={10}
+                                                />
+                                                {formTouched.telefono_celular && fieldErrors.telefono_celular && <p className="mt-1 text-xs text-red-600">{fieldErrors.telefono_celular}</p>}
                                             </div>
                                             <div className="md:col-span-2">
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Correo electrónico</label>
-                                                <input type="email" value={form.correo_electronico} onChange={(e) => actualizarCampo('correo_electronico', e.target.value)} className="fin-input" placeholder="maria@correo.com" />
+                                                <input
+                                                    type="email"
+                                                    maxLength={150}
+                                                    value={form.correo_electronico}
+                                                    onChange={(e) => actualizarCampo('correo_electronico', e.target.value)}
+                                                    onBlur={() => setFormTouched((t) => ({ ...t, correo_electronico: true }))}
+                                                    className={`fin-input ${formTouched.correo_electronico && fieldErrors.correo_electronico ? 'border-red-400' : ''}`}
+                                                    placeholder="maria@correo.com"
+                                                />
+                                                {formTouched.correo_electronico && fieldErrors.correo_electronico && <p className="mt-1 text-xs text-red-600">{fieldErrors.correo_electronico}</p>}
                                             </div>
                                         </div>
                                     </div>
@@ -466,7 +541,16 @@ export default function Create({
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Código postal</label>
-                                                <input type="text" value={form.codigo_postal} onChange={(e) => actualizarCampo('codigo_postal', e.target.value)} className="fin-input" placeholder="72000" maxLength={10} />
+                                                <input
+                                                    type="text"
+                                                    value={form.codigo_postal}
+                                                    onChange={(e) => actualizarCampo('codigo_postal', e.target.value.replace(/\D/g, '').slice(0, 5))}
+                                                    onBlur={() => setFormTouched((t) => ({ ...t, codigo_postal: true }))}
+                                                    className={`fin-input ${formTouched.codigo_postal && fieldErrors.codigo_postal ? 'border-red-400' : ''}`}
+                                                    placeholder="72000"
+                                                    maxLength={5}
+                                                />
+                                                {formTouched.codigo_postal && fieldErrors.codigo_postal && <p className="mt-1 text-xs text-red-600">{fieldErrors.codigo_postal}</p>}
                                             </div>
                                         </div>
                                     </div>
