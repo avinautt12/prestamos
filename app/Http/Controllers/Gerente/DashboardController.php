@@ -20,7 +20,9 @@ class DashboardController extends Controller
 {
     use ResuelveSucursalActivaGerente;
 
-    public function __construct(private readonly CorteService $corteService) {}
+    public function __construct(private readonly CorteService $corteService)
+    {
+    }
 
     public function index()
     {

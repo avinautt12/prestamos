@@ -1197,116 +1197,92 @@ function VehiculosTab({ data, setData, addVehiculo, removeVehiculo }) {
 }
 
 // ============================================
+// COMPONENTE: TARJETA DE DOCUMENTO (AFUERA DE LA PESTAÑA)
+// ============================================
+const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file, isEditing, onFileChange }) => {
+    const hasFile = file || (isEditing && path);
+    const fileName = file?.name || (isEditing && path ? 'Archivo guardado' : 'Sin documento cargado');
+
+    return (
+        <div className={`p-4 rounded-xl border ${error ? 'border-red-300 bg-red-50' : 'border-blue-100 bg-blue-50/30'}`}>
+            <label className="block mb-3 text-sm font-semibold text-gray-800">
+                {label} <span className="text-red-600">*</span>
+            </label>
+            
+            <div className="flex flex-col gap-2">
+                {/* BOTÓN CÁMARA (Usando htmlFor para celulares) */}
+                <label htmlFor={`${id}_camera`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
+                    <FontAwesomeIcon icon={faCamera} className="text-lg" /> Tomar Foto
+                </label>
+                <input 
+                    id={`${id}_camera`}
+                    type="file" 
+                    accept="image/*" 
+                    capture={capture} 
+                    className="hidden" 
+                    onChange={(e) => onFileChange(fieldName, e.target.files?.[0], true)} 
+                />
+
+                {/* BOTÓN SUBIR ARCHIVO */}
+                <label htmlFor={`${id}_file`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
+                    <FontAwesomeIcon icon={faFileUpload} className="text-lg" /> Subir Archivo
+                </label>
+                <input 
+                    id={`${id}_file`}
+                    type="file" 
+                    accept={accept} 
+                    className="hidden" 
+                    onChange={(e) => onFileChange(fieldName, e.target.files?.[0], true)} 
+                />
+            </div>
+
+            <div className="mt-3 text-xs">
+                {hasFile ? (
+                    <span className="flex items-center gap-1 font-medium text-green-700">
+                        <FontAwesomeIcon icon={faCheckCircle} />
+                        Listo: <span className="truncate max-w-[150px] inline-block align-bottom">{fileName}</span>
+                    </span>
+                ) : ( <span className="text-gray-500">{fileName}</span> )}
+            </div>
+            {error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}
+        </div>
+    );
+};
+
+
+// ============================================
 // PESTAÑA 5: FINALIZAR
 // ============================================
 function FinalizarTab({ data, errors, handleDocumentoChange, isEditing }) {
-
-    // Componente interno reutilizable para cada caja de documento
-    const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file }) => {
-        const hasFile = file || (isEditing && path);
-        const fileName = file?.name || (isEditing && path ? 'Archivo guardado previamente' : 'Captura pendiente.');
-
-        return (
-            <div className={`p-4 rounded-xl border ${error ? 'border-red-300 bg-red-50' : 'border-blue-100 bg-blue-50/30'}`}>
-                <label className="block mb-3 text-sm font-semibold text-gray-800">
-                    {label} <span className="text-red-600">*</span>
-                </label>
-                
-                <div className="flex flex-col gap-2">
-                    <label className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
-                        <FontAwesomeIcon icon={faCamera} className="text-lg" />
-                        Tomar Foto
-                        <input
-                            type="file"
-                            accept="image/*"
-                            capture={capture}
-                            className="hidden" 
-                            onChange={(e) => handleDocumentoChange(fieldName, e.target.files?.[0], true)}
-                        />
-                    </label>
-
-                    <label className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
-                        <FontAwesomeIcon icon={faFileUpload} className="text-lg" />
-                        Subir Archivo
-                        <input
-                            type="file"
-                            accept={accept}
-                            className="hidden" 
-                            onChange={(e) => handleDocumentoChange(fieldName, e.target.files?.[0], true)}
-                        />
-                    </label>
-                </div>
-
-                <div className="mt-3 text-xs">
-                    {hasFile ? (
-                        <span className="flex items-center gap-1 font-medium text-green-700">
-                            <FontAwesomeIcon icon={faCheckCircle} />
-                            Listo: <span className="truncate max-w-[150px] inline-block align-bottom">{fileName}</span>
-                        </span>
-                    ) : (
-                        <span className="text-gray-500">{fileName}</span>
-                    )}
-                </div>
-                
-                {error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}
-            </div>
-        );
-    };
-
     return (
         <div className="p-4 space-y-4">
             <h2 className="text-lg font-semibold">Finalizar Solicitud</h2>
 
             <div className="p-4 bg-white border border-gray-200 rounded-lg">
                 <h3 className="mb-4 text-sm font-semibold text-gray-800">Documentos obligatorios</h3>
-
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <DocumentCard
-                        id="ine_frente"
-                        fieldName="ine_frente"
-                        label="INE frente"
-                        accept="image/*"
-                        capture="environment"
-                        error={errors.ine_frente}
-                        path={data.ine_frente_path}
-                        file={data.ine_frente}
+                    <DocumentCard 
+                        id="ine_frente" fieldName="ine_frente" label="INE frente" 
+                        accept="image/*" capture="environment" error={errors.ine_frente} 
+                        path={data.ine_frente_path} file={data.ine_frente} isEditing={isEditing} onFileChange={handleDocumentoChange} 
                     />
-
-                    <DocumentCard
-                        id="ine_reverso"
-                        fieldName="ine_reverso"
-                        label="INE reverso"
-                        accept="image/*"
-                        capture="environment"
-                        error={errors.ine_reverso}
-                        path={data.ine_reverso_path}
-                        file={data.ine_reverso}
+                    <DocumentCard 
+                        id="ine_reverso" fieldName="ine_reverso" label="INE reverso" 
+                        accept="image/*" capture="environment" error={errors.ine_reverso} 
+                        path={data.ine_reverso_path} file={data.ine_reverso} isEditing={isEditing} onFileChange={handleDocumentoChange} 
                     />
-
-                    <DocumentCard
-                        id="comprobante_domicilio"
-                        fieldName="comprobante_domicilio"
-                        label="Comprobante de domicilio"
-                        accept="image/*,.pdf"
-                        error={errors.comprobante_domicilio}
-                        path={data.comprobante_domicilio_path}
-                        file={data.comprobante_domicilio}
+                    <DocumentCard 
+                        id="comprobante_domicilio" fieldName="comprobante_domicilio" label="Comprobante de domicilio" 
+                        accept="image/*,.pdf" error={errors.comprobante_domicilio} 
+                        path={data.comprobante_domicilio_path} file={data.comprobante_domicilio} isEditing={isEditing} onFileChange={handleDocumentoChange} 
                     />
-
-                    <DocumentCard
-                        id="reporte_buro"
-                        fieldName="reporte_buro"
-                        label="Reporte de buró"
-                        accept="image/*,.pdf"
-                        error={errors.reporte_buro}
-                        path={data.reporte_buro_path}
-                        file={data.reporte_buro}
+                    <DocumentCard 
+                        id="reporte_buro" fieldName="reporte_buro" label="Reporte de buró" 
+                        accept="image/*,.pdf" error={errors.reporte_buro} 
+                        path={data.reporte_buro_path} file={data.reporte_buro} isEditing={isEditing} onFileChange={handleDocumentoChange} 
                     />
                 </div>
-
-                <p className="mt-4 text-xs text-gray-500">
-                    Las imágenes se optimizan automáticamente antes del envío para reducir uso de datos en tablet.
-                </p>
+                <p className="mt-4 text-xs text-gray-500">Las imágenes se optimizan automáticamente antes del envío.</p>
             </div>
 
             <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
@@ -1325,22 +1301,13 @@ function FinalizarTab({ data, errors, handleDocumentoChange, isEditing }) {
 
             <div>
                 <label className="block text-sm font-medium text-gray-700">Observaciones adicionales</label>
-                <textarea
-                    rows="4"
-                    value={data.observaciones}
-                    onChange={e => setData('observaciones', e.target.value)}
-                    placeholder="Agrega cualquier observación importante sobre el prospecto..."
-                    className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm"
-                />
+                <textarea rows="4" value={data.observaciones} onChange={e => setData('observaciones', e.target.value)} placeholder="Agrega cualquier observación..." className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm" />
             </div>
 
             <div className="p-3 border border-yellow-200 rounded-lg bg-yellow-50">
                 <p className="flex items-start gap-2 text-sm text-yellow-800">
                     <FontAwesomeIcon icon={faTriangleExclamation} className="mt-0.5" />
-                    <span>
-                        Al finalizar, la solicitud será enviada al Verificador para su análisis.
-                        Asegúrate de que todos los campos obligatorios estén completos.
-                    </span>
+                    <span>Al finalizar, la solicitud será enviada al Verificador para su análisis. Asegúrate de que todos los campos obligatorios estén completos.</span>
                 </p>
             </div>
         </div>

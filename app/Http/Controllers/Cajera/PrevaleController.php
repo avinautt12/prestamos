@@ -4,53 +4,128 @@ namespace App\Http\Controllers\Cajera;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
-use App\Models\Solicitud;
+use App\Models\Vale;
+use App\Models\Cliente; 
 
 class PrevaleController extends Controller
 {
     public function index(Request $request)
     {
-        // Esta es la lista que se debería abrir al picar la tarjeta
-        $solicitudes = Solicitud::with(['persona', 'sucursal'])
-            ->whereIn('estado', [
-                Solicitud::ESTADO_VERIFICADA, 
-                Solicitud::ESTADO_POSIBLE_DISTRIBUIDORA
+        $vales = Vale::with([
+                'cliente.persona', 
+                'distribuidora.persona', 
+                'sucursal'
             ])
-            ->where('prevale_aprobado', false)
-            ->orderBy('actualizado_en', 'desc')
+            ->where('estado', Vale::ESTADO_BORRADOR)
+            ->orderBy('creado_en', 'desc')
             ->paginate(10);
 
         return Inertia::render('Cajera/Prevale/Index', [
-            'solicitudes' => $solicitudes,
+            'vales' => $vales,
             'filtros' => $request->only(['search'])
         ]);
     }
 
     public function show($id)
     {
-        // Aquí ves el expediente
-        $solicitud = Solicitud::with(['persona', 'cuentaBancaria', 'sucursal'])->findOrFail($id);
+        $vale = Vale::with([
+            'cliente.persona', 
+            'distribuidora.persona', 
+            'productoFinanciero'
+        ])->findOrFail($id);
         
+        $cliente = $vale->cliente;
+        if ($cliente) {
+            $cliente->ine_frente_url = $cliente->foto_ine_frente 
+                ? Storage::disk('spaces')->url($cliente->foto_ine_frente) 
+                : null;
+                
+            $cliente->ine_reverso_url = $cliente->foto_ine_reverso 
+                ? Storage::disk('spaces')->url($cliente->foto_ine_reverso) 
+                : null;
+                
+            $cliente->selfie_url = $cliente->foto_selfie_ine 
+                ? Storage::disk('spaces')->url($cliente->foto_selfie_ine) 
+                : null;
+        }
+
         return Inertia::render('Cajera/Prevale/Show', [
-            'solicitud' => $solicitud
+            'vale' => $vale
         ]);
     }
 
     public function aprobar(Request $request, $id)
     {
         $request->validate([
-            'folio_transferencia' => 'required|string',
+            'check_identidad'  => 'accepted',
+            'check_domicilio'  => 'accepted',
+            'check_parentesco' => 'accepted',
+            'check_biometria'  => 'accepted',
+            'check_pld'        => 'accepted',
         ]);
 
-        $solicitud = Solicitud::findOrFail($id);
-        $solicitud->prevale_aprobado = true;
-        $solicitud->estado = Solicitud::ESTADO_APROBADA; // O el estado que decidas
-        $solicitud->save();
+        try {
+            DB::beginTransaction();
 
-        // Aquí iría tu lógica extra (crear la distribuidora activa, etc.)
+            $vale          = Vale::findOrFail($id);
+            $distribuidora = $vale->distribuidora;
+            $cliente       = $vale->cliente;
 
-        return redirect()->route('cajera.prevale.index')->with('message', 'Prevale fondeado y aprobado exitosamente.');
+            if (!$distribuidora || !$cliente) {
+                throw new \Exception('Faltan relaciones del vale.');
+            }
+
+            // ✅ Cast explícito para evitar errores de tipo
+            $montoPrestamo     = (float) $vale->monto_principal;
+            $creditoDisponible = (float) $distribuidora->credito_disponible;
+
+            if ($creditoDisponible < $montoPrestamo) {
+                DB::rollBack();
+                return back()->withErrors(['error' => 'Crédito insuficiente.']);
+            }
+
+            // 1. Descontar crédito
+            $distribuidora->decrement('credito_disponible', $montoPrestamo);
+
+            // 2. Vale: BORRADOR -> ACTIVO
+            DB::table('vales')->where('id', $id)->update([
+                'estado'                  => Vale::ESTADO_ACTIVO,
+                'aprobado_por_usuario_id' => Auth::user()->id,
+                'fecha_emision'           => now(),
+                'actualizado_en'          => now(),
+            ]);
+
+            // 3. Cliente: EN_VERIFICACION -> ACTIVO
+            DB::table('clientes')->where('id', $cliente->id)->update([
+                'estado'         => Cliente::ESTADO_ACTIVO,
+                'actualizado_en' => now(),
+            ]);
+
+            // 4. Pivot
+            DB::table('clientes_distribuidora')->updateOrInsert(
+                [
+                    'distribuidora_id' => $distribuidora->id,
+                    'cliente_id'       => $cliente->id,
+                ],
+                [
+                    'estado_relacion' => 'ACTIVA',
+                    'vinculado_en'    => now(),
+                ]
+            );
+
+            DB::commit();
+
+            return Inertia::location(route('cajera.prevale.index'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error aprobando prevale ID ' . $id . ': ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Error crítico: ' . $e->getMessage()]);
+        }
     }
 
     public function rechazar(Request $request, $id)
@@ -59,11 +134,53 @@ class PrevaleController extends Controller
             'motivo_rechazo' => 'required|string',
         ]);
 
-        $solicitud = Solicitud::findOrFail($id);
-        $solicitud->estado = Solicitud::ESTADO_MODIFICADA; // Lo regresas
-        $solicitud->observaciones_validacion = $request->motivo_rechazo;
-        $solicitud->save();
+        try {
+            DB::beginTransaction();
 
-        return redirect()->route('cajera.prevale.index')->with('error', 'Prevale rechazado y devuelto por correcciones.');
+            $vale   = Vale::findOrFail($id);
+            $cliente = $vale->cliente;
+            $motivo  = $request->motivo_rechazo;
+
+            if (!$cliente) {
+                throw new \Exception('No se encontró el cliente asociado a este vale.');
+            }
+
+            // 1. Vale: BORRADOR -> CANCELADO
+            $vale->estado      = Vale::ESTADO_CANCELADO; 
+            $vale->notas       = "RECHAZADO POR CAJERA: " . $motivo;
+            $vale->cancelado_en = now();
+            $vale->save();
+
+            // 2. Cliente: EN_VERIFICACION -> BLOQUEADO
+            $cliente->estado = Cliente::ESTADO_BLOQUEADO; 
+            $cliente->notas  = "Rechazado en etapa de prevale: " . $motivo;
+            $cliente->save();
+
+            // 3. Pivot
+            $esParentesco = str_contains(strtolower($motivo), 'parentesco') 
+                         || str_contains(strtolower($motivo), 'familiar');
+
+            DB::table('clientes_distribuidora')->updateOrInsert(
+                [
+                    'distribuidora_id' => $vale->distribuidora_id,
+                    'cliente_id'       => $cliente->id,
+                ],
+                [
+                    'estado_relacion'          => 'BLOQUEADA',
+                    'bloqueado_por_parentesco' => $esParentesco,
+                    'observaciones_parentesco' => "Bloqueado en revisión de prevale. Motivo: " . $motivo,
+                    'vinculado_en'             => now(),
+                ]
+            );
+
+            DB::commit();
+
+            return redirect()->route('cajera.prevale.index')
+                ->with('error', 'Prevale rechazado. Se canceló el vale y se bloqueó el expediente del cliente.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Ocurrió un error al rechazar el prevale: ' . $e->getMessage()]);
+        }
     }
 }

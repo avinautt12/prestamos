@@ -13,29 +13,26 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
 
     const submitFilters = (event) => {
         event.preventDefault();
-        router.get(route('distribuidora.clientes'), form, {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-        });
+        router.get(route('distribuidora.clientes'), form, { preserveState: true, preserveScroll: true, replace: true });
     };
 
     const clearFilters = () => {
         const empty = { q: '', estado_relacion: 'TODOS', elegibilidad: 'TODOS' };
         setForm(empty);
-        router.get(route('distribuidora.clientes'), empty, {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-        });
+        router.get(route('distribuidora.clientes'), empty, { preserveState: true, preserveScroll: true, replace: true });
+    };
+
+    const iniciales = (nombre) => {
+        if (!nombre) return '?';
+        return nombre.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
     };
 
     return (
         <DistribuidoraLayout
-            title="Mis Clientes"
-            subtitle="Cartera activa y estado resumido de cada cliente ligado a tu distribuidora."
+            title="Clientes"
+            subtitle="Tu cartera de clientes y su estado actual."
         >
-            <Head title="Mis Clientes" />
+            <Head title="Clientes" />
 
             {sinConfig ? (
                 <div className="fin-card">
@@ -44,156 +41,131 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                 </div>
             ) : (
                 <>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+                    {/* Resumen compacto */}
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                         <div className="fin-card">
-                            <p className="text-sm font-medium text-gray-600">Total de clientes</p>
-                            <p className="fin-stat-value">{formatNumber(resumen.total)}</p>
+                            <p className="text-xs font-medium text-gray-500">Total</p>
+                            <p className="mt-1 text-xl font-bold text-gray-900">{formatNumber(resumen.total)}</p>
                         </div>
                         <div className="fin-card">
-                            <p className="text-sm font-medium text-gray-600">Relaciones activas</p>
-                            <p className="fin-stat-value">{formatNumber(resumen.activos)}</p>
+                            <p className="text-xs font-medium text-gray-500">Activos</p>
+                            <p className="mt-1 text-xl font-bold text-green-600">{formatNumber(resumen.activos)}</p>
                         </div>
                         <div className="fin-card">
-                            <p className="text-sm font-medium text-gray-600">Relaciones bloqueadas</p>
-                            <p className="fin-stat-value">{formatNumber(resumen.bloqueados)}</p>
+                            <p className="text-xs font-medium text-gray-500">Bloqueados</p>
+                            <p className="mt-1 text-xl font-bold text-red-600">{formatNumber(resumen.bloqueados)}</p>
                         </div>
                         <div className="fin-card">
-                            <p className="text-sm font-medium text-gray-600">Elegibles para vale</p>
-                            <p className="fin-stat-value">{formatNumber(resumen.elegibles)}</p>
+                            <p className="text-xs font-medium text-gray-500">Elegibles</p>
+                            <p className="mt-1 text-xl font-bold text-blue-600">{formatNumber(resumen.elegibles)}</p>
                         </div>
                         <div className="fin-card">
-                            <p className="text-sm font-medium text-gray-600">Clientes con saldo</p>
-                            <p className="fin-stat-value">{formatNumber(resumen.con_saldo)}</p>
+                            <p className="text-xs font-medium text-gray-500">Con saldo</p>
+                            <p className="mt-1 text-xl font-bold text-amber-600">{formatNumber(resumen.con_saldo)}</p>
                         </div>
                     </div>
 
-                    <div className="mt-6 fin-card">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                            <div>
-                                <h2 className="fin-title">Listado de clientes</h2>
-                                <p className="mt-1 fin-subtitle">Consulta cartera, elegibilidad para pre vale, bloqueo por parentesco y saldos vigentes.</p>
-                            </div>
-                            <form onSubmit={submitFilters} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:min-w-[720px]">
-                                <div>
-                                    <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Buscar</label>
-                                    <input
-                                        type="text"
-                                        value={form.q}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, q: event.target.value }))}
-                                        className="fin-input"
-                                        placeholder="Nombre o código"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Relación</label>
-                                    <select
-                                        value={form.estado_relacion}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, estado_relacion: event.target.value }))}
-                                        className="fin-input"
-                                    >
-                                        <option value="TODOS">Todas</option>
-                                        <option value="ACTIVA">Activas</option>
-                                        <option value="BLOQUEADA">Bloqueadas</option>
-                                        <option value="TERMINADA">Terminadas</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Elegibilidad</label>
-                                    <select
-                                        value={form.elegibilidad}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, elegibilidad: event.target.value }))}
-                                        className="fin-input"
-                                    >
-                                        <option value="TODOS">Todos</option>
-                                        <option value="ELEGIBLES">Elegibles</option>
-                                        <option value="OBSERVADOS">Observados</option>
-                                        <option value="CON_SALDO">Con saldo</option>
-                                        <option value="SIN_DEUDA">Sin deuda</option>
-                                    </select>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button type="submit" className="w-full fin-btn-primary">Aplicar</button>
-                                    <button type="button" onClick={clearFilters} className="w-full fin-btn-secondary">Limpiar</button>
-                                </div>
-                            </form>
+                    {/* Filtros inline */}
+                    <form onSubmit={submitFilters} className="flex flex-wrap items-end gap-3 mt-6">
+                        <div className="flex-1 min-w-[180px]">
+                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Buscar</label>
+                            <input
+                                type="text"
+                                value={form.q}
+                                onChange={(e) => setForm((p) => ({ ...p, q: e.target.value }))}
+                                className="fin-input"
+                                placeholder="Nombre del cliente"
+                            />
                         </div>
+                        <div className="w-36">
+                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Relación</label>
+                            <select value={form.estado_relacion} onChange={(e) => setForm((p) => ({ ...p, estado_relacion: e.target.value }))} className="fin-input">
+                                <option value="TODOS">Todas</option>
+                                <option value="ACTIVA">Activas</option>
+                                <option value="BLOQUEADA">Bloqueadas</option>
+                                <option value="TERMINADA">Terminadas</option>
+                            </select>
+                        </div>
+                        <div className="w-36">
+                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Elegibilidad</label>
+                            <select value={form.elegibilidad} onChange={(e) => setForm((p) => ({ ...p, elegibilidad: e.target.value }))} className="fin-input">
+                                <option value="TODOS">Todos</option>
+                                <option value="ELEGIBLES">Elegibles</option>
+                                <option value="OBSERVADOS">Observados</option>
+                                <option value="CON_SALDO">Con saldo</option>
+                                <option value="SIN_DEUDA">Sin deuda</option>
+                            </select>
+                        </div>
+                        <button type="submit" className="px-4 py-2 fin-btn-primary">Aplicar</button>
+                        <button type="button" onClick={clearFilters} className="px-4 py-2 fin-btn-secondary">Limpiar</button>
+                    </form>
 
-                        {!clientes.length ? (
-                            <p className="mt-4 text-sm text-gray-500">No hay clientes que cumplan con el filtro actual.</p>
-                        ) : (
-                            <div className="mt-4 space-y-3">
-                                {clientes.map((cliente) => (
-                                    <div key={cliente.id} className="p-4 border rounded-xl border-gray-200">
-                                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                            <div>
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <p className="font-semibold text-gray-900">{cliente.nombre}</p>
-                                                    {cliente.puede_solicitar_vale ? (
-                                                        <span className="fin-badge fin-badge-approved">LISTO PARA PRE VALE</span>
-                                                    ) : (
-                                                        <span className="fin-badge fin-badge-pending">REVISAR ANTES DEL PRE VALE</span>
-                                                    )}
-                                                </div>
-                                                <p className="mt-1 text-sm text-gray-500">{cliente.codigo_cliente || 'Sin código de cliente'}</p>
+                    {/* Lista de clientes */}
+                    {!clientes.length ? (
+                        <div className="flex items-center justify-center p-12 mt-6 border-2 border-gray-200 border-dashed rounded-xl">
+                            <p className="text-sm text-gray-400">No hay clientes que cumplan con el filtro actual.</p>
+                        </div>
+                    ) : (
+                        <div className="mt-6 space-y-3">
+                            {clientes.map((cliente) => (
+                                <div key={cliente.id} className="overflow-hidden border rounded-xl border-gray-200 bg-white">
+                                    <div className="flex items-center gap-4 p-4">
+                                        {/* Avatar con iniciales */}
+                                        <div className={`flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold ${
+                                            cliente.puede_solicitar_vale
+                                                ? 'bg-green-100 text-green-700'
+                                                : cliente.bloqueado_por_parentesco
+                                                    ? 'bg-red-100 text-red-700'
+                                                    : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                            {iniciales(cliente.nombre)}
+                                        </div>
+
+                                        {/* Info principal */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="font-semibold text-gray-900 truncate">{cliente.nombre}</p>
+                                                <span className={statusBadgeClass(cliente.estado_relacion)}>Relación: {cliente.estado_relacion}</span>
+                                                <span className={statusBadgeClass(cliente.estado_cliente)}>Cliente: {cliente.estado_cliente}</span>
                                             </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                <span className={statusBadgeClass(cliente.estado_relacion)}>{cliente.estado_relacion}</span>
-                                                <span className={statusBadgeClass(cliente.estado_cliente)}>{cliente.estado_cliente}</span>
+                                            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1 text-sm text-gray-500">
+                                                <span>Vales: <span className="font-semibold text-gray-700">{formatNumber(cliente.vales_abiertos)}</span></span>
+                                                <span>Saldo: <span className="font-semibold text-gray-700">{formatCurrency(cliente.saldo_pendiente)}</span></span>
+                                                {cliente.siguiente_vencimiento && (
+                                                    <span>Vence: <span className="font-semibold text-gray-700">{formatDate(cliente.siguiente_vencimiento)}</span></span>
+                                                )}
+                                                <span>Desde: <span className="font-semibold text-gray-700">{formatDate(cliente.vinculado_en)}</span></span>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 gap-3 mt-4 md:grid-cols-4">
-                                            <div>
-                                                <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Vales abiertos</p>
-                                                <p className="mt-1 font-semibold text-gray-900">{formatNumber(cliente.vales_abiertos)}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Saldo pendiente</p>
-                                                <p className="mt-1 font-semibold text-gray-900">{formatCurrency(cliente.saldo_pendiente)}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Vinculado</p>
-                                                <p className="mt-1 font-semibold text-gray-900">{formatDate(cliente.vinculado_en)}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Siguiente vencimiento</p>
-                                                <p className="mt-1 font-semibold text-gray-900">{formatDate(cliente.siguiente_vencimiento)}</p>
-                                            </div>
-                                        </div>
-
-                                        {cliente.bloqueado_por_parentesco && (
-                                            <div className="p-3 mt-4 border rounded-xl border-amber-200 bg-amber-50">
-                                                <p className="text-sm font-semibold text-amber-800">Relación bloqueada por parentesco</p>
-                                                <p className="mt-1 text-sm text-amber-700">{cliente.observaciones_parentesco || 'Se marcó como relación sensible para revisión.'}</p>
-                                            </div>
-                                        )}
-
-                                        {!cliente.puede_solicitar_vale && !cliente.bloqueado_por_parentesco && cliente.saldo_pendiente > 0 && (
-                                            <div className="p-3 mt-4 border rounded-xl border-blue-200 bg-blue-50">
-                                                <p className="text-sm font-semibold text-blue-800">Cliente con deuda vigente</p>
-                                                <p className="mt-1 text-sm text-blue-700">Antes de levantar un nuevo pre vale, revisa los vales abiertos y el saldo pendiente de este cliente.</p>
-                                            </div>
-                                        )}
-
-                                        <div className="flex flex-wrap gap-2 mt-4">
-                                            <Link
-                                                href={route('distribuidora.vales', { cliente_id: cliente.id })}
-                                                className="fin-btn-secondary"
-                                            >
-                                                Ver vales del cliente
+                                        {/* Acciones */}
+                                        <div className="flex flex-shrink-0 gap-2">
+                                            <Link href={route('distribuidora.vales', { cliente_id: cliente.id })} className="px-3 py-2 text-xs fin-btn-secondary">
+                                                Ver vales
                                             </Link>
-                                            <Link
-                                                href={route('distribuidora.vales.create', { cliente_id: cliente.id })}
-                                                className={cliente.puede_solicitar_vale ? 'fin-btn-primary' : 'fin-btn-secondary'}
-                                            >
-                                                Pre vale
-                                            </Link>
+                                            {cliente.puede_solicitar_vale && (
+                                                <Link href={route('distribuidora.vales.create')} className="px-3 py-2 text-xs fin-btn-primary">
+                                                    Pre vale
+                                                </Link>
+                                            )}
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+
+                                    {/* Alertas (solo si aplica) */}
+                                    {cliente.bloqueado_por_parentesco && (
+                                        <div className="px-4 py-2 text-sm border-t bg-amber-50 border-amber-100 text-amber-700">
+                                            Bloqueado por parentesco — {cliente.observaciones_parentesco || 'Relación sensible marcada para revisión.'}
+                                        </div>
+                                    )}
+                                    {!cliente.puede_solicitar_vale && !cliente.bloqueado_por_parentesco && cliente.saldo_pendiente > 0 && (
+                                        <div className="px-4 py-2 text-sm border-t bg-blue-50 border-blue-100 text-blue-700">
+                                            Deuda vigente — Debe liquidar antes de solicitar un nuevo pre vale.
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </>
             )}
         </DistribuidoraLayout>
