@@ -7,13 +7,14 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 
-class DistribuidoraAprobadaNotification extends Notification implements ShouldQueue
+class RechazoSolicitudGerenteNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
     public function __construct(
-        private readonly float $limiteCredito,
-        private readonly string $numeroDistribuidora
+        private readonly int $solicitudId,
+        private readonly string $clienteNombre,
+        private readonly string $motivo
     ) {}
 
     public function via(object $notifiable): array
@@ -24,11 +25,12 @@ class DistribuidoraAprobadaNotification extends Notification implements ShouldQu
     public function toArray(object $notifiable): array
     {
         return [
-            'tipo' => 'LIMITE_AUTORIZADO',
-            'titulo' => 'Tu limite de credito fue autorizado',
-            'mensaje' => 'Tu solicitud fue aprobada con un limite de $' . number_format($this->limiteCredito, 2) . '.',
-            'numero_distribuidora' => $this->numeroDistribuidora,
-            'limite_credito' => $this->limiteCredito,
+            'tipo' => 'RECHAZO_GERENTE',
+            'titulo' => 'Solicitud rechazada por gerencia',
+            'mensaje' => $this->clienteNombre . ' fue rechazada. Motivo: ' . $this->motivo,
+            'solicitud_id' => $this->solicitudId,
+            'cliente_nombre' => $this->clienteNombre,
+            'motivo_rechazo' => $this->motivo,
             'timestamp' => now()->toIso8601String(),
         ];
     }

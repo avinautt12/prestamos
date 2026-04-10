@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import ApplicationLogo from '@/Components/ApplicationLogo';
+import NotificationCenter from '@/Components/NotificationCenter';
 
 export default function AdminLayout({ children, title = 'Prestamo Fácil' }) {
     const { auth } = usePage().props;
@@ -125,7 +126,9 @@ export default function AdminLayout({ children, title = 'Prestamo Fácil' }) {
                 </div>
             </main>
 
-            <div className="fixed z-50 space-y-2 top-4 right-4">
+            <NotificationCenter />
+
+            <div className="fixed z-50 space-y-2 top-16 right-4">
                 {toasts.map((toast) => (
                     <div key={toast.id} className="w-72 p-3 text-sm bg-white border border-gray-200 rounded-lg shadow-lg">
                         <p className="font-semibold text-gray-800">{toast.titulo}</p>

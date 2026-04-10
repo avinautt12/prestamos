@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Cajera;
 
+use App\Events\AlertaMorosidad;
 use App\Http\Controllers\Controller;
 use App\Models\Conciliacion;
 use App\Models\MovimientoBancario;
 use App\Models\PagoDistribuidora;
 use App\Models\RelacionCorte;
+use App\Models\Usuario;
+use App\Notifications\ConciliacionProcesadaNotification;
 use App\Services\Cajera\ConciliacionHistorialService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -371,6 +374,33 @@ class ConciliacionController extends Controller
         ];
         $mensaje = implode(' | ', $detalles);
 
+        /** @var \App\Models\Usuario|null $usuarioAuth */
+        $usuarioAuth = Auth::user();
+        $sucursalId = $usuarioAuth?->sucursales()->first()?->id;
+        if ($sucursalId) {
+            $this->notificarGerentesSucursal(
+                (int) $sucursalId,
+                'Resumen de importacion bancaria',
+                "{$stats['procesadas']} procesadas, {$stats['conciliadas']} conciliadas, {$stats['pendientes']} pendientes.",
+                [
+                    'procesadas' => $stats['procesadas'],
+                    'conciliadas' => $stats['conciliadas'],
+                    'pendientes' => $stats['pendientes'],
+                    'duplicadas' => $stats['duplicadas'],
+                    'invalidas' => $stats['invalidas'],
+                ]
+            );
+
+            if ($stats['pendientes'] > 0) {
+                event(new AlertaMorosidad(
+                    (int) $sucursalId,
+                    'Pendientes de conciliacion',
+                    null,
+                    'Se detectaron pagos pendientes por revisar en la importacion bancaria.'
+                ));
+            }
+        }
+
         return redirect()
             ->route('cajera.conciliaciones')
             ->with('message', $mensaje)
@@ -398,7 +428,7 @@ class ConciliacionController extends Controller
             return back()->with('error', 'Ese movimiento ya está conciliado.');
         }
 
-        $relacion = RelacionCorte::query()->with('distribuidora')->findOrFail($data['relacion_corte_id']);
+        $relacion = RelacionCorte::query()->with(['distribuidora.persona'])->findOrFail($data['relacion_corte_id']);
 
         $diferencia = round((float) $movimiento->monto - (float) $relacion->total_a_pagar, 2);
         $estadoConciliacion = $data['estado'];
@@ -446,7 +476,68 @@ class ConciliacionController extends Controller
             throw $e;
         }
 
+        $sucursalId = $relacion->distribuidora?->sucursal_id;
+        if ($sucursalId) {
+            $nombreDistribuidora = $this->nombreDistribuidora($relacion);
+
+            DB::afterCommit(function () use ($sucursalId, $relacion, $estadoConciliacion, $nombreDistribuidora) {
+                $this->notificarGerentesSucursal(
+                    (int) $sucursalId,
+                    'Conciliacion manual aplicada',
+                    "Relacion {$relacion->numero_relacion} conciliada con estado {$estadoConciliacion} ({$nombreDistribuidora}).",
+                    [
+                        'relacion_corte_id' => (int) $relacion->id,
+                        'numero_relacion' => (string) $relacion->numero_relacion,
+                        'estado_conciliacion' => (string) $estadoConciliacion,
+                    ]
+                );
+
+                if ($estadoConciliacion === Conciliacion::ESTADO_RECHAZADA || $relacion->estado === RelacionCorte::ESTADO_VENCIDA) {
+                    event(new AlertaMorosidad(
+                        (int) $sucursalId,
+                        $nombreDistribuidora,
+                        (int) $relacion->id,
+                        'Conciliacion rechazada o relacion en estado vencida.'
+                    ));
+                }
+            });
+        }
+
         return redirect()->route('cajera.conciliaciones')->with('message', 'Conciliación manual aplicada correctamente.');
+    }
+
+    private function notificarGerentesSucursal(int $sucursalId, string $titulo, string $mensaje, array $meta = []): void
+    {
+        $gerentes = Usuario::query()
+            ->whereIn('id', function ($query) use ($sucursalId) {
+                $query->select('usuario_rol.usuario_id')
+                    ->from('usuario_rol')
+                    ->join('roles', 'roles.id', '=', 'usuario_rol.rol_id')
+                    ->where('roles.codigo', 'GERENTE')
+                    ->where('usuario_rol.sucursal_id', $sucursalId)
+                    ->whereNull('usuario_rol.revocado_en');
+            })
+            ->get();
+
+        foreach ($gerentes as $gerente) {
+            $gerente->notify(new ConciliacionProcesadaNotification($titulo, $mensaje, $meta));
+        }
+    }
+
+    private function nombreDistribuidora(RelacionCorte $relacion): string
+    {
+        $nombre = trim(implode(' ', array_filter([
+            $relacion->distribuidora?->persona?->primer_nombre,
+            $relacion->distribuidora?->persona?->segundo_nombre,
+            $relacion->distribuidora?->persona?->apellido_paterno,
+            $relacion->distribuidora?->persona?->apellido_materno,
+        ])));
+
+        if ($nombre !== '') {
+            return $nombre;
+        }
+
+        return $relacion->distribuidora?->numero_distribuidora ?: 'Distribuidora';
     }
 
     private function conciliarAutomaticoExacto(MovimientoBancario $movimiento): bool

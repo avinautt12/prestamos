@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import ApplicationLogo from '@/Components/ApplicationLogo';
+import NotificationCenter from '@/Components/NotificationCenter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faBars,
     faRightFromBracket,
     faXmark,
     faHouse,
+    faChartLine,
     faFileLines,
     faFileCirclePlus,
     faUsers,
@@ -101,12 +103,14 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
     if (auth.user?.rol_nombre === 'coordinador') {
         navigation = [
             { name: 'Dashboard', href: route('coordinador.dashboard'), icon: faHouse, active: route().current('coordinador.dashboard') },
+            { name: 'Reportes', href: route('coordinador.reportes'), icon: faChartLine, active: route().current('coordinador.reportes') },
             { name: 'Nueva Solicitud', href: route('coordinador.solicitudes.create'), icon: faFileCirclePlus, active: route().current('coordinador.solicitudes.create') },
             { name: 'Solicitudes', href: route('coordinador.solicitudes.index'), icon: faFileLines, active: route().current('coordinador.solicitudes.*') },
             { name: 'Clientes', href: route('coordinador.clientes'), icon: faUsers, active: route().current('coordinador.clientes') },
             { name: 'Mis Distribuidoras', href: route('coordinador.mis-distribuidoras'), icon: faPeopleGroup, active: route().current('coordinador.mis-distribuidoras') }
         ];
         shortcuts = [
+            { name: 'Reportes', href: route('coordinador.reportes') },
             { name: 'Captura Rápida', href: route('coordinador.solicitudes.create') },
             { name: 'Ver Cartera', href: route('coordinador.clientes') },
         ];
@@ -233,7 +237,9 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
                 </main>
             </div>
 
-            <div className="fixed z-50 space-y-2 top-4 right-4">
+            <NotificationCenter />
+
+            <div className="fixed z-50 space-y-2 top-16 right-4">
                 {toasts.map((toast) => (
                     <div key={toast.id} className="p-3 text-sm bg-white border border-gray-200 rounded-lg shadow-lg w-72">
                         <p className="font-semibold text-gray-800">{toast.titulo}</p>
