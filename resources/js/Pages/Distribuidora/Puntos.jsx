@@ -29,8 +29,22 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
     const valorDescuento = (puntosNum * valorPorPunto).toFixed(2);
     const puntosMaximos = relacionSeleccionada ? Math.min(resumen.saldo_actual, Math.floor(relacionSeleccionada.total_a_pagar / valorPorPunto)) : resumen.saldo_actual;
 
+    // Validación client-side del canje
+    const canjeErrors = {
+        relacion: !canje.relacion_corte_id ? 'Selecciona una relación de corte' : null,
+        puntos: (() => {
+            if (!canje.puntos_a_canjear) return null;
+            if (isNaN(puntosNum) || puntosNum <= 0) return 'Debe ser un número mayor a cero';
+            if (puntosNum < 2) return 'Mínimo 2 puntos para canjear';
+            if (puntosNum > resumen.saldo_actual) return `Solo tienes ${resumen.saldo_actual} puntos disponibles`;
+            if (relacionSeleccionada && puntosNum > puntosMaximos) return `Máximo ${puntosMaximos} puntos para esta relación`;
+            return null;
+        })(),
+    };
+    const canjeValido = !canjeErrors.relacion && !canjeErrors.puntos && puntosNum >= 2;
+
     const confirmarCanje = () => {
-        if (canjeando) return;
+        if (canjeando || !canjeValido) return;
         setCanjeando(true);
         router.post(route('distribuidora.puntos.canjear'), canje, {
             onSuccess: () => { setModalCanje(false); setCanje({ relacion_corte_id: '', puntos_a_canjear: '' }); },
@@ -159,7 +173,7 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                                         <select
                                             value={canje.relacion_corte_id}
                                             onChange={(e) => setCanje((p) => ({ ...p, relacion_corte_id: e.target.value }))}
-                                            className="fin-input"
+                                            className={`fin-input ${canjeErrors.relacion && canje.relacion_corte_id === '' ? '' : ''}`}
                                         >
                                             <option value="">Selecciona una relación pendiente</option>
                                             {relacionesPendientes.map((r) => (
@@ -175,13 +189,14 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                                             type="number"
                                             value={canje.puntos_a_canjear}
                                             onChange={(e) => setCanje((p) => ({ ...p, puntos_a_canjear: e.target.value }))}
-                                            className="fin-input"
+                                            className={`fin-input ${canjeErrors.puntos ? 'border-red-400' : ''}`}
                                             placeholder="Ej. 50"
                                             min={2}
                                             max={puntosMaximos}
                                         />
+                                        {canjeErrors.puntos && <p className="mt-1 text-xs text-red-600">{canjeErrors.puntos}</p>}
                                     </div>
-                                    {puntosNum >= 2 && (
+                                    {puntosNum >= 2 && !canjeErrors.puntos && (
                                         <div className="p-3 rounded-lg bg-green-50 border border-green-200">
                                             <p className="text-sm text-green-800">
                                                 <span className="font-bold">{formatNumber(puntosNum)} puntos</span> = <span className="font-bold">{formatCurrency(parseFloat(valorDescuento))}</span> de descuento
@@ -199,7 +214,7 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                                     <button
                                         type="button"
                                         onClick={confirmarCanje}
-                                        disabled={canjeando || puntosNum < 2 || !canje.relacion_corte_id}
+                                        disabled={canjeando || !canjeValido}
                                         className="px-5 py-2 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {canjeando ? 'Canjeando...' : 'Confirmar canje'}

@@ -3,11 +3,16 @@
 namespace App\Services;
 
 use App\Models\Corte;
+use App\Models\Distribuidora;
+use App\Models\PartidaRelacionCorte;
+use App\Models\RelacionCorte;
 use App\Models\Sucursal;
 use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
+use App\Models\Vale;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class CorteService
 {
@@ -89,6 +94,134 @@ class CorteService
         ]);
 
         return $corte->refresh();
+    }
+
+    /**
+     * Genera RelacionCorte y PartidaRelacionCorte para cada distribuidora ACTIVA
+     * de la sucursal del corte. Se debe invocar después de cerrarManual().
+     *
+     * Reglas:
+     * - Solo distribuidoras con estado ACTIVA
+     * - Solo vales en estado ACTIVO/PAGO_PARCIAL/MOROSO sin partida ya generada
+     * - Calcula fechas de pago anticipado y limite usando sucursal_configuraciones
+     * - Genera referencia única por distribuidora para conciliación bancaria
+     *
+     * @return int Cantidad de relaciones creadas
+     */
+    public function generarRelacionesParaCorte(Corte $corte): int
+    {
+        $sucursal = $corte->sucursal()->with('configuracion')->first();
+        if (!$sucursal) {
+            return 0;
+        }
+
+        $config = $sucursal->configuracion;
+        $plazoPagoDias = (int) ($config?->plazo_pago_dias ?? 15);
+
+        $fechaCorte = $corte->fecha_ejecucion ?? now();
+        $fechaLimite = $fechaCorte->copy()->addDays($plazoPagoDias);
+        $fechaInicioAnticipado = $fechaLimite->copy()->subDays(3);
+        $fechaFinAnticipado = $fechaLimite->copy()->subDays(1);
+
+        $sucursalCodigo = $sucursal->codigo ?? 'SUC';
+        $year = $fechaCorte->format('Y');
+        $ymd = $fechaCorte->format('ymd');
+
+        $distribuidoras = Distribuidora::query()
+            ->where('sucursal_id', $sucursal->id)
+            ->where('estado', Distribuidora::ESTADO_ACTIVA)
+            ->get();
+
+        $relacionesCreadas = 0;
+        $consecutivo = (int) RelacionCorte::query()
+            ->whereYear('generada_en', $year)
+            ->count();
+
+        foreach ($distribuidoras as $distribuidora) {
+            // Vales con saldo abierto que no tengan ya una partida en este corte
+            $vales = Vale::query()
+                ->where('distribuidora_id', $distribuidora->id)
+                ->whereIn('estado', [
+                    Vale::ESTADO_ACTIVO,
+                    Vale::ESTADO_PAGO_PARCIAL,
+                    Vale::ESTADO_MOROSO,
+                ])
+                ->with('productoFinanciero:id,nombre')
+                ->get();
+
+            if ($vales->isEmpty()) {
+                continue;
+            }
+
+            DB::transaction(function () use (
+                $distribuidora, $vales, $corte, $sucursalCodigo, $year, $ymd,
+                $fechaLimite, $fechaInicioAnticipado, $fechaFinAnticipado, &$consecutivo, &$relacionesCreadas
+            ) {
+                $totalComision = 0.0;
+                $totalPago = 0.0;
+                $totalRecargos = 0.0;
+
+                $partidasData = [];
+                foreach ($vales as $vale) {
+                    $quincenas = max(1, (int) $vale->quincenas_totales);
+                    $comisionPorQuincena = round((float) $vale->monto_comision_empresa / $quincenas, 2);
+                    $pagoQuincenal = (float) $vale->monto_quincenal;
+                    $recargo = $vale->estado === Vale::ESTADO_MOROSO
+                        ? (float) $vale->monto_multa_snap
+                        : 0.0;
+                    $totalLinea = round($comisionPorQuincena + $pagoQuincenal + $recargo, 2);
+
+                    $totalComision += $comisionPorQuincena;
+                    $totalPago += $pagoQuincenal;
+                    $totalRecargos += $recargo;
+
+                    $partidasData[] = [
+                        'vale_id' => $vale->id,
+                        'cliente_id' => $vale->cliente_id,
+                        'nombre_producto_snapshot' => $vale->productoFinanciero?->nombre ?? 'Producto',
+                        'pagos_realizados' => (int) $vale->pagos_realizados,
+                        'pagos_totales' => (int) $vale->quincenas_totales,
+                        'monto_comision' => $comisionPorQuincena,
+                        'monto_pago' => $pagoQuincenal,
+                        'monto_recargo' => $recargo,
+                        'monto_total_linea' => $totalLinea,
+                    ];
+                }
+
+                $totalAPagar = round($totalComision + $totalPago + $totalRecargos, 2);
+                $consecutivo++;
+
+                $numeroRelacion = sprintf('REL-%s-%s-%03d', $sucursalCodigo, $year, $consecutivo);
+                $referenciaPago = sprintf('%s%d%s', $sucursalCodigo, $distribuidora->id, $ymd);
+
+                $relacion = RelacionCorte::create([
+                    'corte_id' => $corte->id,
+                    'distribuidora_id' => $distribuidora->id,
+                    'numero_relacion' => $numeroRelacion,
+                    'referencia_pago' => $referenciaPago,
+                    'fecha_limite_pago' => $fechaLimite->toDateString(),
+                    'fecha_inicio_pago_anticipado' => $fechaInicioAnticipado->toDateString(),
+                    'fecha_fin_pago_anticipado' => $fechaFinAnticipado->toDateString(),
+                    'limite_credito_snapshot' => (float) $distribuidora->limite_credito,
+                    'credito_disponible_snapshot' => (float) $distribuidora->credito_disponible,
+                    'puntos_snapshot' => (float) $distribuidora->puntos_actuales,
+                    'total_comision' => round($totalComision, 2),
+                    'total_pago' => round($totalPago, 2),
+                    'total_recargos' => round($totalRecargos, 2),
+                    'total_a_pagar' => $totalAPagar,
+                    'estado' => RelacionCorte::ESTADO_GENERADA,
+                ]);
+
+                foreach ($partidasData as $partida) {
+                    $partida['relacion_corte_id'] = $relacion->id;
+                    PartidaRelacionCorte::create($partida);
+                }
+
+                $relacionesCreadas++;
+            });
+        }
+
+        return $relacionesCreadas;
     }
 
     private function calcularFechaProgramada(int $diaCorte, string $horaCorte): Carbon

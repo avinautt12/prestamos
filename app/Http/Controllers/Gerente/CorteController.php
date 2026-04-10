@@ -62,8 +62,15 @@ class CorteController extends Controller
             ]);
         }
 
-        $this->corteService->cerrarManual($corte, $gerente, $request->string('observaciones')->toString());
+        $corteCerrado = $this->corteService->cerrarManual($corte, $gerente, $request->string('observaciones')->toString());
 
-        return back()->with('success', 'Corte cerrado manualmente.');
+        // Generar automáticamente las RelacionCorte para todas las distribuidoras activas de la sucursal
+        $relacionesGeneradas = $this->corteService->generarRelacionesParaCorte($corteCerrado);
+
+        $mensaje = $relacionesGeneradas > 0
+            ? "Corte cerrado. Se generaron {$relacionesGeneradas} relaciones de pago."
+            : 'Corte cerrado. No había distribuidoras con vales activos para generar relaciones.';
+
+        return back()->with('success', $mensaje);
     }
 }

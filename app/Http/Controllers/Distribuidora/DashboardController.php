@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Distribuidora;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Distribuidora\CanjearPuntosRequest;
+use App\Http\Requests\Distribuidora\ReportarPagoRequest;
 use App\Http\Requests\Distribuidora\StorePreValeRequest;
 use App\Models\Cliente;
 use App\Models\CuentaBancaria;
@@ -580,6 +581,46 @@ class DashboardController extends Controller
         }
     }
 
+    public function reportarPago(ReportarPagoRequest $request, int $relacionId): RedirectResponse
+    {
+        $distribuidora = $this->obtenerDistribuidoraActual();
+
+        if (!$distribuidora) {
+            return back()->withErrors(['general' => 'No se encontró una distribuidora ligada a tu acceso.']);
+        }
+
+        $relacion = RelacionCorte::where('id', $relacionId)
+            ->where('distribuidora_id', $distribuidora->id)
+            ->whereIn('estado', [
+                RelacionCorte::ESTADO_GENERADA,
+                RelacionCorte::ESTADO_PARCIAL,
+                RelacionCorte::ESTADO_VENCIDA,
+            ])
+            ->first();
+
+        if (!$relacion) {
+            return back()->withErrors(['general' => 'La relación seleccionada no está pendiente de pago o no pertenece a tu distribuidora.']);
+        }
+
+        try {
+            PagoDistribuidora::create([
+                'relacion_corte_id'       => $relacion->id,
+                'distribuidora_id'        => $distribuidora->id,
+                'cuenta_banco_empresa_id' => null,
+                'monto'                   => round((float) $request->monto, 2),
+                'metodo_pago'             => $request->metodo_pago,
+                'referencia_reportada'    => $request->referencia_reportada,
+                'fecha_pago'              => $request->fecha_pago ?? now(),
+                'estado'                  => PagoDistribuidora::ESTADO_REPORTADO,
+                'observaciones'           => $request->observaciones ?: 'Reportado por la distribuidora',
+            ]);
+
+            return back()->with('success', "Pago reportado para la relación {$relacion->numero_relacion}. La cajera lo conciliará al recibir el archivo bancario.");
+        } catch (\Exception $e) {
+            return back()->withErrors(['general' => 'Error al reportar el pago. Intenta de nuevo.']);
+        }
+    }
+
     private function generarCodigoCliente(): string
     {
         do {
@@ -837,6 +878,8 @@ class DashboardController extends Controller
             'estado' => (string) $request->string('estado', 'TODAS'),
             'q' => trim((string) $request->string('q', '')),
             'relacion_id' => (string) $request->string('relacion_id', ''),
+            'fecha_desde' => trim((string) $request->string('fecha_desde', '')),
+            'fecha_hasta' => trim((string) $request->string('fecha_hasta', '')),
             'relaciones_page' => $relacionesPage,
             'pagos_page' => $pagosPage,
         ];
@@ -861,16 +904,24 @@ class DashboardController extends Controller
             });
         }
 
+        if (filled($filtros['fecha_desde'])) {
+            $relacionesQuery->whereDate('generada_en', '>=', $filtros['fecha_desde']);
+        }
+
+        if (filled($filtros['fecha_hasta'])) {
+            $relacionesQuery->whereDate('generada_en', '<=', $filtros['fecha_hasta']);
+        }
+
         $totalRelaciones = $relacionesQuery->count();
         $lastPageRelaciones = max(1, (int) ceil($totalRelaciones / $perPage));
         if ($relacionesPage > $lastPageRelaciones) {
             $relacionesPage = $lastPageRelaciones;
         }
 
+        // Mostrar primero las más recientes (ordenado por fecha de generación descendente)
         $relaciones = $relacionesQuery
-            ->orderByRaw('fecha_limite_pago IS NULL')
-            ->orderBy('fecha_limite_pago')
             ->orderByDesc('generada_en')
+            ->orderByDesc('id')
             ->skip(($relacionesPage - 1) * $perPage)
             ->take($perPage)
             ->get();
@@ -1314,6 +1365,11 @@ class DashboardController extends Controller
             return null;
         }
 
+        $pagosEnRevision = $relacion->pagosDistribuidora->filter(fn (PagoDistribuidora $p) => in_array($p->estado, [
+            PagoDistribuidora::ESTADO_REPORTADO,
+            PagoDistribuidora::ESTADO_DETECTADO,
+        ], true));
+
         return [
             'id' => $relacion->id,
             'numero_relacion' => $relacion->numero_relacion,
@@ -1331,6 +1387,8 @@ class DashboardController extends Controller
             'estado' => $relacion->estado,
             'generada_en' => optional($relacion->generada_en)->toDateTimeString(),
             'pagos_count' => $relacion->pagosDistribuidora->count(),
+            'pagos_en_revision_count' => $pagosEnRevision->count(),
+            'pagos_en_revision_total' => (float) $pagosEnRevision->sum('monto'),
             'partidas_count' => $relacion->partidas_count ?? $relacion->partidas->count(),
             'pagos' => $relacion->pagosDistribuidora
                 ->map(fn (PagoDistribuidora $pago) => $this->transformarPagoDistribuidora($pago))
