@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import ClabeInput from '@/Components/ClabeInput';
+import DocumentScanner from '@/Components/DocumentScanner'; // <-- IMPORTAMOS EL ESCÁNER
 import { formatCurrency, formatNumber, statusBadgeClass } from '../utils';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCamera, faCheckCircle } from '@fortawesome/free-solid-svg-icons'; // <-- Iconos para los botones
 
 export default function Create({
     distribuidora,
@@ -46,6 +49,11 @@ export default function Create({
         cuenta_titular: '',
     });
 
+    // --- NUEVOS ESTADOS PARA EL ESCÁNER ---
+    const [scannerOpen, setScannerOpen] = useState(false);
+    const [currentScanType, setCurrentScanType] = useState(''); // 'frente' | 'reverso' | 'selfie'
+    // --------------------------------------
+
     const [enviando, setEnviando] = useState(false);
     const [modalCliente, setModalCliente] = useState(false);
 
@@ -85,6 +93,19 @@ export default function Create({
             replace: true,
         });
     };
+
+    // --- FUNCIÓN QUE RECIBE LA IMAGEN DEL ESCÁNER ---
+    const handleCapture = (file, previewUrl) => {
+        if (currentScanType === 'frente') {
+            actualizarCampo('foto_ine_frente', file);
+        } else if (currentScanType === 'reverso') {
+            actualizarCampo('foto_ine_reverso', file);
+        } else if (currentScanType === 'selfie') {
+            actualizarCampo('foto_selfie_ine', file);
+        }
+        setScannerOpen(false); 
+    };
+    // ------------------------------------------------
 
     const confirmarPreVale = () => {
         if (enviando) return;
@@ -450,41 +471,44 @@ export default function Create({
                                         </div>
                                     </div>
 
-                                    {/* Documentos (fotos) */}
+                                    {/* Documentos (fotos) CON EL NUEVO ESCÁNER */}
                                     <div>
                                         <h3 className="mb-3 text-sm font-semibold text-gray-700">Documentos</h3>
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">INE frente *</label>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={(e) => actualizarCampo('foto_ine_frente', e.target.files[0] || null)}
-                                                    className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-                                                />
-                                                {form.foto_ine_frente && <p className="mt-1 text-xs text-green-600">{form.foto_ine_frente.name}</p>}
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => { setCurrentScanType('frente'); setScannerOpen(true); }}
+                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_frente ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
+                                                >
+                                                    <FontAwesomeIcon icon={form.foto_ine_frente ? faCheckCircle : faCamera} />
+                                                    {form.foto_ine_frente ? 'Escaneada ✓' : 'Escanear Frente'}
+                                                </button>
                                                 {errors?.foto_ine_frente && <p className="mt-1 text-xs text-red-600">{errors.foto_ine_frente}</p>}
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">INE reverso *</label>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={(e) => actualizarCampo('foto_ine_reverso', e.target.files[0] || null)}
-                                                    className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-                                                />
-                                                {form.foto_ine_reverso && <p className="mt-1 text-xs text-green-600">{form.foto_ine_reverso.name}</p>}
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => { setCurrentScanType('reverso'); setScannerOpen(true); }}
+                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_reverso ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
+                                                >
+                                                    <FontAwesomeIcon icon={form.foto_ine_reverso ? faCheckCircle : faCamera} />
+                                                    {form.foto_ine_reverso ? 'Escaneada ✓' : 'Escanear Reverso'}
+                                                </button>
                                                 {errors?.foto_ine_reverso && <p className="mt-1 text-xs text-red-600">{errors.foto_ine_reverso}</p>}
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Selfie con INE *</label>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={(e) => actualizarCampo('foto_selfie_ine', e.target.files[0] || null)}
-                                                    className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-                                                />
-                                                {form.foto_selfie_ine && <p className="mt-1 text-xs text-green-600">{form.foto_selfie_ine.name}</p>}
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => { setCurrentScanType('selfie'); setScannerOpen(true); }}
+                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_selfie_ine ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
+                                                >
+                                                    <FontAwesomeIcon icon={form.foto_selfie_ine ? faCheckCircle : faCamera} />
+                                                    {form.foto_selfie_ine ? 'Capturada ✓' : 'Tomar Selfie'}
+                                                </button>
                                                 {errors?.foto_selfie_ine && <p className="mt-1 text-xs text-red-600">{errors.foto_selfie_ine}</p>}
                                             </div>
                                         </div>
@@ -556,6 +580,20 @@ export default function Create({
                     )}
                 </>
             )}
+
+            {/* --- COMPONENTE DEL ESCÁNER MONTADO AL FINAL --- */}
+            {scannerOpen && (
+                <DocumentScanner 
+                    title={
+                        currentScanType === 'frente' ? "Escanea el Frente del INE" : 
+                        currentScanType === 'reverso' ? "Escanea el Reverso del INE" : 
+                        "Tómale una Selfie al cliente con su INE"
+                    }
+                    onCapture={handleCapture}
+                    onCancel={() => setScannerOpen(false)}
+                />
+            )}
+
         </DistribuidoraLayout>
     );
 }
