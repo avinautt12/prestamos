@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from './utils';
 
 export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opciones = {}, relaciones = [], relacionSeleccionada = null, pagos = [], cuentasEmpresa = [] }) {
     const sinConfig = !distribuidora;
+    const { errors } = usePage().props;
     const [form, setForm] = useState({
         estado: filtros.estado || 'TODAS',
         q: filtros.q || '',
@@ -34,6 +35,28 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
         window.dispatchEvent(new CustomEvent('app-notification', {
             detail: { titulo: 'Referencia copiada', mensaje: `Se copió ${referencia} al portapapeles.` },
         }));
+    };
+
+    const [canjeInline, setCanjeInline] = useState({ abierto: false, puntos: '' });
+    const [canjeando, setCanjeando] = useState(false);
+    const puntosDisponibles = distribuidora?.puntos_actuales || 0;
+    const puntosNum = parseInt(canjeInline.puntos, 10) || 0;
+    const puedeAplicarPuntos = relacionSeleccionada
+        && ['GENERADA', 'PARCIAL', 'VENCIDA'].includes(relacionSeleccionada.estado)
+        && puntosDisponibles >= 2;
+    const valorPorPunto = distribuidora?.valor_punto || 2;
+    const puntosMaxRelacion = relacionSeleccionada ? Math.min(puntosDisponibles, Math.floor(relacionSeleccionada.total_a_pagar / valorPorPunto)) : 0;
+
+    const aplicarPuntos = () => {
+        if (canjeando || puntosNum < 2) return;
+        setCanjeando(true);
+        router.post(route('distribuidora.puntos.canjear'), {
+            relacion_corte_id: relacionSeleccionada.id,
+            puntos_a_canjear: puntosNum,
+        }, {
+            onSuccess: () => { setCanjeInline({ abierto: false, puntos: '' }); },
+            onFinish: () => setCanjeando(false),
+        });
     };
 
     return (
@@ -195,6 +218,52 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* Aplicar puntos */}
+                                    {puedeAplicarPuntos && (
+                                        <div className="p-4 border-t border-gray-100 bg-amber-50/40">
+                                            {!canjeInline.abierto ? (
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-sm text-amber-800">
+                                                        Tienes <span className="font-bold">{formatNumber(puntosDisponibles)} puntos</span> ({formatCurrency(puntosDisponibles * valorPorPunto)} disponibles)
+                                                    </p>
+                                                    <button type="button" onClick={() => setCanjeInline({ abierto: true, puntos: '' })} className="px-4 py-2 text-xs font-semibold text-amber-800 bg-amber-200 rounded-lg hover:bg-amber-300 transition">
+                                                        Aplicar puntos
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    <p className="text-sm font-semibold text-amber-800">Canjear puntos en esta relación</p>
+                                                    <div className="flex items-end gap-3">
+                                                        <div className="flex-1">
+                                                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Puntos (máx. {formatNumber(puntosMaxRelacion)})</label>
+                                                            <input
+                                                                type="number"
+                                                                value={canjeInline.puntos}
+                                                                onChange={(e) => setCanjeInline((p) => ({ ...p, puntos: e.target.value }))}
+                                                                className="fin-input"
+                                                                min={2}
+                                                                max={puntosMaxRelacion}
+                                                                placeholder="Ej. 50"
+                                                            />
+                                                        </div>
+                                                        {puntosNum >= 2 && (
+                                                            <p className="pb-2 text-sm font-bold text-green-700">= {formatCurrency(puntosNum * valorPorPunto)} descuento</p>
+                                                        )}
+                                                        <button type="button" onClick={aplicarPuntos} disabled={canjeando || puntosNum < 2} className="px-4 py-2 text-sm fin-btn-primary disabled:opacity-50">
+                                                            {canjeando ? 'Aplicando...' : 'Confirmar'}
+                                                        </button>
+                                                        <button type="button" onClick={() => setCanjeInline({ abierto: false, puntos: '' })} className="px-4 py-2 text-sm fin-btn-secondary">
+                                                            Cancelar
+                                                        </button>
+                                                    </div>
+                                                    {(errors?.puntos_a_canjear || errors?.general) && (
+                                                        <p className="text-xs text-red-600">{errors?.puntos_a_canjear || errors?.general}</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* Pagos reportados (colapsable, solo si hay) */}
                                     {pagos.length > 0 && (

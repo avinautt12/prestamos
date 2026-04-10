@@ -6,6 +6,7 @@ use App\Models\Cliente;
 use App\Models\Corte;
 use App\Models\CuentaBancaria;
 use App\Models\Distribuidora;
+use App\Models\MovimientoPunto;
 use App\Models\PartidaRelacionCorte;
 use App\Models\ProductoFinanciero;
 use App\Models\RelacionCorte;
@@ -186,6 +187,28 @@ class RelacionCortePruebaSeeder extends Seeder
             );
         }
 
-        $this->command?->info('2 relaciones de corte con partidas creadas para distribuidora de prueba.');
+        // Puntos de prueba: 150 pts netos ($75 disponibles para canje)
+        $distribuidora->update(['puntos_actuales' => 150]);
+
+        $movimientosPuntos = [
+            ['tipo' => MovimientoPunto::TIPO_GANADO_ANTICIPADO, 'puntos' => 30, 'motivo' => 'Pago anticipado corte marzo 2026', 'dias' => 45],
+            ['tipo' => MovimientoPunto::TIPO_GANADO_PUNTUAL, 'puntos' => 50, 'motivo' => 'Pago puntual corte marzo 2026', 'dias' => 40],
+            ['tipo' => MovimientoPunto::TIPO_GANADO_ANTICIPADO, 'puntos' => 40, 'motivo' => 'Pago anticipado corte febrero 2026', 'dias' => 30],
+            ['tipo' => MovimientoPunto::TIPO_PENALIZACION_ATRASO, 'puntos' => -20, 'motivo' => 'Atraso en pago corte enero 2026', 'dias' => 20],
+            ['tipo' => MovimientoPunto::TIPO_GANADO_PUNTUAL, 'puntos' => 50, 'motivo' => 'Pago puntual corte abril 2026', 'dias' => 5],
+        ];
+
+        foreach ($movimientosPuntos as $mov) {
+            MovimientoPunto::create([
+                'distribuidora_id'    => $distribuidora->id,
+                'corte_id'            => $corte->id,
+                'tipo_movimiento'     => $mov['tipo'],
+                'puntos'              => $mov['puntos'],
+                'valor_punto_snapshot' => 2.00,
+                'motivo'              => $mov['motivo'],
+            ]);
+        }
+
+        $this->command?->info('2 relaciones de corte + 150 puntos con historial creados para distribuidora de prueba.');
     }
 }
