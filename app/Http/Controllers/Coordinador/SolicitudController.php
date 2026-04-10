@@ -40,6 +40,7 @@ class SolicitudController extends Controller
      */
     public function store(PreSolicitudRequest $request)
     {
+
         try {
             $usuario = auth()->user();
 
@@ -236,24 +237,25 @@ class SolicitudController extends Controller
             })
             ->firstOrFail();
 
-        // Decodificar JSONs
-        $solicitud->datos_familiares = $solicitud->datos_familiares_json ? json_decode($solicitud->datos_familiares_json, true) : null;
-        $solicitud->afiliaciones = $solicitud->afiliaciones_externas_json ? json_decode($solicitud->afiliaciones_externas_json, true) : null;
-        $solicitud->vehiculos = $solicitud->vehiculos_json ? json_decode($solicitud->vehiculos_json, true) : null;
+        $solicitudArray = $solicitud->toArray();
+
+        $solicitudArray['datos_familiares'] = $solicitud->datos_familiares_json ? json_decode($solicitud->datos_familiares_json, true) : null;
+        $solicitudArray['afiliaciones'] = $solicitud->afiliaciones_externas_json ? json_decode($solicitud->afiliaciones_externas_json, true) : null;
+        $solicitudArray['vehiculos'] = $solicitud->vehiculos_json ? json_decode($solicitud->vehiculos_json, true) : null;
 
         if ($solicitud->verificacion) {
-            $solicitud->verificacion->foto_fachada_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_fachada);
-            $solicitud->verificacion->foto_ine_con_persona_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_ine_con_persona);
-            $solicitud->verificacion->foto_comprobante_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_comprobante);
+            $solicitudArray['verificacion']['foto_fachada_url'] = $this->generarUrlEvidencia($solicitud->verificacion->foto_fachada);
+            $solicitudArray['verificacion']['foto_ine_con_persona_url'] = $this->generarUrlEvidencia($solicitud->verificacion->foto_ine_con_persona);
+            $solicitudArray['verificacion']['foto_comprobante_url'] = $this->generarUrlEvidencia($solicitud->verificacion->foto_comprobante);
         }
 
-        $solicitud->ine_frente_url = $this->generarUrlEvidencia($solicitud->ine_frente_path);
-        $solicitud->ine_reverso_url = $this->generarUrlEvidencia($solicitud->ine_reverso_path);
-        $solicitud->comprobante_domicilio_url = $this->generarUrlEvidencia($solicitud->comprobante_domicilio_path);
-        $solicitud->reporte_buro_url = $this->generarUrlEvidencia($solicitud->reporte_buro_path);
+        $solicitudArray['ine_frente_url'] = $this->generarUrlEvidencia($solicitud->ine_frente_path);
+        $solicitudArray['ine_reverso_url'] = $this->generarUrlEvidencia($solicitud->ine_reverso_path);
+        $solicitudArray['comprobante_domicilio_url'] = $this->generarUrlEvidencia($solicitud->comprobante_domicilio_path);
+        $solicitudArray['reporte_buro_url'] = $this->generarUrlEvidencia($solicitud->reporte_buro_path);
 
         return Inertia::render('Coordinador/Solicitudes/Show', [
-            'solicitud' => $solicitud,
+            'solicitud' => $solicitudArray,
             'edit_url' => route('coordinador.solicitudes.edit', $solicitud->id)
         ]);
     }

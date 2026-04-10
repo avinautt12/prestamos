@@ -24,6 +24,7 @@ import {
 // Componentes de pestañas
 const TabButton = ({ active, index, onClick, children }) => (
     <button
+        type="button"
         onClick={onClick}
         className={`flex items-center justify-center w-full gap-2 px-3 py-3 text-sm font-medium text-center transition-colors rounded-xl ${active
             ? 'text-blue-700 bg-blue-50 border border-blue-200'
@@ -39,6 +40,7 @@ const TabButton = ({ active, index, onClick, children }) => (
 
 export default function Create({ sucursal, usuario, solicitud, formData, isEditing = false }) {
     const [activeTab, setActiveTab] = useState(0);
+    const [comprimiendo, setComprimiendo] = useState(false);
 
     const fieldTabMap = useMemo(() => ({
         primer_nombre: 0, segundo_nombre: 0, apellido_paterno: 0, apellido_materno: 0,
@@ -49,15 +51,21 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
     }), []);
 
     const comprimirImagen = (file, maxDimension = 1600, quality = 0.82) => new Promise((resolve) => {
+        console.log(`[Comprimir] 1. Iniciando proceso para:`, file?.name);
+
         if (!file || !file.type?.startsWith('image/')) {
+            console.warn(`[Comprimir] El archivo no es una imagen o está vacío. Devolviendo original.`);
             resolve(file);
             return;
         }
 
         const reader = new FileReader();
         reader.onload = (event) => {
+            console.log(`[Comprimir] 2. FileReader terminó de leer el archivo en base64.`);
             const img = new Image();
+
             img.onload = () => {
+                console.log(`[Comprimir] 3. Imagen cargada en memoria. Tamaño original: ${img.width}x${img.height}`);
                 let { width, height } = img;
 
                 if (width > height && width > maxDimension) {
@@ -74,28 +82,42 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                 const context = canvas.getContext('2d');
 
                 if (!context) {
+                    console.error(`[Comprimir] ERROR: No se pudo obtener el contexto 2D del canvas.`);
                     resolve(file);
                     return;
                 }
 
                 context.drawImage(img, 0, 0, width, height);
+                console.log(`[Comprimir] 4. Imagen dibujada en el canvas a ${width}x${height}. Convirtiendo a Blob...`);
 
                 canvas.toBlob((blob) => {
                     if (!blob) {
+                        console.error(`[Comprimir] ERROR: canvas.toBlob devolvió null. Esto pasa a veces con imágenes muy grandes en móviles.`);
                         resolve(file);
                         return;
                     }
 
                     const nombreBase = (file.name || 'imagen').replace(/\.[^/.]+$/, '');
-                    resolve(new File([blob], `${nombreBase}.jpg`, { type: 'image/jpeg' }));
+                    const archivoFinal = new File([blob], `${nombreBase}.jpg`, { type: 'image/jpeg' });
+
+                    console.log(`[Comprimir] 5. ÉXITO. Tamaño original: ${Math.round(file.size / 1024)}KB -> Nuevo tamaño: ${Math.round(archivoFinal.size / 1024)}KB`);
+                    resolve(archivoFinal);
                 }, 'image/jpeg', quality);
             };
 
-            img.onerror = () => resolve(file);
+            img.onerror = (err) => {
+                console.error(`[Comprimir] ERROR al cargar la imagen en el elemento <img />:`, err);
+                resolve(file); // Devolvemos el original para no romper el flujo
+            };
+
             img.src = event.target?.result;
         };
 
-        reader.onerror = () => resolve(file);
+        reader.onerror = (err) => {
+            console.error(`[Comprimir] ERROR en FileReader al leer el archivo:`, err);
+            resolve(file);
+        };
+
         reader.readAsDataURL(file);
     });
 
@@ -163,26 +185,47 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
     }), [formData]);
 
     // Configuración del formulario
-    const { data, setData, post, put, processing, errors } = useForm({
-        ...initialData
+    const { data, setData, post, processing, errors } = useForm({
+        ...initialData,
+        _method: isEditing ? 'PUT' : 'POST' // <--- EL TRUCO MAGICO
     });
 
-    const handleDocumentoChange = async (field, file, optimizar = true) => {
+    const handleDocumentoChange = async (field, file) => {
         if (!file) {
             setData(field, null);
             return;
         }
 
-        const archivoFinal = optimizar ? await comprimirImagen(file) : file;
-        setData(field, archivoFinal);
+        setComprimiendo(true);
+
+        try {
+            const archivoFinal = await comprimirImagen(file);
+            setData(field, archivoFinal);
+        } catch (error) {
+            console.error(`Error:`, error);
+            setData(field, file);
+        } finally {
+            setComprimiendo(false);
+        }
     };
 
     // Manejadores para cada pestaña
     const handleSubmit = (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
+
+        // 🛑 BLOQUEO DE SEGURIDAD:
+        // Si no hay fotos y no es edición, abortamos.
+        if (!isEditing && (!data.ine_frente || !data.ine_reverso)) {
+            console.warn("Se intentó un envío automático sin fotos. Bloqueado.");
+            alert("Por favor, asegúrate de cargar las fotos antes de finalizar.");
+            return;
+        }
+
+        console.log("=== ENVIANDO DATOS REALES ===", data);
 
         if (isEditing && solicitud) {
-            put(route('coordinador.solicitudes.update', solicitud.id), {
+            // AUNQUE ESTEMOS EDITANDO, USAMOS "post()" (Gracias al _method: 'PUT', Laravel sabe qué hacer)
+            post(route('coordinador.solicitudes.update', solicitud.id), {
                 forceFormData: true,
                 onError: (submitErrors) => {
                     const firstErrorKey = Object.keys(submitErrors || {})[0];
@@ -277,20 +320,9 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
     const ActiveTabComponent = tabs[activeTab].component;
 
     const handleFormKeyDown = (e) => {
-        if (activeTab !== tabs.length - 1) {
-            return;
+        if (e.key === 'Enter' && e.target?.tagName !== 'TEXTAREA') {
+            e.preventDefault();
         }
-
-        if (e.key !== 'Enter') {
-            return;
-        }
-
-        const target = e.target;
-        if (target?.tagName === 'TEXTAREA') {
-            return;
-        }
-
-        e.preventDefault();
     };
 
     return (
@@ -344,7 +376,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                 </div>
 
                 {/* Formulario */}
-                <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="overflow-hidden bg-white border border-gray-200 shadow-sm tablet-panel rounded-2xl">
+                <form onKeyDown={handleFormKeyDown} autoComplete="off" className="overflow-hidden bg-white border border-gray-200 shadow-sm tablet-panel rounded-2xl">
                     {errors.error && (
                         <div className="p-3 mx-4 mt-4 text-sm text-red-700 border border-red-200 rounded-xl bg-red-50">
                             {errors.error}
@@ -403,13 +435,20 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                             </button>
                         ) : (
                             <button
-                                type="submit"
-                                disabled={processing}
+                                type="button"
+                                onClick={handleSubmit}
+                                disabled={processing || comprimiendo}
                                 className="px-4 py-3 text-sm font-medium text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:opacity-50 md:py-2"
                             >
                                 <span className="inline-flex items-center gap-2">
-                                    <FontAwesomeIcon icon={processing ? faCircleInfo : (isEditing ? faFloppyDisk : faPaperPlane)} className={processing ? 'animate-pulse' : ''} />
-                                    {processing ? 'Guardando...' : (isEditing ? 'Actualizar Solicitud' : 'Finalizar Solicitud')}
+                                    <FontAwesomeIcon
+                                        icon={(processing || comprimiendo) ? faCircleInfo : (isEditing ? faFloppyDisk : faPaperPlane)}
+                                        className={(processing || comprimiendo) ? 'animate-pulse' : ''}
+                                    />
+                                    {comprimiendo
+                                        ? 'Comprimiendo fotos...'
+                                        : (processing ? 'Guardando...' : (isEditing ? 'Actualizar Solicitud' : 'Finalizar Solicitud'))
+                                    }
                                 </span>
                             </button>
                         )}
@@ -803,7 +842,7 @@ function normalize(text) {
 function DomicilioTab({ data, setData, errors }) {
     const [sincronizandoMapa, setSincronizandoMapa] = useState(false);
     const [mensajeMapa, setMensajeMapa] = useState('');
-    
+
     const [buscandoCp, setBuscandoCp] = useState(false);
     const [coloniasDisponibles, setColoniasDisponibles] = useState([]);
 
@@ -814,19 +853,19 @@ function DomicilioTab({ data, setData, errors }) {
 
     const buscarPorCP = async (cpStr) => {
         if (cpStr.length !== 5) return;
-        
+
         setBuscandoCp(true);
         try {
             const res = await fetch(`https://blackisp.tech/api/cp/get/${cpStr}`);
             if (!res.ok) throw new Error('CP no encontrado');
-            
+
             const info = await res.json();
 
             setData(prev => ({
                 ...prev,
                 estado: info.estado,
                 ciudad: info.municipio,
-                colonia: info.colonias[0] || '' 
+                colonia: info.colonias[0] || ''
             }));
             setColoniasDisponibles(info.colonias);
         } catch (error) {
@@ -838,13 +877,13 @@ function DomicilioTab({ data, setData, errors }) {
     };
 
     const handleCpChange = (e) => {
-        const cp = e.target.value.replace(/\D/g, ''); 
+        const cp = e.target.value.replace(/\D/g, '');
         setData('codigo_postal', cp);
-        
+
         if (cp.length === 5) {
             buscarPorCP(cp);
         } else {
-            setColoniasDisponibles([]); 
+            setColoniasDisponibles([]);
         }
     };
 
@@ -1208,31 +1247,35 @@ const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file
             <label className="block mb-3 text-sm font-semibold text-gray-800">
                 {label} <span className="text-red-600">*</span>
             </label>
-            
+
             <div className="flex flex-col gap-2">
-                {/* BOTÓN CÁMARA (Usando htmlFor para celulares) */}
                 <label htmlFor={`${id}_camera`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
                     <FontAwesomeIcon icon={faCamera} className="text-lg" /> Tomar Foto
                 </label>
-                <input 
+                <input
                     id={`${id}_camera`}
-                    type="file" 
-                    accept="image/*" 
-                    capture={capture} 
-                    className="hidden" 
-                    onChange={(e) => onFileChange(fieldName, e.target.files?.[0], true)} 
+                    type="file"
+                    accept="image/*"
+                    capture={capture}
+                    className="hidden"
+                    onChange={(e) => {
+                        onFileChange(fieldName, e.target.files?.[0]);
+                        e.target.value = ''; // Limpia el input por si tomas la misma foto dos veces
+                    }}
                 />
 
-                {/* BOTÓN SUBIR ARCHIVO */}
                 <label htmlFor={`${id}_file`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
                     <FontAwesomeIcon icon={faFileUpload} className="text-lg" /> Subir Archivo
                 </label>
-                <input 
+                <input
                     id={`${id}_file`}
-                    type="file" 
-                    accept={accept} 
-                    className="hidden" 
-                    onChange={(e) => onFileChange(fieldName, e.target.files?.[0], true)} 
+                    type="file"
+                    accept={accept}
+                    className="hidden"
+                    onChange={(e) => {
+                        onFileChange(fieldName, e.target.files?.[0]);
+                        e.target.value = '';
+                    }}
                 />
             </div>
 
@@ -1242,18 +1285,17 @@ const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file
                         <FontAwesomeIcon icon={faCheckCircle} />
                         Listo: <span className="truncate max-w-[150px] inline-block align-bottom">{fileName}</span>
                     </span>
-                ) : ( <span className="text-gray-500">{fileName}</span> )}
+                ) : (<span className="text-gray-500">{fileName}</span>)}
             </div>
             {error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}
         </div>
     );
 };
 
-
 // ============================================
 // PESTAÑA 5: FINALIZAR
 // ============================================
-function FinalizarTab({ data, errors, handleDocumentoChange, isEditing }) {
+function FinalizarTab({ data, setData, errors, handleDocumentoChange, isEditing }) {
     return (
         <div className="p-4 space-y-4">
             <h2 className="text-lg font-semibold">Finalizar Solicitud</h2>
@@ -1261,25 +1303,25 @@ function FinalizarTab({ data, errors, handleDocumentoChange, isEditing }) {
             <div className="p-4 bg-white border border-gray-200 rounded-lg">
                 <h3 className="mb-4 text-sm font-semibold text-gray-800">Documentos obligatorios</h3>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <DocumentCard 
-                        id="ine_frente" fieldName="ine_frente" label="INE frente" 
-                        accept="image/*" capture="environment" error={errors.ine_frente} 
-                        path={data.ine_frente_path} file={data.ine_frente} isEditing={isEditing} onFileChange={handleDocumentoChange} 
+                    <DocumentCard
+                        id="ine_frente" fieldName="ine_frente" label="INE frente"
+                        accept="image/*" capture="environment" error={errors.ine_frente}
+                        path={data.ine_frente_path} file={data.ine_frente} isEditing={isEditing} onFileChange={handleDocumentoChange}
                     />
-                    <DocumentCard 
-                        id="ine_reverso" fieldName="ine_reverso" label="INE reverso" 
-                        accept="image/*" capture="environment" error={errors.ine_reverso} 
-                        path={data.ine_reverso_path} file={data.ine_reverso} isEditing={isEditing} onFileChange={handleDocumentoChange} 
+                    <DocumentCard
+                        id="ine_reverso" fieldName="ine_reverso" label="INE reverso"
+                        accept="image/*" capture="environment" error={errors.ine_reverso}
+                        path={data.ine_reverso_path} file={data.ine_reverso} isEditing={isEditing} onFileChange={handleDocumentoChange}
                     />
-                    <DocumentCard 
-                        id="comprobante_domicilio" fieldName="comprobante_domicilio" label="Comprobante de domicilio" 
-                        accept="image/*,.pdf" error={errors.comprobante_domicilio} 
-                        path={data.comprobante_domicilio_path} file={data.comprobante_domicilio} isEditing={isEditing} onFileChange={handleDocumentoChange} 
+                    <DocumentCard
+                        id="comprobante_domicilio" fieldName="comprobante_domicilio" label="Comprobante de domicilio"
+                        accept="image/*,.pdf" error={errors.comprobante_domicilio}
+                        path={data.comprobante_domicilio_path} file={data.comprobante_domicilio} isEditing={isEditing} onFileChange={handleDocumentoChange}
                     />
-                    <DocumentCard 
-                        id="reporte_buro" fieldName="reporte_buro" label="Reporte de buró" 
-                        accept="image/*,.pdf" error={errors.reporte_buro} 
-                        path={data.reporte_buro_path} file={data.reporte_buro} isEditing={isEditing} onFileChange={handleDocumentoChange} 
+                    <DocumentCard
+                        id="reporte_buro" fieldName="reporte_buro" label="Reporte de buró"
+                        accept="image/*,.pdf" error={errors.reporte_buro}
+                        path={data.reporte_buro_path} file={data.reporte_buro} isEditing={isEditing} onFileChange={handleDocumentoChange}
                     />
                 </div>
                 <p className="mt-4 text-xs text-gray-500">Las imágenes se optimizan automáticamente antes del envío.</p>
