@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from './utils';
@@ -10,6 +10,7 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
         estado_relacion: filtros.estado_relacion || 'TODOS',
         elegibilidad: filtros.elegibilidad || 'TODOS',
     });
+    const [filterOpen, setFilterOpen] = useState(false);
 
     const submitFilters = (event) => {
         event.preventDefault();
@@ -20,12 +21,21 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
         const empty = { q: '', estado_relacion: 'TODOS', elegibilidad: 'TODOS' };
         setForm(empty);
         router.get(route('distribuidora.clientes'), empty, { preserveState: true, preserveScroll: true, replace: true });
+        setFilterOpen(false);
     };
 
     const iniciales = (nombre) => {
         if (!nombre) return '?';
         return nombre.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
     };
+
+    const filtrosActivos = useMemo(() => {
+        let total = 0;
+        if (form.estado_relacion !== 'TODOS') total += 1;
+        if (form.elegibilidad !== 'TODOS') total += 1;
+        if ((form.q || '').trim().length > 0) total += 1;
+        return total;
+    }, [form]);
 
     return (
         <DistribuidoraLayout
@@ -65,40 +75,92 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                         </div>
                     </div>
 
-                    {/* Filtros inline */}
-                    <form onSubmit={submitFilters} className="flex flex-wrap items-end gap-3 mt-6">
-                        <div className="flex-1 min-w-[180px]">
-                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Buscar</label>
-                            <input
-                                type="text"
-                                value={form.q}
-                                onChange={(e) => setForm((p) => ({ ...p, q: e.target.value }))}
-                                className="fin-input"
-                                placeholder="Nombre del cliente"
-                            />
+                    <form onSubmit={submitFilters} className="mt-6 space-y-3">
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Buscar</label>
+                                <input
+                                    type="text"
+                                    value={form.q}
+                                    onChange={(e) => setForm((p) => ({ ...p, q: e.target.value }))}
+                                    className="fin-input"
+                                    placeholder="Nombre del cliente"
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setFilterOpen(true)}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl"
+                            >
+                                Filtros
+                                {filtrosActivos > 0 && (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-green-700 rounded-full">
+                                        {filtrosActivos}
+                                    </span>
+                                )}
+                            </button>
                         </div>
-                        <div className="w-36">
-                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Relación</label>
-                            <select value={form.estado_relacion} onChange={(e) => setForm((p) => ({ ...p, estado_relacion: e.target.value }))} className="fin-input">
-                                <option value="TODOS">Todas</option>
-                                <option value="ACTIVA">Activas</option>
-                                <option value="BLOQUEADA">Bloqueadas</option>
-                                <option value="TERMINADA">Terminadas</option>
-                            </select>
-                        </div>
-                        <div className="w-36">
-                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Elegibilidad</label>
-                            <select value={form.elegibilidad} onChange={(e) => setForm((p) => ({ ...p, elegibilidad: e.target.value }))} className="fin-input">
-                                <option value="TODOS">Todos</option>
-                                <option value="ELEGIBLES">Elegibles</option>
-                                <option value="OBSERVADOS">Observados</option>
-                                <option value="CON_SALDO">Con saldo</option>
-                                <option value="SIN_DEUDA">Sin deuda</option>
-                            </select>
-                        </div>
-                        <button type="submit" className="px-4 py-2 fin-btn-primary">Aplicar</button>
-                        <button type="button" onClick={clearFilters} className="px-4 py-2 fin-btn-secondary">Limpiar</button>
+
+                        <button type="submit" className="w-full fin-btn-primary">Aplicar búsqueda</button>
                     </form>
+
+                    {filterOpen && (
+                        <div className="fin-modal-backdrop" onClick={() => setFilterOpen(false)}>
+                            <div className="fin-modal-sheet max-w-md" onClick={(e) => e.stopPropagation()}>
+                                <div className="fin-modal-head">
+                                    <div>
+                                        <h2 className="text-lg font-bold text-gray-900">Filtros de clientes</h2>
+                                        <p className="mt-1 text-sm text-gray-500">Ajusta relación y elegibilidad.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilterOpen(false)}
+                                        className="inline-flex items-center justify-center w-10 h-10 text-gray-600 border border-gray-200 rounded-xl"
+                                        aria-label="Cerrar filtros"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+
+                                <div className="fin-modal-body space-y-4">
+                                    <div>
+                                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Relación</label>
+                                        <select value={form.estado_relacion} onChange={(e) => setForm((p) => ({ ...p, estado_relacion: e.target.value }))} className="fin-input">
+                                            <option value="TODOS">Todas</option>
+                                            <option value="ACTIVA">Activas</option>
+                                            <option value="BLOQUEADA">Bloqueadas</option>
+                                            <option value="TERMINADA">Terminadas</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Elegibilidad</label>
+                                        <select value={form.elegibilidad} onChange={(e) => setForm((p) => ({ ...p, elegibilidad: e.target.value }))} className="fin-input">
+                                            <option value="TODOS">Todos</option>
+                                            <option value="ELEGIBLES">Elegibles</option>
+                                            <option value="OBSERVADOS">Observados</option>
+                                            <option value="CON_SALDO">Con saldo</option>
+                                            <option value="SIN_DEUDA">Sin deuda</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="fin-modal-foot flex gap-2">
+                                    <button type="button" onClick={clearFilters} className="flex-1 fin-btn-secondary">Limpiar</button>
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            submitFilters(event);
+                                            setFilterOpen(false);
+                                        }}
+                                        className="flex-1 fin-btn-primary"
+                                    >
+                                        Aplicar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Lista de clientes */}
                     {!clientes.length ? (
@@ -109,41 +171,40 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                         <div className="mt-6 space-y-3 fin-enter">
                             {clientes.map((cliente, index) => (
                                 <div key={cliente.id} className="overflow-hidden border rounded-xl border-gray-200 bg-white fin-interactive fin-stagger-item" style={{ animationDelay: `${Math.min(index * 28, 196)}ms` }}>
-                                    <div className="flex items-center gap-4 p-4">
-                                        {/* Avatar con iniciales */}
-                                        <div className={`flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold ${cliente.puede_solicitar_vale
-                                                ? 'bg-green-100 text-green-700'
-                                                : cliente.bloqueado_por_parentesco
-                                                    ? 'bg-red-100 text-red-700'
-                                                    : 'bg-gray-100 text-gray-600'
-                                            }`}>
-                                            {iniciales(cliente.nombre)}
+                                    <div className="p-4 space-y-4">
+                                        <div className="flex items-start gap-3">
+                                            <div className={`flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold ${cliente.puede_solicitar_vale
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : cliente.bloqueado_por_parentesco
+                                                        ? 'bg-red-100 text-red-700'
+                                                        : 'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                {iniciales(cliente.nombre)}
+                                            </div>
+
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="font-semibold text-gray-900 truncate">{cliente.nombre}</p>
+                                                    <span className={statusBadgeClass(cliente.estado_relacion)}>Relación: {cliente.estado_relacion}</span>
+                                                    <span className={statusBadgeClass(cliente.estado_cliente)}>Cliente: {cliente.estado_cliente}</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-y-1 mt-2 text-sm text-gray-600">
+                                                    <span>Vales abiertos: <span className="font-semibold text-gray-700">{formatNumber(cliente.vales_abiertos)}</span></span>
+                                                    <span>Saldo pendiente: <span className="font-semibold text-gray-700">{formatCurrency(cliente.saldo_pendiente)}</span></span>
+                                                    {cliente.siguiente_vencimiento && (
+                                                        <span>Siguiente vencimiento: <span className="font-semibold text-gray-700">{formatDate(cliente.siguiente_vencimiento)}</span></span>
+                                                    )}
+                                                    <span>Vinculado: <span className="font-semibold text-gray-700">{formatDate(cliente.vinculado_en)}</span></span>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        {/* Info principal */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <p className="font-semibold text-gray-900 truncate">{cliente.nombre}</p>
-                                                <span className={statusBadgeClass(cliente.estado_relacion)}>Relación: {cliente.estado_relacion}</span>
-                                                <span className={statusBadgeClass(cliente.estado_cliente)}>Cliente: {cliente.estado_cliente}</span>
-                                            </div>
-                                            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1 text-sm text-gray-500">
-                                                <span>Vales: <span className="font-semibold text-gray-700">{formatNumber(cliente.vales_abiertos)}</span></span>
-                                                <span>Saldo: <span className="font-semibold text-gray-700">{formatCurrency(cliente.saldo_pendiente)}</span></span>
-                                                {cliente.siguiente_vencimiento && (
-                                                    <span>Vence: <span className="font-semibold text-gray-700">{formatDate(cliente.siguiente_vencimiento)}</span></span>
-                                                )}
-                                                <span>Desde: <span className="font-semibold text-gray-700">{formatDate(cliente.vinculado_en)}</span></span>
-                                            </div>
-                                        </div>
-
-                                        {/* Acciones */}
-                                        <div className="flex flex-shrink-0 gap-2">
-                                            <Link href={route('distribuidora.vales', { cliente_id: cliente.id })} className="px-3 py-2 text-xs fin-btn-secondary">
+                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                            <Link href={route('distribuidora.vales', { cliente_id: cliente.id })} className="w-full text-sm fin-btn-secondary">
                                                 Ver vales
                                             </Link>
                                             {cliente.puede_solicitar_vale && (
-                                                <Link href={route('distribuidora.vales.create')} className="px-3 py-2 text-xs fin-btn-primary">
+                                                <Link href={route('distribuidora.vales.create')} className="w-full text-sm fin-btn-primary">
                                                     Pre vale
                                                 </Link>
                                             )}

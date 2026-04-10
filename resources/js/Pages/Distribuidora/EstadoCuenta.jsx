@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from './utils';
@@ -40,6 +40,7 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
         fecha_desde: filtros.fecha_desde || '',
         fecha_hasta: filtros.fecha_hasta || '',
     });
+    const [filterOpen, setFilterOpen] = useState(false);
 
     // Validación: si ambas fechas están presentes, fecha_desde debe ser <= fecha_hasta
     const fechasInvalidas = form.fecha_desde && form.fecha_hasta && form.fecha_desde > form.fecha_hasta;
@@ -54,7 +55,17 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
         const empty = { estado: 'TODAS', q: '', relacion_id: '', fecha_desde: '', fecha_hasta: '' };
         setForm(empty);
         router.get(route('distribuidora.estado-cuenta'), empty, { preserveState: true, preserveScroll: true, replace: true });
+        setFilterOpen(false);
     };
+
+    const filtrosActivos = useMemo(() => {
+        let total = 0;
+        if (form.estado !== 'TODAS') total += 1;
+        if ((form.q || '').trim().length > 0) total += 1;
+        if (form.fecha_desde) total += 1;
+        if (form.fecha_hasta) total += 1;
+        return total;
+    }, [form]);
 
     const selectRelacion = (relacionId) => {
         // Preservar la página actual de relaciones (si no, el backend la resetea a 1)
@@ -204,46 +215,101 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                         </div>
                     </div>
 
-                    {/* Filtros inline */}
-                    <form onSubmit={applyFilters} className="mt-6 space-y-2">
-                        <div className="flex flex-wrap items-end gap-3">
-                            <div className="flex-1 min-w-[200px]">
+                    <form onSubmit={applyFilters} className="mt-6 space-y-3">
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1">
                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Buscar</label>
                                 <input type="text" value={form.q} onChange={(e) => setForm((p) => ({ ...p, q: e.target.value }))} className="fin-input" placeholder="Número o referencia" />
                             </div>
-                            <div className="w-40">
-                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Estado</label>
-                                <select value={form.estado} onChange={(e) => setForm((p) => ({ ...p, estado: e.target.value }))} className="fin-input">
-                                    {(opciones.estados || []).map((e) => <option key={e} value={e}>{e}</option>)}
-                                </select>
-                            </div>
-                            <div className="w-40">
-                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Desde</label>
-                                <input
-                                    type="date"
-                                    value={form.fecha_desde}
-                                    onChange={(e) => setForm((p) => ({ ...p, fecha_desde: e.target.value }))}
-                                    className={`fin-input ${fechasInvalidas ? 'border-red-400' : ''}`}
-                                    max={form.fecha_hasta || undefined}
-                                />
-                            </div>
-                            <div className="w-40">
-                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Hasta</label>
-                                <input
-                                    type="date"
-                                    value={form.fecha_hasta}
-                                    onChange={(e) => setForm((p) => ({ ...p, fecha_hasta: e.target.value }))}
-                                    className={`fin-input ${fechasInvalidas ? 'border-red-400' : ''}`}
-                                    min={form.fecha_desde || undefined}
-                                />
-                            </div>
-                            <button type="submit" disabled={fechasInvalidas} className="px-4 py-2 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed">Aplicar</button>
-                            <button type="button" onClick={clearFilters} className="px-4 py-2 fin-btn-secondary">Limpiar</button>
+                            <button
+                                type="button"
+                                onClick={() => setFilterOpen(true)}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl"
+                            >
+                                Filtros
+                                {filtrosActivos > 0 && (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-green-700 rounded-full">
+                                        {filtrosActivos}
+                                    </span>
+                                )}
+                            </button>
                         </div>
+
+                        <button type="submit" disabled={fechasInvalidas} className="w-full fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed">Aplicar búsqueda</button>
+
                         {fechasInvalidas && (
                             <p className="text-xs text-red-600">La fecha "Desde" debe ser anterior o igual a la fecha "Hasta".</p>
                         )}
                     </form>
+
+                    {filterOpen && (
+                        <div className="fin-modal-backdrop" onClick={() => setFilterOpen(false)}>
+                            <div className="fin-modal-sheet max-w-md" onClick={(e) => e.stopPropagation()}>
+                                <div className="fin-modal-head">
+                                    <div>
+                                        <h2 className="text-lg font-bold text-gray-900">Filtros de cuenta</h2>
+                                        <p className="mt-1 text-sm text-gray-500">Refina relaciones y rango de fechas.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilterOpen(false)}
+                                        className="inline-flex items-center justify-center w-10 h-10 text-gray-600 border border-gray-200 rounded-xl"
+                                        aria-label="Cerrar filtros"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+
+                                <div className="fin-modal-body space-y-4">
+                                    <div>
+                                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Estado</label>
+                                        <select value={form.estado} onChange={(e) => setForm((p) => ({ ...p, estado: e.target.value }))} className="fin-input">
+                                            {(opciones.estados || []).map((e) => <option key={e} value={e}>{e}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Desde</label>
+                                            <input
+                                                type="date"
+                                                value={form.fecha_desde}
+                                                onChange={(e) => setForm((p) => ({ ...p, fecha_desde: e.target.value }))}
+                                                className={`fin-input ${fechasInvalidas ? 'border-red-400' : ''}`}
+                                                max={form.fecha_hasta || undefined}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Hasta</label>
+                                            <input
+                                                type="date"
+                                                value={form.fecha_hasta}
+                                                onChange={(e) => setForm((p) => ({ ...p, fecha_hasta: e.target.value }))}
+                                                className={`fin-input ${fechasInvalidas ? 'border-red-400' : ''}`}
+                                                min={form.fecha_desde || undefined}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="fin-modal-foot flex gap-2">
+                                    <button type="button" onClick={clearFilters} className="flex-1 fin-btn-secondary">Limpiar</button>
+                                    <button
+                                        type="button"
+                                        disabled={fechasInvalidas}
+                                        onClick={(event) => {
+                                            applyFilters(event);
+                                            setFilterOpen(false);
+                                        }}
+                                        className="flex-1 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Aplicar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-5 fin-enter">
                         {/* Lista de relaciones */}
@@ -499,13 +565,13 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
 
             {/* Modal Reportar Pago */}
             {modalReportar && relacionSeleccionada && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setModalReportar(false)}>
-                    <div className="w-full max-w-md bg-white rounded-2xl shadow-xl" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-5 border-b">
+                <div className="fin-modal-backdrop" onClick={() => setModalReportar(false)}>
+                    <div className="fin-modal-sheet max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="fin-modal-head">
                             <h2 className="text-lg font-bold text-gray-900">Reportar pago</h2>
                             <p className="mt-1 text-sm text-gray-500">{relacionSeleccionada.numero_relacion}</p>
                         </div>
-                        <div className="p-5 space-y-4">
+                        <div className="fin-modal-body space-y-4">
                             <div>
                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Monto pagado</label>
                                 <input
@@ -564,7 +630,7 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                                 Tu pago quedará en estado <strong>REPORTADO</strong>. La cajera lo conciliará al recibir el archivo bancario. Puedes reportar múltiples abonos parciales.
                             </div>
                         </div>
-                        <div className="flex justify-end gap-3 p-5 border-t">
+                        <div className="fin-modal-foot flex justify-end gap-3">
                             <button type="button" onClick={() => setModalReportar(false)} className="px-5 py-2 fin-btn-secondary">Cancelar</button>
                             <button
                                 type="button"

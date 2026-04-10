@@ -7,6 +7,13 @@ import { formatCurrency, formatNumber, statusBadgeClass } from '../utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCamera, faCheckCircle } from '@fortawesome/free-solid-svg-icons'; // <-- Iconos para los botones
 
+const CLIENTE_STEPS = [
+    { id: 1, label: 'Personal' },
+    { id: 2, label: 'Dirección' },
+    { id: 3, label: 'Documentos' },
+    { id: 4, label: 'Cuenta' },
+];
+
 export default function Create({
     distribuidora,
     prevalidacion,
@@ -57,6 +64,7 @@ export default function Create({
     const [enviando, setEnviando] = useState(false);
     const [modalCliente, setModalCliente] = useState(false);
     const [formTouched, setFormTouched] = useState({});
+    const [clienteStep, setClienteStep] = useState(1);
 
     // Validación client-side de datos del cliente nuevo
     const CURP_REGEX = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
@@ -81,6 +89,26 @@ export default function Create({
     const hayCamposValidos = modoCliente === 'nuevo'
         ? !Object.values(fieldErrors).some((e) => e !== null)
         : true;
+
+    const pasoActualCompleto = useMemo(() => {
+        if (clienteStep === 1) {
+            return !!form.primer_nombre.trim() && !!form.apellido_paterno.trim() && !fieldErrors.primer_nombre && !fieldErrors.apellido_paterno;
+        }
+
+        if (clienteStep === 2) {
+            return !fieldErrors.codigo_postal;
+        }
+
+        if (clienteStep === 3) {
+            return !!form.foto_ine_frente && !!form.foto_ine_reverso && !!form.foto_selfie_ine;
+        }
+
+        if (clienteStep === 4) {
+            return !!form.cuenta_banco.trim() && !!form.cuenta_clabe.trim() && !!form.cuenta_titular.trim() && !fieldErrors.cuenta_clabe && !fieldErrors.cuenta_titular;
+        }
+
+        return false;
+    }, [clienteStep, fieldErrors, form]);
 
     const productoSeleccionado = useMemo(
         () => (productos || []).find((item) => Number(item.id) === Number(form.producto_id)),
@@ -299,7 +327,14 @@ export default function Create({
                                                     ? [form.primer_nombre, form.segundo_nombre, form.apellido_paterno, form.apellido_materno].filter(Boolean).join(' ')
                                                     : 'Registra los datos del nuevo cliente.'}
                                             </p>
-                                            <button type="button" onClick={() => setModalCliente(true)} className="px-4 py-2 text-sm fin-btn-primary">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setClienteStep(1);
+                                                    setModalCliente(true);
+                                                }}
+                                                className="px-4 py-2 text-sm fin-btn-primary"
+                                            >
                                                 {clienteNuevoLleno ? 'Editar datos' : 'Registrar cliente'}
                                             </button>
                                         </div>
@@ -425,7 +460,30 @@ export default function Create({
                                     <button type="button" onClick={() => setModalCliente(false)} className="text-2xl leading-none text-gray-400 hover:text-gray-600">&times;</button>
                                 </div>
                                 <div className="fin-modal-body space-y-5">
-                                    <div>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {CLIENTE_STEPS.map((step) => {
+                                            const isActive = step.id === clienteStep;
+                                            const isDone = step.id < clienteStep;
+                                            return (
+                                                <button
+                                                    key={step.id}
+                                                    type="button"
+                                                    onClick={() => setClienteStep(step.id)}
+                                                    className={`px-2 py-2 text-xs font-semibold rounded-xl border transition-colors ${isActive
+                                                        ? 'bg-green-700 text-white border-green-700'
+                                                        : isDone
+                                                            ? 'bg-green-50 text-green-700 border-green-200'
+                                                            : 'bg-white text-gray-500 border-gray-200'
+                                                        }`}
+                                                >
+                                                    {step.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {clienteStep === 1 && (
+                                        <div>
                                         <h3 className="mb-3 text-sm font-semibold text-gray-700">Datos personales</h3>
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                             <div>
@@ -515,8 +573,11 @@ export default function Create({
                                                 {formTouched.correo_electronico && fieldErrors.correo_electronico && <p className="mt-1 text-xs text-red-600">{fieldErrors.correo_electronico}</p>}
                                             </div>
                                         </div>
-                                    </div>
-                                    <div>
+                                        </div>
+                                    )}
+
+                                    {clienteStep === 2 && (
+                                        <div>
                                         <h3 className="mb-3 text-sm font-semibold text-gray-700">Dirección</h3>
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                             <div className="md:col-span-2">
@@ -553,10 +614,12 @@ export default function Create({
                                                 {formTouched.codigo_postal && fieldErrors.codigo_postal && <p className="mt-1 text-xs text-red-600">{fieldErrors.codigo_postal}</p>}
                                             </div>
                                         </div>
-                                    </div>
+                                        </div>
+                                    )}
 
                                     {/* Documentos (fotos) CON EL NUEVO ESCÁNER */}
-                                    <div>
+                                    {clienteStep === 3 && (
+                                        <div>
                                         <h3 className="mb-3 text-sm font-semibold text-gray-700">Documentos</h3>
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                                             <div>
@@ -596,10 +659,12 @@ export default function Create({
                                                 {errors?.foto_selfie_ine && <p className="mt-1 text-xs text-red-600">{errors.foto_selfie_ine}</p>}
                                             </div>
                                         </div>
-                                    </div>
+                                        </div>
+                                    )}
 
                                     {/* Cuenta bancaria */}
-                                    <div>
+                                    {clienteStep === 4 && (
+                                        <div>
                                         <h3 className="mb-3 text-sm font-semibold text-gray-700">Cuenta bancaria</h3>
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                             <div className="md:col-span-2">
@@ -622,7 +687,8 @@ export default function Create({
                                                 {errors?.cuenta_titular && <p className="mt-1 text-xs text-red-600">{errors.cuenta_titular}</p>}
                                             </div>
                                         </div>
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="fin-modal-foot">
                                     {(() => {
@@ -644,16 +710,39 @@ export default function Create({
                                                         Faltan: {faltantes.join(', ')}
                                                     </p>
                                                 )}
-                                                <div className="flex justify-end gap-3">
-                                                    <button type="button" onClick={() => setModalCliente(false)} className="px-6 py-2 fin-btn-secondary">Cancelar</button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setModalCliente(false)}
-                                                        disabled={!completo}
-                                                        className="px-6 py-2 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        Confirmar datos del cliente
-                                                    </button>
+                                                <div className="flex justify-between gap-3">
+                                                    <div className="flex gap-2">
+                                                        <button type="button" onClick={() => setModalCliente(false)} className="px-6 py-2 fin-btn-secondary">Cancelar</button>
+                                                        {clienteStep > 1 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setClienteStep((prev) => Math.max(prev - 1, 1))}
+                                                                className="px-6 py-2 fin-btn-secondary"
+                                                            >
+                                                                Atrás
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {clienteStep < CLIENTE_STEPS.length ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setClienteStep((prev) => Math.min(prev + 1, CLIENTE_STEPS.length))}
+                                                            disabled={!pasoActualCompleto}
+                                                            className="px-6 py-2 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            Siguiente
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setModalCliente(false)}
+                                                            disabled={!completo}
+                                                            className="px-6 py-2 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            Confirmar datos del cliente
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </>
                                         );
