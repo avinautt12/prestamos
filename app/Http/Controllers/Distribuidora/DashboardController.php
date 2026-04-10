@@ -460,6 +460,7 @@ class DashboardController extends Controller
                 'sucursal_id'                      => $distribuidora->sucursal_id,
                 'creado_por_usuario_id'            => auth()->user()->id,
                 'estado'                           => Vale::ESTADO_BORRADOR,
+                'monto'                            => $montoPrincipal,
                 'porcentaje_comision_empresa_snap' => $producto->porcentaje_comision_empresa,
                 'monto_comision_empresa'           => $comisionEmpresa,
                 'monto_seguro_snap'                => $seguro,
@@ -549,7 +550,7 @@ class DashboardController extends Controller
             return back()->withErrors(['relacion_corte_id' => 'La relación seleccionada no está pendiente de pago.']);
         }
 
-        $valorPorPunto = (float) ($distribuidora->categoria?->valor_punto ?? 2);
+        $valorPorPunto = (float) ($distribuidora->sucursal?->configuracion?->valor_punto_mxn ?? 2);
         $valorEnPesos = round($puntosACanjear * $valorPorPunto, 2);
         $totalPendiente = (float) $relacion->total_a_pagar;
 
@@ -653,7 +654,7 @@ class DashboardController extends Controller
             'resumen' => [
                 'saldo_actual' => (float) $distribuidora->puntos_actuales,
                 'movimientos' => $movimientos->count(),
-                'valor_estimado' => $movimientos->first()['valor_punto_snapshot'] ?? (float) ($distribuidora->categoria?->valor_punto ?? 2),
+                'valor_estimado' => $movimientos->first()['valor_punto_snapshot'] ?? (float) ($distribuidora->sucursal?->configuracion?->valor_punto_mxn ?? 2),
                 'positivos' => $positivos,
                 'negativos' => $negativos,
             ],
@@ -828,10 +829,16 @@ class DashboardController extends Controller
             return Inertia::render('Distribuidora/EstadoCuenta', $this->payloadSinDistribuidora());
         }
 
+        $perPage = 5;
+        $relacionesPage = max(1, (int) $request->input('relaciones_page', 1));
+        $pagosPage = max(1, (int) $request->input('pagos_page', 1));
+
         $filtros = [
             'estado' => (string) $request->string('estado', 'TODAS'),
             'q' => trim((string) $request->string('q', '')),
             'relacion_id' => (string) $request->string('relacion_id', ''),
+            'relaciones_page' => $relacionesPage,
+            'pagos_page' => $pagosPage,
         ];
 
         $relacionesQuery = RelacionCorte::query()
@@ -854,11 +861,18 @@ class DashboardController extends Controller
             });
         }
 
+        $totalRelaciones = $relacionesQuery->count();
+        $lastPageRelaciones = max(1, (int) ceil($totalRelaciones / $perPage));
+        if ($relacionesPage > $lastPageRelaciones) {
+            $relacionesPage = $lastPageRelaciones;
+        }
+
         $relaciones = $relacionesQuery
             ->orderByRaw('fecha_limite_pago IS NULL')
             ->orderBy('fecha_limite_pago')
             ->orderByDesc('generada_en')
-            ->limit(20)
+            ->skip(($relacionesPage - 1) * $perPage)
+            ->take($perPage)
             ->get();
 
         $relacionesTransformadas = $relaciones
@@ -876,10 +890,17 @@ class DashboardController extends Controller
             $pagosQuery->where('relacion_corte_id', $relacionSeleccionada['id']);
         }
 
+        $totalPagos = $pagosQuery->count();
+        $lastPagePagos = max(1, (int) ceil($totalPagos / $perPage));
+        if ($pagosPage > $lastPagePagos) {
+            $pagosPage = $lastPagePagos;
+        }
+
         $pagos = $pagosQuery
             ->orderByDesc('fecha_pago')
             ->orderByDesc('id')
-            ->limit(20)
+            ->skip(($pagosPage - 1) * $perPage)
+            ->take($perPage)
             ->get()
             ->map(fn (PagoDistribuidora $pago) => $this->transformarPagoDistribuidora($pago))
             ->values();
@@ -896,7 +917,8 @@ class DashboardController extends Controller
         return Inertia::render('Distribuidora/EstadoCuenta', [
             'distribuidora' => $this->transformarDistribuidora($distribuidora),
             'resumen' => [
-                'relaciones_abiertas' => $relacionesTransformadas
+                'relaciones_abiertas' => RelacionCorte::query()
+                    ->where('distribuidora_id', $distribuidora->id)
                     ->whereIn('estado', [
                         RelacionCorte::ESTADO_GENERADA,
                         RelacionCorte::ESTADO_PARCIAL,
@@ -905,10 +927,13 @@ class DashboardController extends Controller
                     ->count(),
                 'total_pendiente' => (float) $totalPendiente,
                 'ultima_relacion' => $relacionesTransformadas->first(),
-                'pagos_pendientes' => $pagos->whereIn('estado', [
-                    PagoDistribuidora::ESTADO_REPORTADO,
-                    PagoDistribuidora::ESTADO_DETECTADO,
-                ])->count(),
+                'pagos_pendientes' => PagoDistribuidora::query()
+                    ->where('distribuidora_id', $distribuidora->id)
+                    ->whereIn('estado', [
+                        PagoDistribuidora::ESTADO_REPORTADO,
+                        PagoDistribuidora::ESTADO_DETECTADO,
+                    ])
+                    ->count(),
             ],
             'filtros' => $filtros,
             'opciones' => [
@@ -921,9 +946,21 @@ class DashboardController extends Controller
                     RelacionCorte::ESTADO_CERRADA,
                 ],
             ],
-            'relaciones' => $relacionesTransformadas,
+            'relaciones' => [
+                'data' => $relacionesTransformadas,
+                'current_page' => $relacionesPage,
+                'last_page' => $lastPageRelaciones,
+                'total' => $totalRelaciones,
+                'per_page' => $perPage,
+            ],
             'relacionSeleccionada' => $relacionSeleccionada,
-            'pagos' => $pagos,
+            'pagos' => [
+                'data' => $pagos,
+                'current_page' => $pagosPage,
+                'last_page' => $lastPagePagos,
+                'total' => $totalPagos,
+                'per_page' => $perPage,
+            ],
             'cuentasEmpresa' => CuentaBancaria::where('tipo_propietario', CuentaBancaria::TIPO_EMPRESA)
                 ->orderByDesc('es_principal')
                 ->get(['banco', 'nombre_titular', 'clabe', 'convenio'])
@@ -1245,6 +1282,7 @@ class DashboardController extends Controller
             'credito_disponible' => (float) $distribuidora->credito_disponible,
             'sin_limite' => (bool) $distribuidora->sin_limite,
             'puntos_actuales' => (float) $distribuidora->puntos_actuales,
+            'valor_punto' => (float) ($distribuidora->sucursal?->configuracion?->valor_punto_mxn ?? 2),
             'puede_emitir_vales' => (bool) $distribuidora->puede_emitir_vales,
             'activada_en' => optional($distribuidora->activada_en)->toDateTimeString(),
             'categoria' => $distribuidora->categoria ? [

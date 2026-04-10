@@ -3,7 +3,34 @@ import { Head, router, usePage } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from './utils';
 
-export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opciones = {}, relaciones = [], relacionSeleccionada = null, pagos = [], cuentasEmpresa = [] }) {
+function Paginator({ currentPage, lastPage, total, onChange, label = 'Página' }) {
+    if (lastPage <= 1) return null;
+    return (
+        <div className="flex items-center justify-between gap-3 px-3 py-2 mt-2 text-xs text-gray-600 border rounded-lg border-gray-200 bg-gray-50">
+            <span>{label} {currentPage} de {lastPage} · {formatNumber(total)} en total</span>
+            <div className="flex gap-1">
+                <button
+                    type="button"
+                    onClick={() => onChange(currentPage - 1)}
+                    disabled={currentPage <= 1}
+                    className="px-3 py-1 font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                    ← Anterior
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onChange(currentPage + 1)}
+                    disabled={currentPage >= lastPage}
+                    className="px-3 py-1 font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                    Siguiente →
+                </button>
+            </div>
+        </div>
+    );
+}
+
+export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opciones = {}, relaciones = { data: [], current_page: 1, last_page: 1, total: 0 }, relacionSeleccionada = null, pagos = { data: [], current_page: 1, last_page: 1, total: 0 }, cuentasEmpresa = [] }) {
     const sinConfig = !distribuidora;
     const { errors } = usePage().props;
     const [form, setForm] = useState({
@@ -14,7 +41,7 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
 
     const applyFilters = (event) => {
         event.preventDefault();
-        router.get(route('distribuidora.estado-cuenta'), form, { preserveState: true, preserveScroll: true, replace: true });
+        router.get(route('distribuidora.estado-cuenta'), { ...form, relaciones_page: 1, pagos_page: 1 }, { preserveState: true, preserveScroll: true, replace: true });
     };
 
     const clearFilters = () => {
@@ -24,9 +51,17 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
     };
 
     const selectRelacion = (relacionId) => {
-        const next = { ...form, relacion_id: relacionId };
-        setForm(next);
+        const next = { ...form, relacion_id: relacionId, pagos_page: 1 };
+        setForm({ ...form, relacion_id: relacionId });
         router.get(route('distribuidora.estado-cuenta'), next, { preserveState: true, preserveScroll: true, replace: true });
+    };
+
+    const cambiarPaginaRelaciones = (page) => {
+        router.get(route('distribuidora.estado-cuenta'), { ...form, relaciones_page: page }, { preserveState: true, preserveScroll: true, replace: true });
+    };
+
+    const cambiarPaginaPagos = (page) => {
+        router.get(route('distribuidora.estado-cuenta'), { ...form, pagos_page: page }, { preserveState: true, preserveScroll: true, replace: true });
     };
 
     const copiarReferencia = async (referencia) => {
@@ -112,28 +147,36 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                     <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-5">
                         {/* Lista de relaciones */}
                         <div className="space-y-2 xl:col-span-2">
-                            {!relaciones.length ? (
+                            {!relaciones.data?.length ? (
                                 <p className="p-4 text-sm text-gray-500">Sin relaciones con ese filtro.</p>
                             ) : (
-                                relaciones.map((r) => (
-                                    <button
-                                        key={r.id}
-                                        type="button"
-                                        onClick={() => selectRelacion(r.id)}
-                                        className={`w-full p-3 text-left border rounded-xl transition ${relacionSeleccionada?.id === r.id ? 'border-green-300 bg-green-50/40' : 'border-gray-200 bg-white hover:border-gray-300'}`}
-                                    >
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div>
-                                                <p className="text-sm font-semibold text-gray-900">{r.numero_relacion}</p>
-                                                <p className="text-xs text-gray-500">{formatDate(r.fecha_limite_pago)} · {formatNumber(r.partidas_count)} partidas</p>
+                                <>
+                                    {relaciones.data.map((r) => (
+                                        <button
+                                            key={r.id}
+                                            type="button"
+                                            onClick={() => selectRelacion(r.id)}
+                                            className={`w-full p-3 text-left border rounded-xl transition ${relacionSeleccionada?.id === r.id ? 'border-green-300 bg-green-50/40' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-900">{r.numero_relacion}</p>
+                                                    <p className="text-xs text-gray-500">{formatDate(r.fecha_limite_pago)} · {formatNumber(r.partidas_count)} partidas</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className={statusBadgeClass(r.estado)}>{r.estado}</span>
+                                                    <p className="mt-1 text-sm font-bold text-gray-900">{formatCurrency(r.total_a_pagar)}</p>
+                                                </div>
                                             </div>
-                                            <div className="text-right">
-                                                <span className={statusBadgeClass(r.estado)}>{r.estado}</span>
-                                                <p className="mt-1 text-sm font-bold text-gray-900">{formatCurrency(r.total_a_pagar)}</p>
-                                            </div>
-                                        </div>
-                                    </button>
-                                ))
+                                        </button>
+                                    ))}
+                                    <Paginator
+                                        currentPage={relaciones.current_page}
+                                        lastPage={relaciones.last_page}
+                                        total={relaciones.total}
+                                        onChange={cambiarPaginaRelaciones}
+                                    />
+                                </>
                             )}
                         </div>
 
@@ -266,11 +309,11 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                                     )}
 
                                     {/* Pagos reportados (colapsable, solo si hay) */}
-                                    {pagos.length > 0 && (
+                                    {pagos.total > 0 && (
                                         <div className="p-4 border-t border-gray-100">
-                                            <h3 className="text-sm font-semibold text-gray-700">Pagos reportados ({pagos.length})</h3>
+                                            <h3 className="text-sm font-semibold text-gray-700">Pagos reportados ({pagos.total})</h3>
                                             <div className="mt-2 space-y-2">
-                                                {pagos.map((pago) => (
+                                                {pagos.data.map((pago) => (
                                                     <div key={pago.id} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-gray-50">
                                                         <div className="flex items-center gap-3">
                                                             <p className="font-semibold text-gray-900">{formatCurrency(pago.monto)}</p>
@@ -283,6 +326,12 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                                                     </div>
                                                 ))}
                                             </div>
+                                            <Paginator
+                                                currentPage={pagos.current_page}
+                                                lastPage={pagos.last_page}
+                                                total={pagos.total}
+                                                onChange={cambiarPaginaPagos}
+                                            />
                                         </div>
                                     )}
 
