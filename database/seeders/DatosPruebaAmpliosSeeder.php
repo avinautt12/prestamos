@@ -238,7 +238,6 @@ class DatosPruebaAmpliosSeeder extends Seeder
                         'vehiculos_json' => json_encode(['tiene_vehiculo' => $i % 2 === 0]),
                         'resultado_buro' => $estado === Solicitud::ESTADO_APROBADA ? 'Apto / Buen historial' : 'SIN_REPORTE',
                         'prevale_aprobado' => $i >= 2,
-                        'fotos_casa_completas' => $i >= 2,
                         'enviada_en' => now()->subDays(5 - $i),
                         'tomada_en' => now()->subDays(6 - $i),
                         'revisada_en' => $i >= 2 ? now()->subDays(4 - $i) : null,

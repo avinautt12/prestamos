@@ -19,7 +19,6 @@ function RealtimeNotificationsBridge({ auth }) {
 
         const channelNames = [
             `App.Models.Usuario.${userId}`,
-            `App.Models.User.${userId}`,
         ];
 
         const attachedChannels = [];

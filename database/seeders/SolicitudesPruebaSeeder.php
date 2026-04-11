@@ -112,7 +112,6 @@ class SolicitudesPruebaSeeder extends Seeder
                     ]),
                     'resultado_buro' => 'SIN_REPORTE',
                     'prevale_aprobado' => false,
-                    'fotos_casa_completas' => true,
                     'enviada_en' => now(),
                     'revisada_en' => null,
                     'decidida_en' => null,
