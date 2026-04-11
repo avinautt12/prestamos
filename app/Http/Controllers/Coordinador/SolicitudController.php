@@ -41,7 +41,14 @@ class SolicitudController extends Controller
     public function store(PreSolicitudRequest $request)
     {
 
+        ini_set('max_execution_time', 120);
+
         try {
+            Log::info('¿Qué archivos llegaron a Laravel?', [
+                'archivos' => $request->allFiles(),
+                'ine_frente_valido' => $request->hasFile('ine_frente') ? $request->file('ine_frente')->isValid() : false
+            ]);
+
             $usuario = auth()->user();
 
             $persona = Persona::where('curp', $request->curp)
@@ -265,6 +272,9 @@ class SolicitudController extends Controller
      */
     public function update(PreSolicitudRequest $request, $id)
     {
+
+        ini_set('max_execution_time', 120);
+
         try {
             DB::beginTransaction();
 
@@ -573,16 +583,40 @@ class SolicitudController extends Controller
             return $disk->url($ruta);
         }
     }
-
     private function subirDocumentoSolicitud(?UploadedFile $archivo, string $tipo): ?string
     {
         if (!$archivo) {
+            Log::warning("No se recibió archivo para el tipo: " . $tipo);
             return null;
         }
 
-        $extension = strtolower((string) $archivo->getClientOriginalExtension());
-        $nombre = sprintf('%s_%s.%s', $tipo, now()->format('YmdHisv'), $extension ?: 'bin');
+        // 1. Aseguramos que la extensión siempre sea válida (sobre todo si viene comprimida del canvas)
+        $extension = $archivo->getClientOriginalExtension();
+        if (empty($extension)) {
+            $extension = $archivo->guessExtension() ?? 'jpg'; // Forzamos jpg si no la adivina
+        }
+        
+        $nombre = sprintf('%s_%s.%s', $tipo, now()->format('YmdHisv'), $extension);
+        $rutaCompleta = 'solicitudes/documentos/' . $tipo . '/' . $nombre;
 
-        return $archivo->storeAs('solicitudes/documentos/' . $tipo, $nombre, 'spaces');
+        try {
+            // 2. Usamos Storage de manera explícita para tener más control
+            $archivoFisico = file_get_contents($archivo->getRealPath());
+            
+            // Guardamos en Spaces
+            $guardado = Storage::disk('spaces')->put($rutaCompleta, $archivoFisico, 'public');
+
+            if ($guardado) {
+                Log::info("ÉXITO: Archivo subido a Digital Ocean en: " . $rutaCompleta);
+                return $rutaCompleta;
+            } else {
+                Log::error("ERROR DESCONOCIDO: Digital Ocean Spaces rechazó el archivo: " . $nombre);
+                return null;
+            }
+        } catch (\Exception $e) {
+            // 3. ¡Atrapamos el error real de AWS/Digital Ocean!
+            Log::error("ERROR FATAL AL SUBIR A SPACES: " . $e->getMessage());
+            return null;
+        }
     }
 }

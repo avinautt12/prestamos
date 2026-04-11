@@ -134,6 +134,7 @@ class DistribuidoraCompletaPruebaSeeder extends Seeder
                 'sucursal_id' => $sucursal->id,
                 'creado_por_usuario_id' => 5,
                 'estado' => $vd['estado'],
+                'monto' => $montoPrincipal,
                 'porcentaje_comision_empresa_snap' => $prod->porcentaje_comision_empresa,
                 'monto_comision_empresa' => $comision,
                 'monto_seguro_snap' => $seguro,

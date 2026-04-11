@@ -66,7 +66,7 @@ return [
             'endpoint' => env('DO_SPACES_ENDPOINT', env('AWS_ENDPOINT')),
             'use_path_style_endpoint' => env('DO_SPACES_PATH_STYLE_ENDPOINT', false),
             'visibility' => 'public',
-            'throw' => false,
+            'throw' => true,
         ],
 
     ],
