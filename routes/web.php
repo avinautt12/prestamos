@@ -52,6 +52,11 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
     Route::put('/configuraciones/categorias/{categoria}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarCategoria'])->name('configuraciones.categorias.activar');
     Route::delete('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarCategoria'])->name('configuraciones.categorias.delete');
     Route::put('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarProducto'])->name('configuraciones.productos.update');
+    Route::post('/configuraciones/productos', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearProducto'])->name('configuraciones.productos.store');
+    Route::put('/configuraciones/productos/{producto}/inactivar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'inactivarProducto'])->name('configuraciones.productos.inactivar');
+    Route::put('/configuraciones/productos/{producto}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarProducto'])->name('configuraciones.productos.activar');
+    Route::post('/configuraciones/productos/{producto}/restaurar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'restaurarProducto'])->name('configuraciones.productos.restaurar');
+    Route::delete('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarProducto'])->name('configuraciones.productos.delete');
     Route::get('/distribuidoras', [App\Http\Controllers\Gerente\AprobacionController::class, 'index'])->name('distribuidoras');
     Route::get('/distribuidoras/rechazadas', [App\Http\Controllers\Gerente\AprobacionController::class, 'rechazadas'])->name('distribuidoras.rechazadas');
     Route::get('/distribuidoras/{id}', [App\Http\Controllers\Gerente\AprobacionController::class, 'show'])->name('distribuidoras.show');
@@ -115,6 +120,7 @@ Route::middleware(['auth', 'role:CAJERA'])->prefix('cajera')->name('cajera.')->g
     Route::get('/cobros', [App\Http\Controllers\Cajera\DashboardController::class, 'cobros'])->name('cobros');
     Route::get('/conciliaciones', [ConciliacionController::class, 'index'])->name('conciliaciones');
     Route::get('/conciliaciones/exportar', [ConciliacionController::class, 'exportarHistorial'])->name('conciliaciones.exportar');
+    Route::get('/conciliaciones/simular-archivo', [ConciliacionController::class, 'simularArchivoBancario'])->name('conciliaciones.simular-archivo');
     Route::post('/conciliaciones/importar', [ConciliacionController::class, 'importar'])->name('conciliaciones.importar');
     Route::post('/conciliaciones/manual', [ConciliacionController::class, 'conciliarManual'])->name('conciliaciones.manual');
     Route::get('/pagos-distribuidora', [App\Http\Controllers\Cajera\DashboardController::class, 'pagosDistribuidora'])->name('pagos-distribuidora');
@@ -144,6 +150,7 @@ Route::middleware(['auth', 'role:DISTRIBUIDORA'])->prefix('distribuidora')->name
     Route::post('/puntos/canjear', [App\Http\Controllers\Distribuidora\DashboardController::class, 'canjearPuntos'])->name('puntos.canjear');
     Route::get('/clientes', [App\Http\Controllers\Distribuidora\DashboardController::class, 'misClientes'])->name('clientes');
     Route::get('/estado-cuenta', [App\Http\Controllers\Distribuidora\DashboardController::class, 'estadoCuenta'])->name('estado-cuenta');
+    Route::post('/relaciones/{relacion}/reportar-pago', [App\Http\Controllers\Distribuidora\DashboardController::class, 'reportarPago'])->name('relaciones.reportar-pago');
 });
 
 // Redirección por defecto según rol

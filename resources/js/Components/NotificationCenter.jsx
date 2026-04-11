@@ -43,6 +43,7 @@ export default function NotificationCenter() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [liveToasts, setLiveToasts] = useState([]);
     const [soundEnabled, setSoundEnabled] = useState(true);
+    const [friendlyMode, setFriendlyMode] = useState(false);
     const audioContextRef = useRef(null);
 
     useEffect(() => {
@@ -50,6 +51,21 @@ export default function NotificationCenter() {
         if (saved === 'false') {
             setSoundEnabled(false);
         }
+
+        const savedFriendly = window.localStorage.getItem('ui.friendly_mode');
+        if (savedFriendly === 'true') {
+            setFriendlyMode(true);
+        }
+
+        const onFriendlyModeChange = (event) => {
+            setFriendlyMode(Boolean(event.detail?.enabled));
+        };
+
+        window.addEventListener('ui:friendly-mode-change', onFriendlyModeChange);
+
+        return () => {
+            window.removeEventListener('ui:friendly-mode-change', onFriendlyModeChange);
+        };
     }, []);
 
     const toggleSound = () => {
@@ -134,6 +150,28 @@ export default function NotificationCenter() {
         return `${unreadCount}`;
     }, [unreadCount]);
 
+    useEffect(() => {
+        window.dispatchEvent(new CustomEvent('notifications:unread-count', {
+            detail: { count: unreadCount },
+        }));
+    }, [unreadCount]);
+
+    useEffect(() => {
+        const handleToggle = (event) => {
+            const nextOpen = event.detail && typeof event.detail.open === 'boolean'
+                ? event.detail.open
+                : undefined;
+
+            setOpen((prev) => (typeof nextOpen === 'boolean' ? nextOpen : !prev));
+        };
+
+        window.addEventListener('notifications:toggle', handleToggle);
+
+        return () => {
+            window.removeEventListener('notifications:toggle', handleToggle);
+        };
+    }, []);
+
     const loadNotifications = async () => {
         setLoading(true);
         try {
@@ -164,6 +202,9 @@ export default function NotificationCenter() {
                 return [normalized, ...withoutDup].slice(0, 20);
             });
             setUnreadCount((prev) => prev + 1);
+            window.dispatchEvent(new CustomEvent('notifications:unread-count', {
+                detail: { count: unreadCount + 1 },
+            }));
 
             setLiveToasts((prev) => {
                 const next = [...prev, normalized].slice(-3);
@@ -193,6 +234,9 @@ export default function NotificationCenter() {
 
             setNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
             setUnreadCount(Number(response.data.unread_count || 0));
+            window.dispatchEvent(new CustomEvent('notifications:unread-count', {
+                detail: { count: Number(response.data.unread_count || 0) },
+            }));
             return true;
         } catch (error) {
             console.error('No se pudo marcar notificacion como leida:', error);
@@ -205,6 +249,9 @@ export default function NotificationCenter() {
             const response = await window.axios.patch(route('notificaciones.marcar-todas-leidas'));
             setNotifications((prev) => prev.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() })));
             setUnreadCount(Number(response.data.unread_count || 0));
+            window.dispatchEvent(new CustomEvent('notifications:unread-count', {
+                detail: { count: Number(response.data.unread_count || 0) },
+            }));
         } catch (error) {
             console.error('No se pudieron marcar todas como leidas:', error);
         }
@@ -248,6 +295,22 @@ export default function NotificationCenter() {
             }
         }
 
+        if (tipo === 'LIMITE_INCREMENTADO' && rol === 'distribuidora') {
+            return buildRouteIfExists('distribuidora.estado-cuenta');
+        }
+
+        if (tipo === 'VALE_FERIADO' && rol === 'distribuidora') {
+            return buildRouteIfExists('distribuidora.vales');
+        }
+
+        if (tipo === 'CORTE_LISTO' && rol === 'distribuidora') {
+            return buildRouteIfExists('distribuidora.estado-cuenta');
+        }
+
+        if (tipo === 'CORTE_PUNTOS_LISTO' && rol === 'distribuidora') {
+            return buildRouteIfExists('distribuidora.puntos');
+        }
+
         return null;
     };
 
@@ -267,79 +330,165 @@ export default function NotificationCenter() {
     };
 
     return (
-        <div className="fixed z-[70] top-16 right-4">
-            <button
-                type="button"
-                onClick={() => setOpen((prev) => !prev)}
-                className="relative inline-flex items-center justify-center w-10 h-10 bg-white border border-gray-200 rounded-full shadow"
-                aria-label="Abrir bandeja de notificaciones"
-            >
-                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 text-xs font-semibold leading-5 text-center text-white bg-red-600 rounded-full">
-                        {unreadLabel}
-                    </span>
-                )}
-            </button>
+        <>
+            <div className="fixed z-[70] hidden md:block top-16 right-4">
+                <button
+                    type="button"
+                    onClick={() => setOpen((prev) => !prev)}
+                    className="relative inline-flex items-center justify-center w-10 h-10 bg-white border border-gray-200 rounded-full shadow"
+                    aria-label="Abrir bandeja de notificaciones"
+                >
+                    <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 text-xs font-semibold leading-5 text-center text-white bg-red-600 rounded-full">
+                            {unreadLabel}
+                        </span>
+                    )}
+                </button>
 
-            {open && (
-                <div className="w-[360px] max-h-[70vh] mt-2 overflow-hidden bg-white border border-gray-200 rounded-xl shadow-2xl">
-                    <div className="flex items-center justify-between p-3 border-b border-gray-100">
-                        <h3 className="text-sm font-semibold text-gray-800">Notificaciones</h3>
-                        <div className="flex items-center gap-3">
+                {open && (
+                    <div className="w-[360px] max-h-[70vh] mt-2 overflow-hidden bg-white border border-gray-200 rounded-xl shadow-2xl">
+                        <div className="flex items-center justify-between p-3 border-b border-gray-100">
+                            <h3 className="text-sm font-semibold text-gray-800">Notificaciones</h3>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={toggleSound}
+                                    className={`text-xs font-medium ${soundEnabled ? 'text-emerald-700' : 'text-gray-500'} hover:text-emerald-800`}
+                                >
+                                    Sonido: {soundEnabled ? 'on' : 'off'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={markAllAsRead}
+                                    className="text-xs font-medium text-green-700 hover:text-green-800"
+                                    disabled={unreadCount === 0}
+                                >
+                                    Marcar todas
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="overflow-y-auto max-h-[55vh]">
+                            {loading && (
+                                <div className="p-4 text-sm text-gray-500">Cargando...</div>
+                            )}
+
+                            {!loading && notifications.length === 0 && (
+                                <div className="p-4 text-sm text-gray-500">No hay notificaciones.</div>
+                            )}
+
+                            {!loading && notifications.map((notification) => {
+                                const isUnread = !notification.read_at;
+                                return (
+                                    <button
+                                        key={notification.id}
+                                        type="button"
+                                        onClick={() => handleNotificationClick(notification)}
+                                        className={`w-full text-left border-b border-gray-100 hover:bg-gray-50 ${friendlyMode ? 'p-4' : 'p-3'} ${isUnread ? 'bg-green-50/40' : 'bg-white'}`}
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className={`${friendlyMode ? 'text-base' : 'text-sm'} font-semibold text-gray-800`}>{notification.title}</p>
+                                            {isUnread && <span className="inline-flex w-2.5 h-2.5 mt-1 bg-green-600 rounded-full" />}
+                                        </div>
+                                        <p className={`${friendlyMode ? 'text-base' : 'text-sm'} mt-1 text-gray-600`}>{notification.message}</p>
+                                        <p className="mt-1 text-xs text-gray-400">{formatWhen(notification.created_at)}</p>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {liveToasts.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                        {liveToasts.map((toast) => (
                             <button
+                                key={toast.id}
                                 type="button"
-                                onClick={toggleSound}
-                                className={`text-xs font-medium ${soundEnabled ? 'text-emerald-700' : 'text-gray-500'} hover:text-emerald-800`}
+                                onClick={() => handleNotificationClick(toast)}
+                                className="w-[360px] p-3 text-left bg-white border border-gray-200 rounded-xl shadow-xl hover:bg-gray-50"
                             >
-                                Sonido: {soundEnabled ? 'on' : 'off'}
+                                <p className="text-sm font-semibold text-gray-800">{toast.title}</p>
+                                <p className="mt-1 text-sm text-gray-600">{toast.message}</p>
                             </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="fixed inset-x-0 bottom-20 z-[70] px-4 pointer-events-none md:hidden">
+                {open && (
+                    <div className="pointer-events-auto overflow-hidden bg-white border border-gray-200 rounded-3xl shadow-2xl max-h-[62vh]">
+                        <div className="flex items-start justify-between gap-3 p-4 border-b border-green-100 bg-gradient-to-br from-slate-50 to-green-50/70">
+                            <div>
+                                <h3 className="text-base font-semibold text-gray-900">Notificaciones</h3>
+                                <p className="mt-1 text-xs text-gray-500">Alertas y mensajes recientes</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={toggleSound}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-full ${soundEnabled ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}
+                                >
+                                    Sonido {soundEnabled ? 'on' : 'off'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setOpen(false)}
+                                    className="px-3 py-1.5 text-xs font-medium text-gray-600 rounded-full bg-gray-100"
+                                >
+                                    Cerrar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="overflow-y-auto max-h-[52vh]">
+                            {loading && <div className="p-4 text-sm text-gray-500">Cargando...</div>}
+
+                            {!loading && notifications.length === 0 && (
+                                <div className="p-4 text-sm text-gray-500">No hay notificaciones.</div>
+                            )}
+
+                            {!loading && notifications.map((notification) => {
+                                const isUnread = !notification.read_at;
+                                return (
+                                    <button
+                                        key={notification.id}
+                                        type="button"
+                                        onClick={() => handleNotificationClick(notification)}
+                                        className={`w-full text-left border-b border-gray-100 ${friendlyMode ? 'p-5' : 'p-4'} ${isUnread ? 'bg-green-50/45' : 'bg-white'}`}
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className={`${friendlyMode ? 'text-base' : 'text-sm'} font-semibold text-gray-800`}>{notification.title}</p>
+                                            {isUnread && <span className="inline-flex w-2.5 h-2.5 mt-1 bg-green-600 rounded-full" />}
+                                        </div>
+                                        <p className={`${friendlyMode ? 'text-base' : 'text-sm'} mt-1 text-gray-600`}>{notification.message}</p>
+                                        <p className="mt-1 text-xs text-gray-400">{formatWhen(notification.created_at)}</p>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 p-3 border-t border-gray-100 bg-white">
                             <button
                                 type="button"
                                 onClick={markAllAsRead}
-                                className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                                className="text-xs font-semibold text-green-700"
                                 disabled={unreadCount === 0}
                             >
                                 Marcar todas
                             </button>
+                            <span className="text-xs text-gray-500">{unreadCount > 0 ? `${unreadLabel} sin leer` : 'Todo leído'}</span>
                         </div>
                     </div>
-
-                    <div className="overflow-y-auto max-h-[55vh]">
-                        {loading && (
-                            <div className="p-4 text-sm text-gray-500">Cargando...</div>
-                        )}
-
-                        {!loading && notifications.length === 0 && (
-                            <div className="p-4 text-sm text-gray-500">No hay notificaciones.</div>
-                        )}
-
-                        {!loading && notifications.map((notification) => {
-                            const isUnread = !notification.read_at;
-                            return (
-                                <button
-                                    key={notification.id}
-                                    type="button"
-                                    onClick={() => handleNotificationClick(notification)}
-                                    className={`w-full p-3 text-left border-b border-gray-100 hover:bg-gray-50 ${isUnread ? 'bg-blue-50/40' : 'bg-white'}`}
-                                >
-                                    <div className="flex items-start justify-between gap-2">
-                                        <p className="text-sm font-semibold text-gray-800">{notification.title}</p>
-                                        {isUnread && <span className="inline-flex w-2.5 h-2.5 mt-1 bg-blue-600 rounded-full" />}
-                                    </div>
-                                    <p className="mt-1 text-sm text-gray-600">{notification.message}</p>
-                                    <p className="mt-1 text-xs text-gray-400">{formatWhen(notification.created_at)}</p>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
+                )}
+            </div>
 
             {liveToasts.length > 0 && (
-                <div className="mt-2 space-y-2">
+                <div className="hidden md:block mt-2 space-y-2">
                     {liveToasts.map((toast) => (
                         <button
                             key={toast.id}
@@ -353,6 +502,6 @@ export default function NotificationCenter() {
                     ))}
                 </div>
             )}
-        </div>
+        </>
     );
 }

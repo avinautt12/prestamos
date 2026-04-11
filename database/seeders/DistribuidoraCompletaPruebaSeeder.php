@@ -15,6 +15,7 @@ use App\Models\Persona;
 use App\Models\ProductoFinanciero;
 use App\Models\RelacionCorte;
 use App\Models\Sucursal;
+use App\Models\SucursalConfiguracion;
 use App\Models\Vale;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +38,28 @@ class DistribuidoraCompletaPruebaSeeder extends Seeder
             $this->command?->warn('No hay productos financieros activos.');
             return;
         }
+
+        // =====================================================================
+        // 0. CONFIGURACIÓN DE SUCURSAL (valor del punto, factor y multiplicador)
+        // En producción esto lo crea/edita el gerente desde su módulo. Aquí solo
+        // garantizamos que exista una fila para que el canje de puntos funcione.
+        // =====================================================================
+        SucursalConfiguracion::firstOrCreate(
+            ['sucursal_id' => $sucursal->id],
+            [
+                'frecuencia_pago_dias'         => 14,
+                'plazo_pago_dias'              => 15,
+                'linea_credito_default'        => 0,
+                'porcentaje_comision_apertura' => 10,
+                'porcentaje_interes_quincenal' => 5,
+                'multa_incumplimiento_monto'   => 300,
+                'factor_divisor_puntos'        => 1200,
+                'multiplicador_puntos'         => 3,
+                'valor_punto_mxn'              => 2.00,
+                'dia_corte'                    => now()->day,
+                'hora_corte'                   => now()->format('H:i:s'),
+            ]
+        );
 
         // =====================================================================
         // 1. CUENTAS BANCARIAS DE LA EMPRESA
@@ -100,18 +123,13 @@ class DistribuidoraCompletaPruebaSeeder extends Seeder
         $prod2 = $productos->count() > 1 ? $productos[1] : $prod1;
 
         $valesData = [
-            // Cliente 1: vale ACTIVO (con pagos parciales)
+            // 2 vales ACTIVO para que entren al cierre del corte programado y generen partidas
             ['cliente' => 'CLI-COMP-001', 'numero' => 'VALE-COMP-001', 'producto' => $prod1, 'estado' => Vale::ESTADO_ACTIVO, 'pagos' => 3, 'dias_emision' => 60],
-            // Cliente 2: vale PAGO_PARCIAL
-            ['cliente' => 'CLI-COMP-002', 'numero' => 'VALE-COMP-002', 'producto' => $prod2, 'estado' => Vale::ESTADO_PAGO_PARCIAL, 'pagos' => 5, 'dias_emision' => 90],
-            // Cliente 3: vale PAGADO (libre para nuevo vale)
-            ['cliente' => 'CLI-COMP-003', 'numero' => 'VALE-COMP-003', 'producto' => $prod1, 'estado' => Vale::ESTADO_PAGADO, 'pagos' => (int) $prod1->numero_quincenas, 'dias_emision' => 180],
-            // Cliente 6: vale MOROSO
-            ['cliente' => 'CLI-COMP-006', 'numero' => 'VALE-COMP-004', 'producto' => $prod1, 'estado' => Vale::ESTADO_MOROSO, 'pagos' => 1, 'dias_emision' => 120],
-            // Cliente 7: vale CANCELADO
-            ['cliente' => 'CLI-COMP-007', 'numero' => 'VALE-COMP-005', 'producto' => $prod2, 'estado' => Vale::ESTADO_CANCELADO, 'pagos' => 0, 'dias_emision' => 10],
-            // Cliente 1: segundo vale BORRADOR (reciente)
-            ['cliente' => 'CLI-COMP-001', 'numero' => 'VALE-COMP-006', 'producto' => $prod2, 'estado' => Vale::ESTADO_BORRADOR, 'pagos' => 0, 'dias_emision' => 1],
+            ['cliente' => 'CLI-COMP-002', 'numero' => 'VALE-COMP-002', 'producto' => $prod2, 'estado' => Vale::ESTADO_ACTIVO, 'pagos' => 5, 'dias_emision' => 90],
+            // Cliente 3: vale PAGADO (libre para crear pre vale)
+            ['cliente' => 'CLI-COMP-003', 'numero' => 'VALE-COMP-003', 'producto' => $prod1, 'estado' => Vale::ESTADO_PAGADO, 'pagos' => (int) $prod1->numero_quincenas, 'dias_emision' => 220],
+            // Cliente 7: vale CANCELADO (también libre)
+            ['cliente' => 'CLI-COMP-007', 'numero' => 'VALE-COMP-004', 'producto' => $prod2, 'estado' => Vale::ESTADO_CANCELADO, 'pagos' => 0, 'dias_emision' => 10],
         ];
 
         $vales = [];
@@ -165,12 +183,32 @@ class DistribuidoraCompletaPruebaSeeder extends Seeder
             ['estado' => Corte::ESTADO_EJECUTADO, 'fecha_ejecucion' => now(), 'dia_base_mes' => 14, 'hora_base' => '10:00:00']
         );
 
+        // Corte adicional en estado PROGRAMADO para que el gerente pueda probar "Cierre manual"
+        Corte::updateOrCreate(
+            [
+                'sucursal_id' => $sucursal->id,
+                'tipo_corte' => Corte::TIPO_PAGOS,
+                'estado' => Corte::ESTADO_PROGRAMADO,
+            ],
+            [
+                'fecha_programada' => now()->addDays(2)->setTime(10, 0),
+                'dia_base_mes' => 14,
+                'hora_base' => '10:00:00',
+                'observaciones' => 'AUTO_CONFIG_SUCURSAL',
+            ]
+        );
+
+        // 8 relaciones históricas, TODAS en estado PAGADA.
+        // La relación pendiente será la que el gerente genere al cerrar el corte PROGRAMADO (paso 1 del E2E)
         $relacionesData = [
-            ['numero' => 'REL-COMP-001', 'ref' => 'PFDIST001-A', 'estado' => RelacionCorte::ESTADO_GENERADA, 'total' => 4800, 'comision' => 1200, 'recargos' => 300, 'limite_dias' => 7, 'anticipado_inicio' => 4, 'anticipado_fin' => 6],
-            ['numero' => 'REL-COMP-002', 'ref' => 'PFDIST001-B', 'estado' => RelacionCorte::ESTADO_PARCIAL, 'total' => 3200, 'comision' => 800, 'recargos' => 0, 'limite_dias' => 5, 'anticipado_inicio' => 2, 'anticipado_fin' => 4],
-            ['numero' => 'REL-COMP-003', 'ref' => 'PFDIST001-C', 'estado' => RelacionCorte::ESTADO_VENCIDA, 'total' => 5600, 'comision' => 1400, 'recargos' => 600, 'limite_dias' => -10, 'anticipado_inicio' => -13, 'anticipado_fin' => -11],
-            ['numero' => 'REL-COMP-004', 'ref' => 'PFDIST001-D', 'estado' => RelacionCorte::ESTADO_PAGADA, 'total' => 3600, 'comision' => 900, 'recargos' => 0, 'limite_dias' => -30, 'anticipado_inicio' => -33, 'anticipado_fin' => -31],
-            ['numero' => 'REL-COMP-005', 'ref' => 'PFDIST001-E', 'estado' => RelacionCorte::ESTADO_CERRADA, 'total' => 2800, 'comision' => 700, 'recargos' => 0, 'limite_dias' => -60, 'anticipado_inicio' => -63, 'anticipado_fin' => -61],
+            ['numero' => 'REL-COMP-001', 'ref' => 'PFDIST001-A', 'estado' => RelacionCorte::ESTADO_PAGADA, 'total' => 2800, 'comision' => 700, 'recargos' => 0, 'limite_dias' => -180, 'anticipado_inicio' => -183, 'anticipado_fin' => -181],
+            ['numero' => 'REL-COMP-002', 'ref' => 'PFDIST001-B', 'estado' => RelacionCorte::ESTADO_PAGADA, 'total' => 3100, 'comision' => 775, 'recargos' => 0, 'limite_dias' => -150, 'anticipado_inicio' => -153, 'anticipado_fin' => -151],
+            ['numero' => 'REL-COMP-003', 'ref' => 'PFDIST001-C', 'estado' => RelacionCorte::ESTADO_PAGADA, 'total' => 3600, 'comision' => 900, 'recargos' => 0, 'limite_dias' => -120, 'anticipado_inicio' => -123, 'anticipado_fin' => -121],
+            ['numero' => 'REL-COMP-004', 'ref' => 'PFDIST001-D', 'estado' => RelacionCorte::ESTADO_PAGADA, 'total' => 4200, 'comision' => 1050, 'recargos' => 0, 'limite_dias' => -90, 'anticipado_inicio' => -93, 'anticipado_fin' => -91],
+            ['numero' => 'REL-COMP-005', 'ref' => 'PFDIST001-E', 'estado' => RelacionCorte::ESTADO_PAGADA, 'total' => 2950, 'comision' => 737, 'recargos' => 0, 'limite_dias' => -60, 'anticipado_inicio' => -63, 'anticipado_fin' => -61],
+            ['numero' => 'REL-COMP-006', 'ref' => 'PFDIST001-F', 'estado' => RelacionCorte::ESTADO_PAGADA, 'total' => 3400, 'comision' => 850, 'recargos' => 0, 'limite_dias' => -45, 'anticipado_inicio' => -48, 'anticipado_fin' => -46],
+            ['numero' => 'REL-COMP-007', 'ref' => 'PFDIST001-G', 'estado' => RelacionCorte::ESTADO_PAGADA, 'total' => 3800, 'comision' => 950, 'recargos' => 0, 'limite_dias' => -30, 'anticipado_inicio' => -33, 'anticipado_fin' => -31],
+            ['numero' => 'REL-COMP-008', 'ref' => 'PFDIST001-H', 'estado' => RelacionCorte::ESTADO_PAGADA, 'total' => 4800, 'comision' => 1200, 'recargos' => 0, 'limite_dias' => -15, 'anticipado_inicio' => -18, 'anticipado_fin' => -16],
         ];
 
         $relaciones = [];
@@ -217,44 +255,80 @@ class DistribuidoraCompletaPruebaSeeder extends Seeder
         }
 
         // =====================================================================
-        // 5. PAGOS DISTRIBUIDORA (diferentes estados)
+        // 5. PAGOS DISTRIBUIDORA — 1 pago por relación pagada (excepto REL-COMP-005 con 7 pagos para probar paginación)
         // =====================================================================
-        // Pago CONCILIADO para relación PAGADA
-        $pagoConciliado = PagoDistribuidora::create([
-            'relacion_corte_id' => $relaciones['REL-COMP-004']->id,
-            'distribuidora_id' => $distribuidora->id,
-            'cuenta_banco_empresa_id' => $cuentaBBVA->id,
-            'monto' => 3600, 'metodo_pago' => PagoDistribuidora::METODO_TRANSFERENCIA,
-            'referencia_reportada' => 'PFDIST001-D', 'fecha_pago' => now()->subDays(28),
-            'estado' => PagoDistribuidora::ESTADO_CONCILIADO,
-        ]);
+        $relacionesPagadas = ['REL-COMP-001', 'REL-COMP-002', 'REL-COMP-003', 'REL-COMP-004', 'REL-COMP-006', 'REL-COMP-007', 'REL-COMP-008'];
+        foreach ($relacionesPagadas as $i => $numRel) {
+            $rel = $relaciones[$numRel];
+            $pago = PagoDistribuidora::create([
+                'relacion_corte_id' => $rel->id,
+                'distribuidora_id' => $distribuidora->id,
+                'cuenta_banco_empresa_id' => $cuentaBBVA->id,
+                'monto' => $rel->total_a_pagar,
+                'metodo_pago' => PagoDistribuidora::METODO_TRANSFERENCIA,
+                'referencia_reportada' => $rel->referencia_pago,
+                'fecha_pago' => now()->subDays(180 - ($i * 25)),
+                'estado' => PagoDistribuidora::ESTADO_CONCILIADO,
+            ]);
 
-        $movBancario = MovimientoBancario::create([
-            'cuenta_banco_empresa_id' => $cuentaBBVA->id,
-            'referencia' => 'PFDIST001-D', 'fecha_movimiento' => now()->subDays(28)->toDateString(),
-            'hora_movimiento' => '14:30:00', 'monto' => 3600,
-            'tipo_movimiento' => 'SPEI', 'nombre_pagador' => 'DIST-PRUEBA-001',
-            'concepto_raw' => 'Pago relacion REL-COMP-004',
-        ]);
+            $mov = MovimientoBancario::create([
+                'cuenta_banco_empresa_id' => $cuentaBBVA->id,
+                'referencia' => $rel->referencia_pago,
+                'fecha_movimiento' => now()->subDays(180 - ($i * 25))->toDateString(),
+                'hora_movimiento' => '14:30:00',
+                'monto' => $rel->total_a_pagar,
+                'tipo_movimiento' => 'SPEI',
+                'nombre_pagador' => 'DIST-PRUEBA-001',
+                'concepto_raw' => "Pago relacion {$numRel}",
+            ]);
 
-        Conciliacion::create([
-            'pago_distribuidora_id' => $pagoConciliado->id,
-            'movimiento_bancario_id' => $movBancario->id,
-            'conciliado_por_usuario_id' => 4,
-            'conciliado_en' => now()->subDays(27),
-            'monto_conciliado' => 3600, 'diferencia_monto' => 0,
-            'estado' => Conciliacion::ESTADO_CONCILIADA,
-        ]);
+            Conciliacion::create([
+                'pago_distribuidora_id' => $pago->id,
+                'movimiento_bancario_id' => $mov->id,
+                'conciliado_por_usuario_id' => 4,
+                'conciliado_en' => now()->subDays(180 - ($i * 25))->addHours(2),
+                'monto_conciliado' => $rel->total_a_pagar,
+                'diferencia_monto' => 0,
+                'estado' => Conciliacion::ESTADO_CONCILIADA,
+            ]);
+        }
 
-        // Pago REPORTADO para relación PARCIAL
-        PagoDistribuidora::create([
-            'relacion_corte_id' => $relaciones['REL-COMP-002']->id,
-            'distribuidora_id' => $distribuidora->id,
-            'cuenta_banco_empresa_id' => $cuentaBBVA->id,
-            'monto' => 1500, 'metodo_pago' => PagoDistribuidora::METODO_TRANSFERENCIA,
-            'referencia_reportada' => 'PFDIST001-B', 'fecha_pago' => now()->subDays(3),
-            'estado' => PagoDistribuidora::ESTADO_REPORTADO,
-        ]);
+        // REL-COMP-005: 7 pagos parciales para probar paginación de pagos
+        $relConPagos = $relaciones['REL-COMP-005'];
+        $montoPorPago = round($relConPagos->total_a_pagar / 7, 2);
+        for ($i = 1; $i <= 7; $i++) {
+            $pago = PagoDistribuidora::create([
+                'relacion_corte_id' => $relConPagos->id,
+                'distribuidora_id' => $distribuidora->id,
+                'cuenta_banco_empresa_id' => $cuentaBBVA->id,
+                'monto' => $montoPorPago,
+                'metodo_pago' => $i % 2 === 0 ? PagoDistribuidora::METODO_DEPOSITO : PagoDistribuidora::METODO_TRANSFERENCIA,
+                'referencia_reportada' => $relConPagos->referencia_pago . '-P' . $i,
+                'fecha_pago' => now()->subDays(70 - $i),
+                'estado' => PagoDistribuidora::ESTADO_CONCILIADO,
+            ]);
+
+            $mov = MovimientoBancario::create([
+                'cuenta_banco_empresa_id' => $cuentaBBVA->id,
+                'referencia' => $relConPagos->referencia_pago . '-P' . $i,
+                'fecha_movimiento' => now()->subDays(70 - $i)->toDateString(),
+                'hora_movimiento' => sprintf('%02d:00:00', 8 + $i),
+                'monto' => $montoPorPago,
+                'tipo_movimiento' => 'SPEI',
+                'nombre_pagador' => 'DIST-PRUEBA-001',
+                'concepto_raw' => "Pago parcial {$i}/7 REL-COMP-005",
+            ]);
+
+            Conciliacion::create([
+                'pago_distribuidora_id' => $pago->id,
+                'movimiento_bancario_id' => $mov->id,
+                'conciliado_por_usuario_id' => 4,
+                'conciliado_en' => now()->subDays(70 - $i)->addHours(1),
+                'monto_conciliado' => $montoPorPago,
+                'diferencia_monto' => 0,
+                'estado' => Conciliacion::ESTADO_CONCILIADA,
+            ]);
+        }
 
         // =====================================================================
         // 6. MOVIMIENTOS DE PUNTOS (historial variado)
@@ -274,7 +348,7 @@ class DistribuidoraCompletaPruebaSeeder extends Seeder
             ['tipo' => MovimientoPunto::TIPO_CANJE, 'pts' => -20, 'motivo' => 'Canje aplicado a REL-COMP-004 (-$40)', 'dias' => 3],
         ];
 
-        $valorPunto = (float) ($distribuidora->categoria?->valor_punto ?? 2);
+        $valorPunto = (float) (SucursalConfiguracion::where('sucursal_id', $sucursal->id)->value('valor_punto_mxn') ?? 2);
 
         foreach ($puntosData as $pd) {
             MovimientoPunto::create([
@@ -287,6 +361,6 @@ class DistribuidoraCompletaPruebaSeeder extends Seeder
             ]);
         }
 
-        $this->command?->info('Seeder completo: 7 clientes, 6 vales, 5 relaciones, pagos, conciliaciones, 10 mov. puntos (210 pts).');
+        $this->command?->info('Seeder completo: 7 clientes, 4 vales, 8 relaciones (7 históricas + 1 GENERADA), 14 pagos, 10 mov. puntos (210 pts).');
     }
 }

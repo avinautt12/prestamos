@@ -9,15 +9,12 @@ import TabHistorial from './ConfiguracionesTabs/TabHistorial';
 const FIELD_LABELS = {
     dia_corte: 'Día de corte',
     hora_corte: 'Hora de corte',
-    frecuencia_pago_dias: 'Frecuencia de pago (días)',
-    plazo_pago_dias: 'Plazo de pago (días)',
-    linea_credito_default: 'Línea de crédito inicial',
     seguro_tabuladores_json: 'Seguro por tabuladores',
-    porcentaje_comision_apertura: 'Comisión de apertura (%)',
-    multa_incumplimiento_monto: 'Multa por incumplimiento',
     factor_divisor_puntos: 'Factor divisor puntos',
     multiplicador_puntos: 'Multiplicador puntos',
     valor_punto_mxn: 'Valor del punto (MXN)',
+    monto_principal: 'Monto a prestar',
+    monto_seguro: 'Seguro ($)',
     porcentaje_comision: 'Comisión (%)',
     porcentaje_comision_empresa: 'Comisión empresa (%)',
     porcentaje_interes_quincenal: 'Interés quincenal (%)',
@@ -37,109 +34,21 @@ const normalizarTexto = (valor) =>
         .toLowerCase()
         .trim();
 
-const DEFAULT_SEGURO_TABULADORES = [
-    { id: 'seguro-default-1', desde: 0, hasta: 5000, monto: 50 },
-    { id: 'seguro-default-2', desde: 5001, hasta: 15000, monto: 100 },
-    { id: 'seguro-default-3', desde: 15001, hasta: null, monto: 150 },
-];
-
-const generarIdTabuladorSeguro = () =>
-(typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `seguro-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-
-const normalizarTabuladoresSeguro = (tabuladores) => {
-    if (!Array.isArray(tabuladores)) {
-        return DEFAULT_SEGURO_TABULADORES.map((tabulador) => ({ ...tabulador }));
+const normalizarNumeroInput = (valor, fallback = '') => {
+    if (valor === null || valor === undefined || valor === '') {
+        return fallback;
     }
 
-    if (tabuladores.length === 0) {
-        return [];
+    const numero = Number(valor);
+
+    if (Number.isNaN(numero)) {
+        return fallback;
     }
 
-    return tabuladores
-        .filter((tabulador) => tabulador && typeof tabulador === 'object')
-        .map((tabulador) => ({
-            id: tabulador.id ?? generarIdTabuladorSeguro(),
-            desde: tabulador.desde ?? 0,
-            hasta: tabulador.hasta ?? '',
-            monto: tabulador.monto ?? 0,
-        }))
-        .sort((a, b) => Number(a.desde || 0) - Number(b.desde || 0));
+    return Number.isInteger(numero) ? String(numero) : String(numero).replace(/\.0+$/, '');
 };
 
-const crearTabuladorSeguro = () => ({
-    id: generarIdTabuladorSeguro(),
-    desde: '',
-    hasta: '',
-    monto: '',
-});
 
-const aplicarTabuladoresSeguro = (tabuladores) =>
-    normalizarTabuladoresSeguro(tabuladores).map((tabulador) => ({
-        id: tabulador.id,
-        desde: tabulador.desde === '' ? '' : tabulador.desde,
-        hasta: tabulador.hasta === '' || tabulador.hasta === null ? '' : tabulador.hasta,
-        monto: tabulador.monto === '' ? '' : tabulador.monto,
-    }));
-
-const serializarTabuladoresSeguro = (tabuladores) =>
-    normalizarTabuladoresSeguro(tabuladores).map((tabulador) => ({
-        desde: tabulador.desde === '' ? 0 : Number(tabulador.desde),
-        hasta: tabulador.hasta === '' || tabulador.hasta === null ? null : Number(tabulador.hasta),
-        monto: tabulador.monto === '' ? 0 : Number(tabulador.monto),
-    }));
-
-const formatearTabuladorSeguro = (tabulador) => {
-    const desde = tabulador.desde === '' || tabulador.desde === null || tabulador.desde === undefined ? 0 : Number(tabulador.desde);
-    const hasta = tabulador.hasta === '' || tabulador.hasta === null || tabulador.hasta === undefined ? null : Number(tabulador.hasta);
-    const monto = tabulador.monto === '' || tabulador.monto === null || tabulador.monto === undefined ? 0 : Number(tabulador.monto);
-
-    if (hasta === null) {
-        return `Desde $${desde.toLocaleString('es-MX')} en adelante cobra $${monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-
-    return `De $${desde.toLocaleString('es-MX')} a $${hasta.toLocaleString('es-MX')} cobra $${monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
-
-const validarTabuladoresSeguro = (tabuladores) => {
-    const errores = [];
-
-    if (!Array.isArray(tabuladores) || tabuladores.length === 0) {
-        return ['Debes configurar al menos un rango de seguro.'];
-    }
-
-    const normalizados = serializarTabuladoresSeguro(tabuladores)
-        .map((tabulador, index) => ({ ...tabulador, index }))
-        .sort((a, b) => a.desde - b.desde);
-
-    normalizados.forEach((tabulador) => {
-        if (tabulador.desde < 0) {
-            errores.push(`Rango ${tabulador.index + 1}: "Desde" no puede ser negativo.`);
-        }
-
-        if (tabulador.hasta !== null && tabulador.hasta < tabulador.desde) {
-            errores.push(`Rango ${tabulador.index + 1}: "Hasta" debe ser mayor o igual a "Desde".`);
-        }
-
-        if (tabulador.monto < 0) {
-            errores.push(`Rango ${tabulador.index + 1}: el monto de seguro no puede ser negativo.`);
-        }
-    });
-
-    for (let i = 1; i < normalizados.length; i += 1) {
-        const anterior = normalizados[i - 1];
-        const actual = normalizados[i];
-
-        if (anterior.hasta === null || actual.desde <= anterior.hasta) {
-            errores.push(
-                `Los rangos ${anterior.index + 1} y ${actual.index + 1} se traslapan. Ajusta "desde/hasta" para que no se encimen.`
-            );
-        }
-    }
-
-    return errores;
-};
 
 const formatearFechaServidor = (value) => {
     if (!value) {
@@ -166,39 +75,20 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     const CATEGORIAS_POR_PAGINA = 6;
     const HISTORIAL_POR_PAGINA = 8;
 
-    const tabuladoresIniciales = React.useMemo(() => {
-        const tabuladores = aplicarTabuladoresSeguro(configuracionSucursal?.seguro_tabuladores_json ?? DEFAULT_SEGURO_TABULADORES);
-
-        return tabuladores.length > 0 ? tabuladores : [crearTabuladorSeguro()];
-    }, [configuracionSucursal]);
-
     const formSucursal = useForm({
         dia_corte: configuracionSucursal?.dia_corte ?? '',
         hora_corte: configuracionSucursal?.hora_corte ?? '',
-        frecuencia_pago_dias: configuracionSucursal?.frecuencia_pago_dias ?? 14,
-        plazo_pago_dias: configuracionSucursal?.plazo_pago_dias ?? 15,
-        linea_credito_default: configuracionSucursal?.linea_credito_default ?? 0,
-        seguro_tabuladores_json: JSON.stringify(configuracionSucursal?.seguro_tabuladores_json ?? DEFAULT_SEGURO_TABULADORES, null, 2),
-        porcentaje_comision_apertura: configuracionSucursal?.porcentaje_comision_apertura ?? 10,
-        porcentaje_interes_quincenal: configuracionSucursal?.porcentaje_interes_quincenal ?? 5,
-        multa_incumplimiento_monto: configuracionSucursal?.multa_incumplimiento_monto ?? 300,
         factor_divisor_puntos: configuracionSucursal?.factor_divisor_puntos ?? 1200,
         multiplicador_puntos: configuracionSucursal?.multiplicador_puntos ?? 3,
         valor_punto_mxn: configuracionSucursal?.valor_punto_mxn ?? 2,
     });
-
-    const [seguroTabuladores, setSeguroTabuladores] = React.useState(tabuladoresIniciales);
-
-    React.useEffect(() => {
-        setSeguroTabuladores(tabuladoresIniciales);
-    }, [tabuladoresIniciales]);
 
     const categoriasMap = React.useMemo(() => {
         const map = {};
         (categorias || []).forEach((cat) => {
             map[cat.id] = {
                 nombre: cat.nombre ?? '',
-                porcentaje_comision: String(cat.porcentaje_comision ?? '0'),
+                porcentaje_comision: normalizarNumeroInput(cat.porcentaje_comision, '0'),
             };
         });
         return map;
@@ -208,9 +98,11 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         const map = {};
         (productos || []).forEach((producto) => {
             map[producto.id] = {
-                porcentaje_comision_empresa: String(producto.porcentaje_comision_empresa ?? '0'),
-                porcentaje_interes_quincenal: String(producto.porcentaje_interes_quincenal ?? '0'),
-                numero_quincenas: String(producto.numero_quincenas ?? '12'),
+                monto_principal: normalizarNumeroInput(producto.monto_principal, '0'),
+                monto_seguro: normalizarNumeroInput(producto.monto_seguro, '0'),
+                porcentaje_comision_empresa: normalizarNumeroInput(producto.porcentaje_comision_empresa, '0'),
+                porcentaje_interes_quincenal: normalizarNumeroInput(producto.porcentaje_interes_quincenal, '0'),
+                numero_quincenas: normalizarNumeroInput(producto.numero_quincenas, '12'),
             };
         });
         return map;
@@ -244,6 +136,15 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     const nuevaCategoriaForm = useForm({
         nombre: '',
         porcentaje_comision: '',
+    });
+
+    const nuevoProductoForm = useForm({
+        nombre: '',
+        monto_principal: '',
+        numero_quincenas: '',
+        porcentaje_comision_empresa: '',
+        monto_seguro: '',
+        porcentaje_interes_quincenal: '',
     });
 
     React.useEffect(() => {
@@ -303,10 +204,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         setProductoValues(productosMap);
     }, [productosMap]);
 
-    const erroresTabuladores = React.useMemo(
-        () => validarTabuladoresSeguro(seguroTabuladores),
-        [seguroTabuladores]
-    );
+
 
     const filtroCategorias = normalizarTexto(busquedaCategorias);
     const categoriasActivasFiltradas = React.useMemo(() => {
@@ -511,53 +409,14 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     const guardarConfiguracionSucursal = (event) => {
         event.preventDefault();
 
-        if (erroresTabuladores.length > 0) {
-            return;
-        }
-
-        const payload = {
-            ...formSucursal.data,
-            seguro_tabuladores_json: serializarTabuladoresSeguro(seguroTabuladores),
-        };
-
-        router.put(route('gerente.configuraciones.sucursal.update'), payload, {
+        router.put(route('gerente.configuraciones.sucursal.update'), formSucursal.data, {
             preserveScroll: true,
             onStart: () => setGuardandoSucursal(true),
             onFinish: () => setGuardandoSucursal(false),
         });
     };
 
-    const sincronizarTabuladoresSeguro = (nextTabuladores) => {
-        const serializado = JSON.stringify(serializarTabuladoresSeguro(nextTabuladores), null, 2);
 
-        setSeguroTabuladores(nextTabuladores);
-        formSucursal.setData('seguro_tabuladores_json', serializado);
-    };
-
-    const agregarTabuladorSeguro = () => {
-        sincronizarTabuladoresSeguro([...seguroTabuladores, crearTabuladorSeguro()]);
-    };
-
-    const actualizarTabuladorSeguro = (tabuladorId, campo, valor) => {
-        sincronizarTabuladoresSeguro(
-            seguroTabuladores.map((tabulador) => {
-                if (tabulador.id !== tabuladorId) {
-                    return tabulador;
-                }
-
-                return {
-                    ...tabulador,
-                    [campo]: valor,
-                };
-            })
-        );
-    };
-
-    const eliminarTabuladorSeguro = (tabuladorId) => {
-        const siguiente = seguroTabuladores.filter((tabulador) => tabulador.id !== tabuladorId);
-
-        sincronizarTabuladoresSeguro(siguiente.length > 0 ? siguiente : [crearTabuladorSeguro()]);
-    };
 
     const guardarCategoria = (categoriaId) => {
         router.put(
@@ -580,6 +439,16 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
             preserveScroll: true,
             onSuccess: () => {
                 nuevaCategoriaForm.reset();
+            },
+        });
+    };
+
+    const crearProducto = (event) => {
+        event.preventDefault();
+        nuevoProductoForm.post(route('gerente.configuraciones.productos.store'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                nuevoProductoForm.reset();
             },
         });
     };
@@ -620,6 +489,8 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         router.put(
             route('gerente.configuraciones.productos.update', productoId),
             {
+                monto_principal: productoValues[productoId]?.monto_principal,
+                monto_seguro: productoValues[productoId]?.monto_seguro,
                 porcentaje_comision_empresa: productoValues[productoId]?.porcentaje_comision_empresa,
                 porcentaje_interes_quincenal: productoValues[productoId]?.porcentaje_interes_quincenal,
                 numero_quincenas: productoValues[productoId]?.numero_quincenas,
@@ -630,6 +501,42 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                 onFinish: () => limpiarAccionProducto(productoId),
             }
         );
+    };
+
+    const activarProducto = (productoId) => {
+        router.put(route('gerente.configuraciones.productos.activar', productoId), {}, {
+            preserveScroll: true,
+            onStart: () => marcarAccionProducto(productoId, 'Activando...'),
+            onFinish: () => limpiarAccionProducto(productoId),
+        });
+    };
+
+    const inactivarProducto = (productoId) => {
+        router.put(route('gerente.configuraciones.productos.inactivar', productoId), {}, {
+            preserveScroll: true,
+            onStart: () => marcarAccionProducto(productoId, 'Inactivando...'),
+            onFinish: () => limpiarAccionProducto(productoId),
+        });
+    };
+
+    const eliminarProducto = (productoId) => {
+        if (!window.confirm('El producto se archivará con soft delete. ¿Deseas continuar?')) {
+            return;
+        }
+
+        router.delete(route('gerente.configuraciones.productos.delete', productoId), {
+            preserveScroll: true,
+            onStart: () => marcarAccionProducto(productoId, 'Eliminando...'),
+            onFinish: () => limpiarAccionProducto(productoId),
+        });
+    };
+
+    const restaurarProducto = (productoId) => {
+        router.post(route('gerente.configuraciones.productos.restaurar', productoId), {}, {
+            preserveScroll: true,
+            onStart: () => marcarAccionProducto(productoId, 'Restaurando...'),
+            onFinish: () => limpiarAccionProducto(productoId),
+        });
     };
 
     const formatearValor = (key, value) => {
@@ -684,7 +591,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
             <div className="mb-4 fin-card">
                 <h2 className="fin-title">Parámetros variables del negocio</h2>
                 <p className="mt-1 fin-subtitle">
-                    Ajusta fecha de corte, categorías, comisiones, intereses quincenales, línea de crédito base, frecuencia y plazo de pago.
+                    Ajusta reglas operativas de sucursal, categorías y productos (monto y quincenas) para el esquema actual.
                 </p>
                 <p className="mt-2 text-sm text-gray-600">
                     Sucursal activa: <span className="font-semibold">{sucursal?.nombre || 'Sin sucursal asignada'}</span>
@@ -718,12 +625,6 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                 <TabConfiguracion
                     formSucursal={formSucursal}
                     guardarConfiguracionSucursal={guardarConfiguracionSucursal}
-                    seguroTabuladores={seguroTabuladores}
-                    agregarTabuladorSeguro={agregarTabuladorSeguro}
-                    eliminarTabuladorSeguro={eliminarTabuladorSeguro}
-                    actualizarTabuladorSeguro={actualizarTabuladorSeguro}
-                    formatearTabuladorSeguro={formatearTabuladorSeguro}
-                    erroresTabuladores={erroresTabuladores}
                     guardandoSucursal={guardandoSucursal}
                 />
             )}
@@ -781,7 +682,13 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                     productoValues={productoValues}
                     setProductoValues={setProductoValues}
                     guardarProducto={guardarProducto}
+                    activarProducto={activarProducto}
+                    inactivarProducto={inactivarProducto}
+                    eliminarProducto={eliminarProducto}
+                    restaurarProducto={restaurarProducto}
                     accionesProducto={accionesProducto}
+                    nuevoProductoForm={nuevoProductoForm}
+                    crearProducto={crearProducto}
                 />
             )}
 

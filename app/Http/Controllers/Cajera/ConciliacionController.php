@@ -8,6 +8,9 @@ use App\Models\Conciliacion;
 use App\Models\MovimientoBancario;
 use App\Models\PagoDistribuidora;
 use App\Models\RelacionCorte;
+use App\Models\Vale;
+use App\Models\Sucursal;
+use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
 use App\Notifications\ConciliacionProcesadaNotification;
 use App\Services\Cajera\ConciliacionHistorialService;
@@ -21,6 +24,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -171,6 +176,7 @@ class ConciliacionController extends Controller
                 'per_page' => $historialPaginator->perPage(),
                 'total' => $historialPaginator->total(),
             ],
+            'ventanaCorte' => $this->calcularEstadoVentanaCorte(),
         ]);
     }
 
@@ -189,6 +195,173 @@ class ConciliacionController extends Controller
         }
 
         return $this->historialService->exportar($filtros, $format);
+    }
+
+    /**
+     * Calcula el estado de la ventana de corte para el día de hoy.
+     *
+     * Reglas de Charly:
+     * - Día de corte = dia_corte configurado en sucursal_configuraciones
+     * - Ventana 1 (principal): días dia_corte, +1, +2 — Excel con pagos cuya fecha <= dia_corte
+     * - Ventana 2 (tardíos): día dia_corte + 5 — Excel con pagos del dia_corte+1 al dia_corte+5
+     * - Fuera de ventana: cajera no puede descargar nada
+     *
+     * Retorna: ['ventana' => 'PRINCIPAL'|'TARDIOS'|'FUERA', 'fecha_corte' => Carbon, 'desde' => Carbon, 'hasta' => Carbon, 'mensaje' => string]
+     */
+    private function calcularEstadoVentanaCorte(): array
+    {
+        // Usar la primera sucursal con configuración activa (para desarrollo).
+        // En producción podría usarse la sucursal del cajero logueado.
+        $sucursal = Sucursal::first();
+        $config = $sucursal ? SucursalConfiguracion::where('sucursal_id', $sucursal->id)->first() : null;
+        $diaCorte = (int) ($config?->dia_corte ?? 15);
+
+        $hoy = now()->startOfDay();
+        $anio = (int) $hoy->year;
+        $mes = (int) $hoy->month;
+        $diasMes = $hoy->copy()->endOfMonth()->day;
+        $diaCorteAjustado = min($diaCorte, $diasMes);
+
+        $fechaCorte = Carbon::create($anio, $mes, $diaCorteAjustado)->startOfDay();
+        $ventanaPrincipalInicio = $fechaCorte->copy();
+        $ventanaPrincipalFin = $fechaCorte->copy()->addDays(2);
+        $ventanaTardiosDia = $fechaCorte->copy()->addDays(5);
+
+        if ($hoy->between($ventanaPrincipalInicio, $ventanaPrincipalFin)) {
+            return [
+                'ventana' => 'PRINCIPAL',
+                'fecha_corte' => $fechaCorte->toDateString(),
+                'desde' => null,
+                'hasta' => $fechaCorte->toDateString(),
+                'mensaje' => "Ventana principal del corte del {$fechaCorte->format('d/m/Y')}. Se incluyen pagos hasta esa fecha.",
+            ];
+        }
+
+        if ($hoy->equalTo($ventanaTardiosDia)) {
+            return [
+                'ventana' => 'TARDIOS',
+                'fecha_corte' => $fechaCorte->toDateString(),
+                'desde' => $fechaCorte->copy()->addDay()->toDateString(),
+                'hasta' => $ventanaTardiosDia->toDateString(),
+                'mensaje' => "Ventana de pagos tardíos del corte del {$fechaCorte->format('d/m/Y')}. Se incluyen pagos del {$fechaCorte->copy()->addDay()->format('d/m')} al {$ventanaTardiosDia->format('d/m/Y')}.",
+            ];
+        }
+
+        // Fuera de ventana: calcular próxima descarga disponible
+        $proximoCorte = $hoy->greaterThan($ventanaTardiosDia)
+            ? Carbon::create($anio, $mes, $diaCorteAjustado)->addMonthNoOverflow()
+            : $fechaCorte;
+
+        return [
+            'ventana' => 'FUERA',
+            'fecha_corte' => $fechaCorte->toDateString(),
+            'desde' => null,
+            'hasta' => null,
+            'mensaje' => "Hoy no hay corte disponible para descarga. Próxima descarga: {$proximoCorte->format('d/m/Y')}.",
+        ];
+    }
+
+    /**
+     * Genera un archivo Excel simulando un extracto bancario con los pagos
+     * que las distribuidoras han REPORTADO y aún no están conciliados.
+     *
+     * Respeta las ventanas de corte definidas por Charly (ver calcularEstadoVentanaCorte).
+     */
+    public function simularArchivoBancario(Request $request): StreamedResponse|RedirectResponse
+    {
+        $estado = $this->calcularEstadoVentanaCorte();
+
+        if ($estado['ventana'] === 'FUERA') {
+            return back()->withErrors(['general' => $estado['mensaje']]);
+        }
+
+        $query = PagoDistribuidora::query()
+            ->with([
+                'relacionCorte:id,numero_relacion,referencia_pago',
+                'distribuidora.persona:id,primer_nombre,segundo_nombre,apellido_paterno,apellido_materno',
+            ])
+            ->where('estado', PagoDistribuidora::ESTADO_REPORTADO);
+
+        if ($estado['ventana'] === 'PRINCIPAL') {
+            // Pagos con fecha <= fecha de corte
+            $query->whereDate('fecha_pago', '<=', $estado['hasta']);
+        } else {
+            // TARDIOS: pagos del día siguiente al corte hasta corte + 5
+            $query->whereDate('fecha_pago', '>=', $estado['desde'])
+                ->whereDate('fecha_pago', '<=', $estado['hasta']);
+        }
+
+        $pagosReportados = $query->orderBy('fecha_pago')->get();
+
+        $timestamp = now()->format('Ymd_His');
+        $ventanaLabel = $estado['ventana'] === 'PRINCIPAL' ? 'principal' : 'tardios';
+        $filename = "simulacion_banco_{$ventanaLabel}_{$timestamp}.xlsx";
+
+        return response()->streamDownload(function () use ($pagosReportados) {
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Simulacion Banco');
+
+            // Headers (mismas columnas que espera el importador)
+            $sheet->fromArray([
+                'referencia',
+                'folio',
+                'monto',
+                'fecha',
+                'hora',
+                'tipo_pago',
+                'nombre_pagador',
+                'concepto',
+            ], null, 'A1');
+
+            $fila = 2;
+            foreach ($pagosReportados as $pago) {
+                $persona = $pago->distribuidora?->persona;
+                $nombreDist = trim(implode(' ', array_filter([
+                    $persona?->primer_nombre,
+                    $persona?->segundo_nombre,
+                    $persona?->apellido_paterno,
+                    $persona?->apellido_materno,
+                ]))) ?: ('DIST-' . $pago->distribuidora_id);
+
+                $fechaPago = $pago->fecha_pago instanceof Carbon ? $pago->fecha_pago : Carbon::parse($pago->fecha_pago);
+                $referencia = $pago->referencia_reportada
+                    ?? $pago->relacionCorte?->referencia_pago
+                    ?? ('SIM-' . $pago->id);
+                $numeroRelacion = $pago->relacionCorte?->numero_relacion ?? 'N/A';
+
+                $sheet->fromArray([
+                    $referencia,
+                    'SIM-' . $pago->id . '-' . now()->format('His'),
+                    (float) $pago->monto,
+                    $fechaPago->toDateString(),
+                    $fechaPago->format('H:i:s'),
+                    $pago->metodo_pago ?: 'TRANSFERENCIA',
+                    $nombreDist,
+                    "Pago simulado relacion {$numeroRelacion}",
+                ], null, "A{$fila}");
+                $fila++;
+            }
+
+            // Si no hay pagos reportados en la ventana, agregar fila demo para que el archivo no esté vacío
+            if ($pagosReportados->isEmpty()) {
+                $sheet->fromArray([
+                    'SIN-PAGOS-REPORTADOS',
+                    'SIM-EMPTY',
+                    0,
+                    now()->toDateString(),
+                    now()->format('H:i:s'),
+                    'TRANSFERENCIA',
+                    'Sin distribuidoras',
+                    'No hay pagos reportados dentro de la ventana actual',
+                ], null, 'A2');
+            }
+
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     public function importar(Request $request): RedirectResponse
@@ -619,6 +792,8 @@ class ConciliacionController extends Controller
 
     private function actualizarEstadoRelacionPorPagos(RelacionCorte $relacion): void
     {
+        $estadoAnterior = $relacion->estado;
+
         $montoConciliado = (float) PagoDistribuidora::query()
             ->where('relacion_corte_id', $relacion->id)
             ->where('estado', PagoDistribuidora::ESTADO_CONCILIADO)
@@ -637,6 +812,25 @@ class ConciliacionController extends Controller
         }
 
         $relacion->save();
+
+        if ($estadoAnterior !== RelacionCorte::ESTADO_PAGADA && $relacion->estado === RelacionCorte::ESTADO_PAGADA) {
+            $this->restaurarCreditoDistribuidoraPorRelacion($relacion);
+        }
+    }
+
+    private function restaurarCreditoDistribuidoraPorRelacion(RelacionCorte $relacion): void
+    {
+        $relacion->loadMissing('partidas.vale');
+
+        $creditoArestaurar = (float) $relacion->partidas->sum(function ($partida) {
+            return (float) ($partida->vale?->monto_principal ?? 0);
+        });
+
+        if ($creditoArestaurar <= 0) {
+            return;
+        }
+
+        $relacion->distribuidora?->increment('credito_disponible', $creditoArestaurar);
     }
 
     private function relacionYaTienePagoConciliado(int $relacionId): bool

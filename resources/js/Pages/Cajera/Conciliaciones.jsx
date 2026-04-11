@@ -18,7 +18,7 @@ import {
     faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons';
 
-export default function Conciliaciones({ resumen, alertas, filtros, movimientosPendientes, relacionesPendientes, historialConciliaciones, historialMeta }) {
+export default function Conciliaciones({ resumen, alertas, filtros, movimientosPendientes, relacionesPendientes, historialConciliaciones, historialMeta, ventanaCorte }) {
     const { flash } = usePage().props;
     const importResult = flash?.import_result || null;
     const uploadForm = useForm({
@@ -346,6 +346,50 @@ export default function Conciliaciones({ resumen, alertas, filtros, movimientosP
                             Lo que no coincida de forma exacta pasa a revisión manual.
                         </p>
 
+                        {/* Simular archivo bancario - ventanas de corte de Charly */}
+                        {(() => {
+                            const fueraDeVentana = ventanaCorte?.ventana === 'FUERA';
+                            const bgClass = fueraDeVentana ? 'border-gray-300 bg-gray-50' : 'border-amber-200 bg-amber-50';
+                            const titleClass = fueraDeVentana ? 'text-gray-700' : 'text-amber-900';
+                            const subClass = fueraDeVentana ? 'text-gray-500' : 'text-amber-700';
+                            const badgeLabel = ventanaCorte?.ventana === 'PRINCIPAL' ? 'Ventana principal'
+                                : ventanaCorte?.ventana === 'TARDIOS' ? 'Ventana tardíos'
+                                : 'Fuera de ventana';
+                            const badgeClass = ventanaCorte?.ventana === 'PRINCIPAL' ? 'bg-green-100 text-green-800'
+                                : ventanaCorte?.ventana === 'TARDIOS' ? 'bg-orange-100 text-orange-800'
+                                : 'bg-gray-200 text-gray-700';
+
+                            return (
+                                <div className={`flex items-center justify-between gap-3 p-3 mb-4 border rounded-lg ${bgClass}`}>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <p className={`text-sm font-semibold ${titleClass}`}>¿Sin archivo del banco?</p>
+                                            <span className={`px-2 py-0.5 text-xs font-bold rounded ${badgeClass}`}>{badgeLabel}</span>
+                                        </div>
+                                        <p className={`text-xs ${subClass} mt-1`}>
+                                            {ventanaCorte?.mensaje || 'Genera un Excel simulado con los pagos reportados para probar la conciliación.'}
+                                        </p>
+                                    </div>
+                                    {fueraDeVentana ? (
+                                        <button
+                                            type="button"
+                                            disabled
+                                            className="px-4 py-2 text-xs font-semibold text-white bg-gray-400 rounded-lg cursor-not-allowed whitespace-nowrap"
+                                        >
+                                            Descarga no disponible
+                                        </button>
+                                    ) : (
+                                        <a
+                                            href={route('cajera.conciliaciones.simular-archivo')}
+                                            className="px-4 py-2 text-xs font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition whitespace-nowrap"
+                                        >
+                                            Descargar Excel
+                                        </a>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
                         <form onSubmit={handleUpload} className="space-y-3">
                             <div className="flex flex-col gap-3 md:flex-row md:items-end">
                                 <div className="flex-1">
@@ -356,8 +400,27 @@ export default function Conciliaciones({ resumen, alertas, filtros, movimientosP
                                         type="file"
                                         accept=".xlsx,.xls,.csv,.txt"
                                         onChange={(e) => {
-                                            uploadForm.setData('archivo', e.target.files?.[0] || null);
+                                            const file = e.target.files?.[0] || null;
                                             uploadForm.clearErrors('archivo');
+                                            if (file) {
+                                                // Validación client-side: tamaño max 10 MB
+                                                const maxSize = 10 * 1024 * 1024;
+                                                if (file.size > maxSize) {
+                                                    uploadForm.setError('archivo', `El archivo es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)} MB). Máximo permitido: 10 MB.`);
+                                                    uploadForm.setData('archivo', null);
+                                                    e.target.value = '';
+                                                    return;
+                                                }
+                                                // Validación client-side: extensión
+                                                const ext = file.name.split('.').pop()?.toLowerCase();
+                                                if (!['xlsx', 'xls', 'csv', 'txt'].includes(ext)) {
+                                                    uploadForm.setError('archivo', `Extensión no permitida (.${ext}). Usa .xlsx, .xls, .csv o .txt`);
+                                                    uploadForm.setData('archivo', null);
+                                                    e.target.value = '';
+                                                    return;
+                                                }
+                                            }
+                                            uploadForm.setData('archivo', file);
                                         }}
                                         disabled={uploadForm.processing}
                                         className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 disabled:opacity-50"
@@ -581,16 +644,17 @@ export default function Conciliaciones({ resumen, alertas, filtros, movimientosP
                                         <input
                                             type="text"
                                             value={manualForm.data.observaciones}
-                                            onChange={(e) => manualForm.setData('observaciones', e.target.value)}
-                                            placeholder="Observación para la aplicación manual"
-                                            className="flex-1 text-sm border-gray-300 rounded-lg"
+                                            onChange={(e) => manualForm.setData('observaciones', e.target.value.slice(0, 500))}
+                                            placeholder="Observación para la aplicación manual (máx. 500)"
+                                            maxLength={500}
+                                            className={`flex-1 text-sm rounded-lg ${manualForm.data.observaciones.length > 500 ? 'border-red-400' : 'border-gray-300'}`}
                                         />
 
                                         <button
                                             type="button"
                                             onClick={aplicarManual}
-                                            disabled={manualForm.processing || !movimientoSeleccionado || !relacionSeleccionada}
-                                            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300"
+                                            disabled={manualForm.processing || !movimientoSeleccionado || !relacionSeleccionada || manualForm.data.observaciones.length > 500}
+                                            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                                         >
                                             <FontAwesomeIcon icon={faScaleBalanced} />
                                             {manualForm.processing ? 'Aplicando...' : 'Aplicar conciliación'}

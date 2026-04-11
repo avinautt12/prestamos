@@ -7,6 +7,13 @@ import { formatCurrency, formatNumber, statusBadgeClass } from '../utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCamera, faCheckCircle } from '@fortawesome/free-solid-svg-icons'; // <-- Iconos para los botones
 
+const CLIENTE_STEPS = [
+    { id: 1, label: 'Personal' },
+    { id: 2, label: 'Dirección' },
+    { id: 3, label: 'Documentos' },
+    { id: 4, label: 'Cuenta' },
+];
+
 export default function Create({
     distribuidora,
     prevalidacion,
@@ -56,6 +63,52 @@ export default function Create({
 
     const [enviando, setEnviando] = useState(false);
     const [modalCliente, setModalCliente] = useState(false);
+    const [formTouched, setFormTouched] = useState({});
+    const [clienteStep, setClienteStep] = useState(1);
+
+    // Validación client-side de datos del cliente nuevo
+    const CURP_REGEX = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const soloDigitos = (s) => /^\d+$/.test(s);
+    const fieldErrors = modoCliente === 'nuevo' ? {
+        primer_nombre: !form.primer_nombre.trim() ? 'El primer nombre es obligatorio' : (form.primer_nombre.length > 100 ? 'Máximo 100 caracteres' : null),
+        apellido_paterno: !form.apellido_paterno.trim() ? 'El apellido paterno es obligatorio' : (form.apellido_paterno.length > 100 ? 'Máximo 100 caracteres' : null),
+        segundo_nombre: form.segundo_nombre.length > 100 ? 'Máximo 100 caracteres' : null,
+        apellido_materno: form.apellido_materno.length > 100 ? 'Máximo 100 caracteres' : null,
+        curp: form.curp && form.curp.length !== 18
+            ? 'La CURP debe tener 18 caracteres'
+            : (form.curp && !CURP_REGEX.test(form.curp) ? 'Formato de CURP inválido' : null),
+        correo_electronico: form.correo_electronico && !EMAIL_REGEX.test(form.correo_electronico) ? 'Correo electrónico inválido' : null,
+        telefono_celular: form.telefono_celular && (!soloDigitos(form.telefono_celular) || form.telefono_celular.length !== 10)
+            ? 'Debe ser 10 dígitos numéricos' : null,
+        codigo_postal: form.codigo_postal && (!soloDigitos(form.codigo_postal) || form.codigo_postal.length !== 5)
+            ? 'Debe ser 5 dígitos numéricos' : null,
+        cuenta_clabe: form.cuenta_clabe && form.cuenta_clabe.length !== 18 ? 'La CLABE debe tener 18 dígitos' : null,
+        cuenta_titular: !form.cuenta_titular.trim() && (form.foto_ine_frente || form.cuenta_clabe) ? 'El titular es obligatorio' : null,
+    } : {};
+    const hayCamposValidos = modoCliente === 'nuevo'
+        ? !Object.values(fieldErrors).some((e) => e !== null)
+        : true;
+
+    const pasoActualCompleto = useMemo(() => {
+        if (clienteStep === 1) {
+            return !!form.primer_nombre.trim() && !!form.apellido_paterno.trim() && !fieldErrors.primer_nombre && !fieldErrors.apellido_paterno;
+        }
+
+        if (clienteStep === 2) {
+            return !fieldErrors.codigo_postal;
+        }
+
+        if (clienteStep === 3) {
+            return !!form.foto_ine_frente && !!form.foto_ine_reverso && !!form.foto_selfie_ine;
+        }
+
+        if (clienteStep === 4) {
+            return !!form.cuenta_banco.trim() && !!form.cuenta_clabe.trim() && !!form.cuenta_titular.trim() && !fieldErrors.cuenta_clabe && !fieldErrors.cuenta_titular;
+        }
+
+        return false;
+    }, [clienteStep, fieldErrors, form]);
 
     const productoSeleccionado = useMemo(
         () => (productos || []).find((item) => Number(item.id) === Number(form.producto_id)),
@@ -103,7 +156,7 @@ export default function Create({
         } else if (currentScanType === 'selfie') {
             actualizarCampo('foto_selfie_ine', file);
         }
-        setScannerOpen(false); 
+        setScannerOpen(false);
     };
     // ------------------------------------------------
 
@@ -149,27 +202,27 @@ export default function Create({
             <Head title="Nuevo pre vale" />
 
             {sinConfig ? (
-                <div className="fin-card">
+                <div className="fin-card bg-white/95 backdrop-blur">
                     <p className="fin-title">No se encontró una distribuidora ligada a tu acceso</p>
                     <p className="mt-2 fin-subtitle">Cuando exista el registro operativo, aquí podrás crear pre vales.</p>
                 </div>
             ) : (
                 <>
                     {/* Tarjetas de estado */}
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                        <div className="fin-card">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 fin-enter">
+                        <div className="border-green-100 fin-card bg-green-50/50">
                             <p className="text-xs font-medium text-gray-500">Emisión</p>
                             <p className="mt-1 text-lg font-bold text-gray-900">{prevalidacion.puede_emitir_vales ? 'Habilitada' : 'Bloqueada'}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="border-green-100 fin-card bg-green-50/60">
                             <p className="text-xs font-medium text-gray-500">Crédito disponible</p>
                             <p className="mt-1 text-lg font-bold text-gray-900">{prevalidacion.sin_limite ? 'Sin límite' : formatCurrency(prevalidacion.credito_disponible)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="border-indigo-100 fin-card bg-indigo-50/60">
                             <p className="text-xs font-medium text-gray-500">Clientes elegibles</p>
                             <p className="mt-1 text-lg font-bold text-gray-900">{formatNumber((clientes.elegibles || []).length)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-amber-100 bg-amber-50/60">
                             <p className="text-xs font-medium text-gray-500">Por conciliar</p>
                             <p className="mt-1 text-lg font-bold text-gray-900">{formatNumber(prevalidacion.pagos_pendientes_conciliar)}</p>
                         </div>
@@ -177,12 +230,12 @@ export default function Create({
 
                     {/* Errores generales */}
                     {errors?.general && (
-                        <div className="mt-4 fin-card border-red-200 bg-red-50">
+                        <div className="mt-4 border-red-200 fin-card bg-red-50">
                             <p className="text-sm font-semibold text-red-800">{errors.general}</p>
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-3 fin-enter">
                         {/* Columna izquierda */}
                         <div className="space-y-4 xl:col-span-2">
                             {/* Producto */}
@@ -218,7 +271,7 @@ export default function Create({
                                     <button
                                         type="button"
                                         onClick={() => cambiarModo('nuevo')}
-                                        className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors ${modoCliente === 'nuevo' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                        className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors ${modoCliente === 'nuevo' ? 'bg-green-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                                     >
                                         Cliente nuevo
                                     </button>
@@ -226,7 +279,7 @@ export default function Create({
                                         <button
                                             type="button"
                                             onClick={() => cambiarModo('existente')}
-                                            className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors ${modoCliente === 'existente' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                            className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors ${modoCliente === 'existente' ? 'bg-green-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                                         >
                                             Cliente existente ({(clientes.elegibles || []).length})
                                         </button>
@@ -274,7 +327,14 @@ export default function Create({
                                                     ? [form.primer_nombre, form.segundo_nombre, form.apellido_paterno, form.apellido_materno].filter(Boolean).join(' ')
                                                     : 'Registra los datos del nuevo cliente.'}
                                             </p>
-                                            <button type="button" onClick={() => setModalCliente(true)} className="px-4 py-2 text-sm fin-btn-primary">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setClienteStep(1);
+                                                    setModalCliente(true);
+                                                }}
+                                                className="px-4 py-2 text-sm fin-btn-primary"
+                                            >
                                                 {clienteNuevoLleno ? 'Editar datos' : 'Registrar cliente'}
                                             </button>
                                         </div>
@@ -301,7 +361,7 @@ export default function Create({
                                             </div>
                                         )}
                                         {(errors?.primer_nombre || errors?.apellido_paterno || errors?.curp || errors?.correo_electronico || errors?.foto_ine_frente || errors?.foto_ine_reverso || errors?.foto_selfie_ine || errors?.cuenta_banco || errors?.cuenta_clabe || errors?.cuenta_titular) && (
-                                            <div className="p-3 mt-3 border rounded-lg border-red-200 bg-red-50">
+                                            <div className="p-3 mt-3 border border-red-200 rounded-lg bg-red-50">
                                                 {errors?.primer_nombre && <p className="text-sm text-red-600">{errors.primer_nombre}</p>}
                                                 {errors?.apellido_paterno && <p className="text-sm text-red-600">{errors.apellido_paterno}</p>}
                                                 {errors?.curp && <p className="text-sm text-red-600">{errors.curp}</p>}
@@ -322,7 +382,7 @@ export default function Create({
                         {/* Columna derecha */}
                         <div className="space-y-4">
                             {!!bloqueos.length && (
-                                <div className="fin-card border-red-200 bg-red-50">
+                                <div className="border-red-200 fin-card bg-red-50">
                                     <p className="font-semibold text-red-800">Pre vale bloqueado</p>
                                     <ul className="mt-2 space-y-1 text-sm text-red-700 list-disc list-inside">
                                         {bloqueos.map((b) => <li key={b}>{b}</li>)}
@@ -362,7 +422,7 @@ export default function Create({
 
                             {/* Botón confirmar */}
                             {simulacion && puedeContinuar && (
-                                <div className="fin-card border-green-200 bg-green-50">
+                                <div className="border-green-200 fin-card bg-green-50">
                                     <p className="text-sm text-green-700">
                                         {modoCliente === 'existente'
                                             ? 'Se creará el pre vale en estado borrador para el cliente seleccionado.'
@@ -371,7 +431,7 @@ export default function Create({
                                     <button
                                         type="button"
                                         onClick={confirmarPreVale}
-                                        disabled={enviando || !clienteListo}
+                                        disabled={enviando || !clienteListo || !hayCamposValidos}
                                         className="w-full mt-3 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {enviando ? 'Creando pre vale...' : 'Confirmar pre vale'}
@@ -381,6 +441,11 @@ export default function Create({
                                             {modoCliente === 'existente' ? 'Selecciona un cliente para continuar.' : 'Registra los datos del cliente para continuar.'}
                                         </p>
                                     )}
+                                    {clienteListo && !hayCamposValidos && modoCliente === 'nuevo' && (
+                                        <p className="mt-2 text-xs text-red-600">
+                                            Hay datos del cliente con formato inválido. Revísalos antes de continuar.
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -388,159 +453,244 @@ export default function Create({
 
                     {/* Modal de registro de cliente nuevo */}
                     {modalCliente && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setModalCliente(false)}>
-                            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl" onClick={(e) => e.stopPropagation()}>
-                                <div className="sticky top-0 z-10 flex items-center justify-between p-5 bg-white border-b rounded-t-2xl">
+                        <div className="fin-modal-backdrop" onClick={() => setModalCliente(false)}>
+                            <div className="max-w-2xl fin-modal-sheet" onClick={(e) => e.stopPropagation()}>
+                                <div className="fin-modal-head">
                                     <h2 className="text-lg font-bold text-gray-900">Datos del cliente nuevo</h2>
                                     <button type="button" onClick={() => setModalCliente(false)} className="text-2xl leading-none text-gray-400 hover:text-gray-600">&times;</button>
                                 </div>
-                                <div className="p-5 space-y-5">
-                                    <div>
-                                        <h3 className="mb-3 text-sm font-semibold text-gray-700">Datos personales</h3>
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Primer nombre *</label>
-                                                <input type="text" value={form.primer_nombre} onChange={(e) => actualizarCampo('primer_nombre', e.target.value)} className="fin-input" placeholder="María" />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Segundo nombre</label>
-                                                <input type="text" value={form.segundo_nombre} onChange={(e) => actualizarCampo('segundo_nombre', e.target.value)} className="fin-input" placeholder="Guadalupe" />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Apellido paterno *</label>
-                                                <input type="text" value={form.apellido_paterno} onChange={(e) => actualizarCampo('apellido_paterno', e.target.value)} className="fin-input" placeholder="López" />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Apellido materno</label>
-                                                <input type="text" value={form.apellido_materno} onChange={(e) => actualizarCampo('apellido_materno', e.target.value)} className="fin-input" placeholder="García" />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">CURP</label>
-                                                <input type="text" value={form.curp} onChange={(e) => actualizarCampo('curp', e.target.value.toUpperCase())} className="fin-input" placeholder="LOPM850101MDFRRL09" maxLength={18} />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Sexo</label>
-                                                <select value={form.sexo} onChange={(e) => actualizarCampo('sexo', e.target.value)} className="fin-input">
-                                                    <option value="">Selecciona</option>
-                                                    <option value="M">Masculino</option>
-                                                    <option value="F">Femenino</option>
-                                                    <option value="OTRO">Otro</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Fecha de nacimiento</label>
-                                                <input type="date" value={form.fecha_nacimiento} onChange={(e) => actualizarCampo('fecha_nacimiento', e.target.value)} className="fin-input" />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Teléfono celular</label>
-                                                <input type="tel" value={form.telefono_celular} onChange={(e) => actualizarCampo('telefono_celular', e.target.value)} className="fin-input" placeholder="5512345678" />
-                                            </div>
-                                            <div className="md:col-span-2">
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Correo electrónico</label>
-                                                <input type="email" value={form.correo_electronico} onChange={(e) => actualizarCampo('correo_electronico', e.target.value)} className="fin-input" placeholder="maria@correo.com" />
+                                <div className="space-y-5 fin-modal-body">
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {CLIENTE_STEPS.map((step) => {
+                                            const isActive = step.id === clienteStep;
+                                            const isDone = step.id < clienteStep;
+                                            return (
+                                                <button
+                                                    key={step.id}
+                                                    type="button"
+                                                    onClick={() => setClienteStep(step.id)}
+                                                    className={`px-2 py-2 text-xs font-semibold rounded-xl border transition-colors ${isActive
+                                                        ? 'bg-green-700 text-white border-green-700'
+                                                        : isDone
+                                                            ? 'bg-green-50 text-green-700 border-green-200'
+                                                            : 'bg-white text-gray-500 border-gray-200'
+                                                        }`}
+                                                >
+                                                    {step.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {clienteStep === 1 && (
+                                        <div>
+                                            <h3 className="mb-3 text-sm font-semibold text-gray-700">Datos personales</h3>
+                                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Primer nombre *</label>
+                                                    <input
+                                                        type="text"
+                                                        maxLength={100}
+                                                        value={form.primer_nombre}
+                                                        onChange={(e) => actualizarCampo('primer_nombre', e.target.value)}
+                                                        onBlur={() => setFormTouched((t) => ({ ...t, primer_nombre: true }))}
+                                                        className={`fin-input ${formTouched.primer_nombre && fieldErrors.primer_nombre ? 'border-red-400' : ''}`}
+                                                        placeholder="María"
+                                                    />
+                                                    {formTouched.primer_nombre && fieldErrors.primer_nombre && <p className="mt-1 text-xs text-red-600">{fieldErrors.primer_nombre}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Segundo nombre</label>
+                                                    <input type="text" maxLength={100} value={form.segundo_nombre} onChange={(e) => actualizarCampo('segundo_nombre', e.target.value)} className="fin-input" placeholder="Guadalupe" />
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Apellido paterno *</label>
+                                                    <input
+                                                        type="text"
+                                                        maxLength={100}
+                                                        value={form.apellido_paterno}
+                                                        onChange={(e) => actualizarCampo('apellido_paterno', e.target.value)}
+                                                        onBlur={() => setFormTouched((t) => ({ ...t, apellido_paterno: true }))}
+                                                        className={`fin-input ${formTouched.apellido_paterno && fieldErrors.apellido_paterno ? 'border-red-400' : ''}`}
+                                                        placeholder="López"
+                                                    />
+                                                    {formTouched.apellido_paterno && fieldErrors.apellido_paterno && <p className="mt-1 text-xs text-red-600">{fieldErrors.apellido_paterno}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Apellido materno</label>
+                                                    <input type="text" maxLength={100} value={form.apellido_materno} onChange={(e) => actualizarCampo('apellido_materno', e.target.value)} className="fin-input" placeholder="García" />
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">CURP</label>
+                                                    <input
+                                                        type="text"
+                                                        value={form.curp}
+                                                        onChange={(e) => actualizarCampo('curp', e.target.value.toUpperCase())}
+                                                        onBlur={() => setFormTouched((t) => ({ ...t, curp: true }))}
+                                                        className={`fin-input ${formTouched.curp && fieldErrors.curp ? 'border-red-400' : ''}`}
+                                                        placeholder="LOPM850101MDFRRL09"
+                                                        maxLength={18}
+                                                    />
+                                                    {formTouched.curp && fieldErrors.curp && <p className="mt-1 text-xs text-red-600">{fieldErrors.curp}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Sexo</label>
+                                                    <select value={form.sexo} onChange={(e) => actualizarCampo('sexo', e.target.value)} className="fin-input">
+                                                        <option value="">Selecciona</option>
+                                                        <option value="M">Masculino</option>
+                                                        <option value="F">Femenino</option>
+                                                        <option value="OTRO">Otro</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Fecha de nacimiento</label>
+                                                    <input type="date" value={form.fecha_nacimiento} onChange={(e) => actualizarCampo('fecha_nacimiento', e.target.value)} className="fin-input" max={new Date().toISOString().split('T')[0]} />
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Teléfono celular</label>
+                                                    <input
+                                                        type="tel"
+                                                        value={form.telefono_celular}
+                                                        onChange={(e) => actualizarCampo('telefono_celular', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                                        onBlur={() => setFormTouched((t) => ({ ...t, telefono_celular: true }))}
+                                                        className={`fin-input ${formTouched.telefono_celular && fieldErrors.telefono_celular ? 'border-red-400' : ''}`}
+                                                        placeholder="5512345678"
+                                                        maxLength={10}
+                                                    />
+                                                    {formTouched.telefono_celular && fieldErrors.telefono_celular && <p className="mt-1 text-xs text-red-600">{fieldErrors.telefono_celular}</p>}
+                                                </div>
+                                                <div className="md:col-span-2">
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Correo electrónico</label>
+                                                    <input
+                                                        type="email"
+                                                        maxLength={150}
+                                                        value={form.correo_electronico}
+                                                        onChange={(e) => actualizarCampo('correo_electronico', e.target.value)}
+                                                        onBlur={() => setFormTouched((t) => ({ ...t, correo_electronico: true }))}
+                                                        className={`fin-input ${formTouched.correo_electronico && fieldErrors.correo_electronico ? 'border-red-400' : ''}`}
+                                                        placeholder="maria@correo.com"
+                                                    />
+                                                    {formTouched.correo_electronico && fieldErrors.correo_electronico && <p className="mt-1 text-xs text-red-600">{fieldErrors.correo_electronico}</p>}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <h3 className="mb-3 text-sm font-semibold text-gray-700">Dirección</h3>
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                            <div className="md:col-span-2">
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Calle</label>
-                                                <input type="text" value={form.calle} onChange={(e) => actualizarCampo('calle', e.target.value)} className="fin-input" placeholder="Av. Reforma" />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Número exterior</label>
-                                                <input type="text" value={form.numero_exterior} onChange={(e) => actualizarCampo('numero_exterior', e.target.value)} className="fin-input" placeholder="123" />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Colonia</label>
-                                                <input type="text" value={form.colonia} onChange={(e) => actualizarCampo('colonia', e.target.value)} className="fin-input" placeholder="Centro" />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Ciudad</label>
-                                                <input type="text" value={form.ciudad} onChange={(e) => actualizarCampo('ciudad', e.target.value)} className="fin-input" placeholder="Puebla" />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Estado</label>
-                                                <input type="text" value={form.estado_direccion} onChange={(e) => actualizarCampo('estado_direccion', e.target.value)} className="fin-input" placeholder="Puebla" />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Código postal</label>
-                                                <input type="text" value={form.codigo_postal} onChange={(e) => actualizarCampo('codigo_postal', e.target.value)} className="fin-input" placeholder="72000" maxLength={10} />
+                                    )}
+
+                                    {clienteStep === 2 && (
+                                        <div>
+                                            <h3 className="mb-3 text-sm font-semibold text-gray-700">Dirección</h3>
+                                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                <div className="md:col-span-2">
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Calle</label>
+                                                    <input type="text" value={form.calle} onChange={(e) => actualizarCampo('calle', e.target.value)} className="fin-input" placeholder="Av. Reforma" />
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Número exterior</label>
+                                                    <input type="text" value={form.numero_exterior} onChange={(e) => actualizarCampo('numero_exterior', e.target.value)} className="fin-input" placeholder="123" />
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Colonia</label>
+                                                    <input type="text" value={form.colonia} onChange={(e) => actualizarCampo('colonia', e.target.value)} className="fin-input" placeholder="Centro" />
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Ciudad</label>
+                                                    <input type="text" value={form.ciudad} onChange={(e) => actualizarCampo('ciudad', e.target.value)} className="fin-input" placeholder="Puebla" />
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Estado</label>
+                                                    <input type="text" value={form.estado_direccion} onChange={(e) => actualizarCampo('estado_direccion', e.target.value)} className="fin-input" placeholder="Puebla" />
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Código postal</label>
+                                                    <input
+                                                        type="text"
+                                                        value={form.codigo_postal}
+                                                        onChange={(e) => actualizarCampo('codigo_postal', e.target.value.replace(/\D/g, '').slice(0, 5))}
+                                                        onBlur={() => setFormTouched((t) => ({ ...t, codigo_postal: true }))}
+                                                        className={`fin-input ${formTouched.codigo_postal && fieldErrors.codigo_postal ? 'border-red-400' : ''}`}
+                                                        placeholder="72000"
+                                                        maxLength={5}
+                                                    />
+                                                    {formTouched.codigo_postal && fieldErrors.codigo_postal && <p className="mt-1 text-xs text-red-600">{fieldErrors.codigo_postal}</p>}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {/* Documentos (fotos) CON EL NUEVO ESCÁNER */}
-                                    <div>
-                                        <h3 className="mb-3 text-sm font-semibold text-gray-700">Documentos</h3>
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">INE frente *</label>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setCurrentScanType('frente'); setScannerOpen(true); }}
-                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_frente ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
-                                                >
-                                                    <FontAwesomeIcon icon={form.foto_ine_frente ? faCheckCircle : faCamera} />
-                                                    {form.foto_ine_frente ? 'Escaneada ✓' : 'Escanear Frente'}
-                                                </button>
-                                                {errors?.foto_ine_frente && <p className="mt-1 text-xs text-red-600">{errors.foto_ine_frente}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">INE reverso *</label>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setCurrentScanType('reverso'); setScannerOpen(true); }}
-                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_reverso ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
-                                                >
-                                                    <FontAwesomeIcon icon={form.foto_ine_reverso ? faCheckCircle : faCamera} />
-                                                    {form.foto_ine_reverso ? 'Escaneada ✓' : 'Escanear Reverso'}
-                                                </button>
-                                                {errors?.foto_ine_reverso && <p className="mt-1 text-xs text-red-600">{errors.foto_ine_reverso}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Selfie con INE *</label>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setCurrentScanType('selfie'); setScannerOpen(true); }}
-                                                    className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_selfie_ine ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}
-                                                >
-                                                    <FontAwesomeIcon icon={form.foto_selfie_ine ? faCheckCircle : faCamera} />
-                                                    {form.foto_selfie_ine ? 'Capturada ✓' : 'Tomar Selfie'}
-                                                </button>
-                                                {errors?.foto_selfie_ine && <p className="mt-1 text-xs text-red-600">{errors.foto_selfie_ine}</p>}
+                                    {clienteStep === 3 && (
+                                        <div>
+                                            <h3 className="mb-3 text-sm font-semibold text-gray-700">Documentos</h3>
+                                            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">INE frente *</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setCurrentScanType('frente'); setScannerOpen(true); }}
+                                                        className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_frente ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-green-300 text-green-600 hover:bg-green-50'}`}
+                                                    >
+                                                        <FontAwesomeIcon icon={form.foto_ine_frente ? faCheckCircle : faCamera} />
+                                                        {form.foto_ine_frente ? 'Escaneada ✓' : 'Escanear Frente'}
+                                                    </button>
+                                                    {errors?.foto_ine_frente && <p className="mt-1 text-xs text-red-600">{errors.foto_ine_frente}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">INE reverso *</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setCurrentScanType('reverso'); setScannerOpen(true); }}
+                                                        className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_ine_reverso ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-green-300 text-green-600 hover:bg-green-50'}`}
+                                                    >
+                                                        <FontAwesomeIcon icon={form.foto_ine_reverso ? faCheckCircle : faCamera} />
+                                                        {form.foto_ine_reverso ? 'Escaneada ✓' : 'Escanear Reverso'}
+                                                    </button>
+                                                    {errors?.foto_ine_reverso && <p className="mt-1 text-xs text-red-600">{errors.foto_ine_reverso}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Selfie con INE *</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setCurrentScanType('selfie'); setScannerOpen(true); }}
+                                                        className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_selfie_ine ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-green-300 text-green-600 hover:bg-green-50'}`}
+                                                    >
+                                                        <FontAwesomeIcon icon={form.foto_selfie_ine ? faCheckCircle : faCamera} />
+                                                        {form.foto_selfie_ine ? 'Capturada ✓' : 'Tomar Selfie'}
+                                                    </button>
+                                                    {errors?.foto_selfie_ine && <p className="mt-1 text-xs text-red-600">{errors.foto_selfie_ine}</p>}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {/* Cuenta bancaria */}
-                                    <div>
-                                        <h3 className="mb-3 text-sm font-semibold text-gray-700">Cuenta bancaria</h3>
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                            <div className="md:col-span-2">
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">CLABE interbancaria *</label>
-                                                <ClabeInput
-                                                    value={form.cuenta_clabe}
-                                                    onChange={(val) => actualizarCampo('cuenta_clabe', val)}
-                                                    onBankDetected={(banco) => actualizarCampo('cuenta_banco', banco)}
-                                                    error={errors?.cuenta_clabe}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Banco</label>
-                                                <input type="text" value={form.cuenta_banco} readOnly className="fin-input bg-gray-50 cursor-not-allowed" placeholder="Se detecta automáticamente" />
-                                                {errors?.cuenta_banco && <p className="mt-1 text-xs text-red-600">{errors.cuenta_banco}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Titular *</label>
-                                                <input type="text" value={form.cuenta_titular} onChange={(e) => actualizarCampo('cuenta_titular', e.target.value)} className="fin-input" placeholder="Nombre del titular" />
-                                                {errors?.cuenta_titular && <p className="mt-1 text-xs text-red-600">{errors.cuenta_titular}</p>}
+                                    {clienteStep === 4 && (
+                                        <div>
+                                            <h3 className="mb-3 text-sm font-semibold text-gray-700">Cuenta bancaria</h3>
+                                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                <div className="md:col-span-2">
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">CLABE interbancaria *</label>
+                                                    <ClabeInput
+                                                        value={form.cuenta_clabe}
+                                                        onChange={(val) => actualizarCampo('cuenta_clabe', val)}
+                                                        onBankDetected={(banco) => actualizarCampo('cuenta_banco', banco)}
+                                                        error={errors?.cuenta_clabe}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Banco</label>
+                                                    <input type="text" value={form.cuenta_banco} readOnly className="cursor-not-allowed fin-input bg-gray-50" placeholder="Se detecta automáticamente" />
+                                                    {errors?.cuenta_banco && <p className="mt-1 text-xs text-red-600">{errors.cuenta_banco}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Titular *</label>
+                                                    <input type="text" value={form.cuenta_titular} onChange={(e) => actualizarCampo('cuenta_titular', e.target.value)} className="fin-input" placeholder="Nombre del titular" />
+                                                    {errors?.cuenta_titular && <p className="mt-1 text-xs text-red-600">{errors.cuenta_titular}</p>}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
-                                <div className="sticky bottom-0 p-5 bg-white border-t rounded-b-2xl">
+                                <div className="fin-modal-foot">
                                     {(() => {
                                         const faltantes = [];
                                         if (!form.primer_nombre.trim()) faltantes.push('Primer nombre');
@@ -560,16 +710,39 @@ export default function Create({
                                                         Faltan: {faltantes.join(', ')}
                                                     </p>
                                                 )}
-                                                <div className="flex justify-end gap-3">
-                                                    <button type="button" onClick={() => setModalCliente(false)} className="px-6 py-2 fin-btn-secondary">Cancelar</button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setModalCliente(false)}
-                                                        disabled={!completo}
-                                                        className="px-6 py-2 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        Confirmar datos del cliente
-                                                    </button>
+                                                <div className="flex justify-between gap-3">
+                                                    <div className="flex gap-2">
+                                                        <button type="button" onClick={() => setModalCliente(false)} className="px-6 py-2 fin-btn-secondary">Cancelar</button>
+                                                        {clienteStep > 1 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setClienteStep((prev) => Math.max(prev - 1, 1))}
+                                                                className="px-6 py-2 fin-btn-secondary"
+                                                            >
+                                                                Atrás
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {clienteStep < CLIENTE_STEPS.length ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setClienteStep((prev) => Math.min(prev + 1, CLIENTE_STEPS.length))}
+                                                            disabled={!pasoActualCompleto}
+                                                            className="px-6 py-2 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            Siguiente
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setModalCliente(false)}
+                                                            disabled={!completo}
+                                                            className="px-6 py-2 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            Confirmar datos del cliente
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </>
                                         );
@@ -583,11 +756,11 @@ export default function Create({
 
             {/* --- COMPONENTE DEL ESCÁNER MONTADO AL FINAL --- */}
             {scannerOpen && (
-                <DocumentScanner 
+                <DocumentScanner
                     title={
-                        currentScanType === 'frente' ? "Escanea el Frente del INE" : 
-                        currentScanType === 'reverso' ? "Escanea el Reverso del INE" : 
-                        "Tómale una Selfie al cliente con su INE"
+                        currentScanType === 'frente' ? "Escanea el Frente del INE" :
+                            currentScanType === 'reverso' ? "Escanea el Reverso del INE" :
+                                "Tómale una Selfie al cliente con su INE"
                     }
                     onCapture={handleCapture}
                     onCancel={() => setScannerOpen(false)}
@@ -597,3 +770,4 @@ export default function Create({
         </DistribuidoraLayout>
     );
 }
+

@@ -8,6 +8,7 @@ use App\Http\Requests\Gerente\ActualizarCategoriaConfiguracionRequest;
 use App\Http\Requests\Gerente\ActualizarProductoConfiguracionRequest;
 use App\Http\Requests\Gerente\ActualizarSucursalConfiguracionRequest;
 use App\Http\Requests\Gerente\CrearCategoriaConfiguracionRequest;
+use App\Http\Requests\Gerente\CrearProductoConfiguracionRequest;
 use App\Models\BitacoraConfiguracionSucursal;
 use App\Models\CategoriaDistribuidora;
 use App\Models\Corte;
@@ -16,6 +17,7 @@ use App\Models\Sucursal;
 use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
 use App\Services\CorteService;
+use App\Services\ProductoFinancieroService;
 use App\Services\ServicioReglasNegocio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +30,8 @@ class ConfiguracionController extends Controller
 
     public function __construct(
         private readonly CorteService $corteService,
-        private readonly ServicioReglasNegocio $reglasNegocio
+        private readonly ServicioReglasNegocio $reglasNegocio,
+        private readonly ProductoFinancieroService $productoService
     ) {}
 
     public function index(): Response
@@ -51,40 +54,20 @@ class ConfiguracionController extends Controller
             ]);
 
         $productos = ProductoFinanciero::query()
-            ->where('activo', true)
+            ->withTrashed()
             ->orderBy('nombre')
             ->get([
                 'id',
                 'codigo',
                 'nombre',
+                'monto_principal',
+                'monto_seguro',
                 'numero_quincenas',
                 'porcentaje_comision_empresa',
                 'porcentaje_interes_quincenal',
+                'activo',
+                'deleted_at',
             ]);
-
-        if ($configuracion) {
-            $productosConfig = (array) ($configuracion->productos_config_json ?? []);
-
-            $productos = $productos->map(function (ProductoFinanciero $producto) use ($productosConfig) {
-                $override = $productosConfig[(string) $producto->id] ?? null;
-
-                if (is_array($override)) {
-                    if (array_key_exists('porcentaje_comision_empresa', $override)) {
-                        $producto->porcentaje_comision_empresa = $override['porcentaje_comision_empresa'];
-                    }
-
-                    if (array_key_exists('porcentaje_interes_quincenal', $override)) {
-                        $producto->porcentaje_interes_quincenal = $override['porcentaje_interes_quincenal'];
-                    }
-
-                    if (array_key_exists('numero_quincenas', $override)) {
-                        $producto->numero_quincenas = $override['numero_quincenas'];
-                    }
-                }
-
-                return $producto;
-            })->values();
-        }
 
         $historialCambios = collect();
 
@@ -148,30 +131,14 @@ class ConfiguracionController extends Controller
         $antes = [
             'dia_corte' => $configuracion->dia_corte,
             'hora_corte' => $configuracion->hora_corte,
-            'frecuencia_pago_dias' => $configuracion->frecuencia_pago_dias,
-            'plazo_pago_dias' => $configuracion->plazo_pago_dias,
-            'linea_credito_default' => (float) $configuracion->linea_credito_default,
-            'seguro_tabuladores_json' => $configuracion->seguro_tabuladores_json,
-            'porcentaje_comision_apertura' => (float) $configuracion->porcentaje_comision_apertura,
-            'porcentaje_interes_quincenal' => (float) $configuracion->porcentaje_interes_quincenal,
-            'multa_incumplimiento_monto' => (float) $configuracion->multa_incumplimiento_monto,
             'factor_divisor_puntos' => (int) $configuracion->factor_divisor_puntos,
             'multiplicador_puntos' => (int) $configuracion->multiplicador_puntos,
             'valor_punto_mxn' => (float) $configuracion->valor_punto_mxn,
         ];
 
-        $seguroTabuladores = $this->parseSeguroTabuladores($data['seguro_tabuladores_json'] ?? null);
-
         $despues = [
             'dia_corte' => $data['dia_corte'] ?? null,
             'hora_corte' => $data['hora_corte'] ?? null,
-            'frecuencia_pago_dias' => (int) $data['frecuencia_pago_dias'],
-            'plazo_pago_dias' => (int) $data['plazo_pago_dias'],
-            'linea_credito_default' => (float) $data['linea_credito_default'],
-            'seguro_tabuladores_json' => $seguroTabuladores,
-            'porcentaje_comision_apertura' => (float) $data['porcentaje_comision_apertura'],
-            'porcentaje_interes_quincenal' => (float) $data['porcentaje_interes_quincenal'],
-            'multa_incumplimiento_monto' => (float) $data['multa_incumplimiento_monto'],
             'factor_divisor_puntos' => (int) $data['factor_divisor_puntos'],
             'multiplicador_puntos' => (int) $data['multiplicador_puntos'],
             'valor_punto_mxn' => (float) $data['valor_punto_mxn'],
@@ -180,13 +147,6 @@ class ConfiguracionController extends Controller
         $configuracion->update([
             'dia_corte' => $despues['dia_corte'],
             'hora_corte' => $despues['hora_corte'],
-            'frecuencia_pago_dias' => $despues['frecuencia_pago_dias'],
-            'plazo_pago_dias' => $despues['plazo_pago_dias'],
-            'linea_credito_default' => $despues['linea_credito_default'],
-            'seguro_tabuladores_json' => $despues['seguro_tabuladores_json'],
-            'porcentaje_comision_apertura' => $despues['porcentaje_comision_apertura'],
-            'porcentaje_interes_quincenal' => $despues['porcentaje_interes_quincenal'],
-            'multa_incumplimiento_monto' => $despues['multa_incumplimiento_monto'],
             'factor_divisor_puntos' => $despues['factor_divisor_puntos'],
             'multiplicador_puntos' => $despues['multiplicador_puntos'],
             'valor_punto_mxn' => $despues['valor_punto_mxn'],
@@ -316,6 +276,71 @@ class ConfiguracionController extends Controller
         );
 
         return back()->with('success', 'Categoría creada correctamente.');
+    }
+
+    public function crearProducto(CrearProductoConfiguracionRequest $request): RedirectResponse
+    {
+        /** @var Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursal = $this->obtenerSucursalActivaGerente($gerente);
+
+        if (!$sucursal) {
+            return back()->withErrors([
+                'general' => 'No tienes una sucursal activa asignada.',
+            ]);
+        }
+
+        $data = $request->validated();
+
+        $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
+
+        $nombre = trim((string) $data['nombre']);
+        $codigoBase = strtoupper(preg_replace('/[^A-Z0-9]+/', '', substr(iconv('UTF-8', 'ASCII//TRANSLIT', $nombre) ?: $nombre, 0, 12)));
+        $codigoBase = $codigoBase !== '' ? $codigoBase : 'PROD';
+        $codigo = $codigoBase;
+        $intento = 1;
+
+        while (ProductoFinanciero::withTrashed()->where('codigo', $codigo)->exists()) {
+            $intento++;
+            $codigo = substr($codigoBase, 0, 10) . str_pad((string) $intento, 2, '0', STR_PAD_LEFT);
+        }
+
+        $producto = ProductoFinanciero::query()->create([
+            'codigo' => $codigo,
+            'nombre' => $nombre,
+            'monto_principal' => (float) $data['monto_principal'],
+            'numero_quincenas' => (int) $data['numero_quincenas'],
+            'porcentaje_comision_empresa' => (float) $data['porcentaje_comision_empresa'],
+            'monto_seguro' => (float) $data['monto_seguro'],
+            'porcentaje_interes_quincenal' => (float) $data['porcentaje_interes_quincenal'],
+            'activo' => true,
+            'creado_en' => now(),
+            'actualizado_en' => now(),
+        ]);
+
+        $configuracion->update([
+            'actualizado_por_usuario_id' => $gerente->id,
+            'actualizado_en' => now(),
+        ]);
+
+        $this->registrarCambio(
+            $configuracion,
+            $sucursal,
+            $gerente,
+            'PRODUCTO',
+            $producto->id,
+            [],
+            [
+                'nombre' => $producto->nombre,
+                'monto_principal' => (float) $producto->monto_principal,
+                'numero_quincenas' => (int) $producto->numero_quincenas,
+                'porcentaje_comision_empresa' => (float) $producto->porcentaje_comision_empresa,
+                'monto_seguro' => (float) $producto->monto_seguro,
+                'porcentaje_interes_quincenal' => (float) $producto->porcentaje_interes_quincenal,
+            ]
+        );
+
+        return back()->with('success', 'Producto creado correctamente.');
     }
 
     public function eliminarCategoria(CategoriaDistribuidora $categoria): RedirectResponse
@@ -482,24 +507,60 @@ class ConfiguracionController extends Controller
 
         $data = $request->validated();
 
-        $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
-        $productosConfig = (array) ($configuracion->productos_config_json ?? []);
+        // Verificar que el producto existe y no está eliminado
+        if ($producto->trashed()) {
+            return back()->withErrors([
+                'general' => 'No puedes editar un producto eliminado. Restauralo primero.'
+            ]);
+        }
 
-        $antes = (array) ($productosConfig[(string) $producto->id] ?? []);
+        // Validar editabilidad - si tiene vales activos, los snapshots los protegen
+        $editabilidad = $this->productoService->verificarEditabilidad($producto);
+        if (!$editabilidad['puede_editar'] && $producto->vales()->whereIn('estado', [
+            \App\Models\Vale::ESTADO_ACTIVO,
+            \App\Models\Vale::ESTADO_PAGO_PARCIAL,
+            \App\Models\Vale::ESTADO_MOROSO
+        ])->exists()) {
+            return back()->with('info', 'Este producto tiene vales activos vigentes. Los nuevos vales usarán estos datos, pero los activos conservarán sus snapshots.');
+        }
+
+        $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
+
+        $antes = [
+            'monto_principal' => (float) $producto->monto_principal,
+            'monto_seguro' => (float) $producto->monto_seguro,
+            'porcentaje_comision_empresa' => (float) $producto->porcentaje_comision_empresa,
+            'porcentaje_interes_quincenal' => (float) $producto->porcentaje_interes_quincenal,
+            'numero_quincenas' => (int) $producto->numero_quincenas,
+        ];
+
         $despues = [
+            'monto_principal' => (float) $data['monto_principal'],
+            'monto_seguro' => (float) $data['monto_seguro'],
             'porcentaje_comision_empresa' => (float) $data['porcentaje_comision_empresa'],
             'porcentaje_interes_quincenal' => (float) $data['porcentaje_interes_quincenal'],
             'numero_quincenas' => (int) $data['numero_quincenas'],
         ];
 
-        $productosConfig[(string) $producto->id] = [
+        // Validar que solo cambió lo permitido y que los nuevos datos sean válidos
+        $validacionNuevos = $this->productoService->validarConfiguracionCompleta(
+            $producto->fill($despues)
+        );
+
+        if (!empty($validacionNuevos)) {
+            return back()->withErrors($validacionNuevos);
+        }
+
+        $producto->update([
+            'monto_principal' => $despues['monto_principal'],
+            'monto_seguro' => $despues['monto_seguro'],
             'porcentaje_comision_empresa' => $despues['porcentaje_comision_empresa'],
             'porcentaje_interes_quincenal' => $despues['porcentaje_interes_quincenal'],
             'numero_quincenas' => $despues['numero_quincenas'],
-        ];
+            'actualizado_en' => now(),
+        ]);
 
         $configuracion->update([
-            'productos_config_json' => $productosConfig,
             'actualizado_por_usuario_id' => $gerente->id,
             'actualizado_en' => now(),
         ]);
@@ -514,7 +575,203 @@ class ConfiguracionController extends Controller
             $despues
         );
 
-        return back()->with('success', 'Parámetros del producto actualizados para tu sucursal.');
+        return back()->with('success', 'Parámetros del producto actualizados. Esto afectará a los nuevos vales.');
+    }
+
+    public function activarProducto(ProductoFinanciero $producto): RedirectResponse
+    {
+        /** @var Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursal = $this->obtenerSucursalActivaGerente($gerente);
+
+        if (!$sucursal) {
+            return back()->withErrors([
+                'general' => 'No tienes una sucursal activa asignada.',
+            ]);
+        }
+
+        $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
+
+        $antes = [
+            'activo' => (bool) $producto->activo,
+            'deleted_at' => $producto->deleted_at,
+        ];
+
+        if ($producto->trashed()) {
+            $producto->restore();
+        }
+
+        $producto->update([
+            'activo' => true,
+            'actualizado_en' => now(),
+        ]);
+
+        $despues = [
+            'activo' => true,
+            'deleted_at' => null,
+        ];
+
+        $configuracion->update([
+            'actualizado_por_usuario_id' => $gerente->id,
+            'actualizado_en' => now(),
+        ]);
+
+        $this->registrarCambio(
+            $configuracion,
+            $sucursal,
+            $gerente,
+            'PRODUCTO',
+            $producto->id,
+            $antes,
+            $despues
+        );
+
+        return back()->with('success', 'Producto activado correctamente.');
+    }
+
+    public function inactivarProducto(ProductoFinanciero $producto): RedirectResponse
+    {
+        /** @var Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursal = $this->obtenerSucursalActivaGerente($gerente);
+
+        if (!$sucursal) {
+            return back()->withErrors([
+                'general' => 'No tienes una sucursal activa asignada.',
+            ]);
+        }
+
+        $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
+
+        $antes = [
+            'activo' => (bool) $producto->activo,
+            'deleted_at' => $producto->deleted_at,
+        ];
+
+        $producto->update([
+            'activo' => false,
+            'actualizado_en' => now(),
+        ]);
+
+        $despues = [
+            'activo' => false,
+            'deleted_at' => $producto->deleted_at,
+        ];
+
+        $configuracion->update([
+            'actualizado_por_usuario_id' => $gerente->id,
+            'actualizado_en' => now(),
+        ]);
+
+        $this->registrarCambio(
+            $configuracion,
+            $sucursal,
+            $gerente,
+            'PRODUCTO',
+            $producto->id,
+            $antes,
+            $despues
+        );
+
+        return back()->with('success', 'Producto inactivado correctamente.');
+    }
+
+    public function eliminarProducto(int $productoId): RedirectResponse
+    {
+        /** @var Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursal = $this->obtenerSucursalActivaGerente($gerente);
+
+        if (!$sucursal) {
+            return back()->withErrors([
+                'general' => 'No tienes una sucursal activa asignada.',
+            ]);
+        }
+
+        $producto = ProductoFinanciero::withTrashed()->findOrFail($productoId);
+        $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
+
+        $antes = [
+            'nombre' => $producto->nombre,
+            'activo' => (bool) $producto->activo,
+            'deleted_at' => $producto->deleted_at,
+        ];
+
+        $producto->delete();
+
+        $despues = [
+            'nombre' => $producto->nombre,
+            'activo' => (bool) $producto->activo,
+            'deleted_at' => $producto->fresh()?->deleted_at,
+        ];
+
+        $configuracion->update([
+            'actualizado_por_usuario_id' => $gerente->id,
+            'actualizado_en' => now(),
+        ]);
+
+        $this->registrarCambio(
+            $configuracion,
+            $sucursal,
+            $gerente,
+            'PRODUCTO',
+            $producto->id,
+            $antes,
+            $despues
+        );
+
+        return back()->with('success', 'Producto eliminado lógicamente.');
+    }
+
+    public function restaurarProducto(int $productoId): RedirectResponse
+    {
+        /** @var Usuario $gerente */
+        $gerente = Auth::user();
+        $sucursal = $this->obtenerSucursalActivaGerente($gerente);
+
+        if (!$sucursal) {
+            return back()->withErrors([
+                'general' => 'No tienes una sucursal activa asignada.',
+            ]);
+        }
+
+        $producto = ProductoFinanciero::withTrashed()->findOrFail($productoId);
+        $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
+
+        $antes = [
+            'nombre' => $producto->nombre,
+            'activo' => (bool) $producto->activo,
+            'deleted_at' => $producto->deleted_at,
+        ];
+
+        $producto->restore();
+        $producto->update([
+            'activo' => true,
+            'actualizado_en' => now(),
+        ]);
+
+        $despues = [
+            'nombre' => $producto->nombre,
+            'activo' => true,
+            'deleted_at' => null,
+        ];
+
+        $configuracion->update([
+            'actualizado_por_usuario_id' => $gerente->id,
+            'actualizado_en' => now(),
+        ]);
+
+        $this->registrarCambio(
+            $configuracion,
+            $sucursal,
+            $gerente,
+            'PRODUCTO',
+            $producto->id,
+            $antes,
+            $despues
+        );
+
+        return back()->with('success', 'Producto restaurado correctamente.');
     }
 
     private function registrarCambio(
@@ -541,16 +798,7 @@ class ConfiguracionController extends Controller
         ]);
     }
 
-    private function parseSeguroTabuladores(mixed $input): array
-    {
-        if (is_string($input)) {
-            $decoded = json_decode($input, true);
 
-            return is_array($decoded) ? $this->reglasNegocio->normalizarTabuladoresSeguro($decoded) : [];
-        }
-
-        return is_array($input) ? $this->reglasNegocio->normalizarTabuladoresSeguro($input) : [];
-    }
 
     private function obtenerOCrearConfiguracion(Sucursal $sucursal, Usuario $usuario): SucursalConfiguracion
     {

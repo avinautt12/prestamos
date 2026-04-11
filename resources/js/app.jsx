@@ -5,8 +5,18 @@ import { createRoot } from 'react-dom/client';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { useEffect } from 'react';
+import { registerSW } from 'virtual:pwa-register';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+registerSW({
+    immediate: true,
+    onOfflineReady() {
+        console.info('La aplicacion esta lista para uso offline basico.');
+    },
+    onNeedRefresh() {
+        console.info('Hay una nueva version disponible. Recarga para actualizar.');
+    },
+});
 
 function RealtimeNotificationsBridge({ auth }) {
 

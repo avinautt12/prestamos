@@ -25,9 +25,9 @@ class CategoriaDistribuidora extends Model
     ];
 
     protected $casts = [
-        'porcentaje_comision' => 'decimal:4',
+        'porcentaje_comision' => 'float',
         'valor_punto' => 'decimal:2',
-        'castigo_pct_atraso' => 'decimal:4',
+        'castigo_pct_atraso' => 'float',
         'activo' => 'boolean',
         'creado_en' => 'datetime',
         'actualizado_en' => 'datetime'

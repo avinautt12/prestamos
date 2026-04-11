@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark } from '@fortawesome/free-solid-svg-icons';
@@ -44,9 +44,9 @@ function ValeDetailModal({ vale, open, onClose }) {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 bg-black/40 sm:items-center sm:p-4" onClick={onClose}>
-            <div className="w-full max-w-3xl bg-white shadow-2xl rounded-t-3xl sm:rounded-3xl" onClick={(event) => event.stopPropagation()}>
-                <div className="flex items-start justify-between gap-4 p-5 border-b border-gray-200">
+        <div className="fin-modal-backdrop" onClick={onClose}>
+            <div className="fin-modal-sheet max-w-3xl" onClick={(event) => event.stopPropagation()}>
+                <div className="fin-modal-head">
                     <div>
                         <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Detalle del vale</p>
                         <h2 className="mt-1 text-xl font-semibold text-gray-900">{vale.numero_vale}</h2>
@@ -64,7 +64,7 @@ function ValeDetailModal({ vale, open, onClose }) {
                     </div>
                 </div>
 
-                <div className="p-5 space-y-5 overflow-y-auto max-h-[80vh]">
+                <div className="fin-modal-body space-y-5">
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                         <div className="p-3 border rounded-xl border-gray-200">
                             <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto principal</p>
@@ -143,7 +143,7 @@ function ValeDetailModal({ vale, open, onClose }) {
                     )}
 
                     {vale.estado === 'BORRADOR' && (
-                        <div className="flex justify-end pt-3 border-t border-gray-200">
+                        <div className="fin-modal-foot flex justify-end">
                             <button
                                 type="button"
                                 onClick={cancelarVale}
@@ -169,6 +169,7 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
         seleccionado: filtros.seleccionado || '',
     });
     const [modalOpen, setModalOpen] = useState(Boolean(valeSeleccionado));
+    const [filterOpen, setFilterOpen] = useState(false);
 
     useEffect(() => {
         setModalOpen(Boolean(valeSeleccionado));
@@ -191,7 +192,16 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
             preserveScroll: true,
             replace: true,
         });
+        setFilterOpen(false);
     };
+
+    const filtrosActivos = useMemo(() => {
+        let total = 0;
+        if ((form.q || '').trim().length > 0) total += 1;
+        if (form.estado !== 'TODOS') total += 1;
+        if (form.cliente_id) total += 1;
+        return total;
+    }, [form]);
 
     const selectVale = (valeId) => {
         if (Number(valeSeleccionado?.id) === Number(valeId)) {
@@ -220,36 +230,36 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
             <Head title="Vales" />
 
             {sinConfig ? (
-                <div className="fin-card">
+                <div className="fin-card bg-white/95 backdrop-blur">
                     <p className="fin-title">No se encontró una distribuidora ligada a tu acceso</p>
                     <p className="mt-2 fin-subtitle">Cuando exista el registro operativo, aquí verás los vales emitidos para tus clientes.</p>
                 </div>
             ) : (
                 <>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-                        <div className="fin-card">
+                        <div className="fin-card border-green-100 bg-green-50/50">
                             <p className="text-sm font-medium text-gray-600">Total visibles</p>
                             <p className="fin-stat-value">{formatNumber(resumen.total)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-green-100 bg-green-50/60">
                             <p className="text-sm font-medium text-gray-600">Activos</p>
                             <p className="fin-stat-value">{formatNumber(resumen.activos)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-indigo-100 bg-indigo-50/60">
                             <p className="text-sm font-medium text-gray-600">Pago parcial</p>
                             <p className="fin-stat-value">{formatNumber(resumen.parciales)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-amber-100 bg-amber-50/60">
                             <p className="text-sm font-medium text-gray-600">Morosos</p>
                             <p className="fin-stat-value">{formatNumber(resumen.morosos)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-rose-100 bg-rose-50/60">
                             <p className="text-sm font-medium text-gray-600">Cancelados</p>
                             <p className="fin-stat-value">{formatNumber(resumen.cancelados)}</p>
                         </div>
                     </div>
 
-                    <div className="mt-6 fin-card">
+                    <div className="mt-6 fin-card bg-white/95 backdrop-blur">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div className="max-w-2xl">
                                 <h2 className="fin-title">Listado de vales</h2>
@@ -262,61 +272,117 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
                             </Link>
                         </div>
 
-                        <form onSubmit={applyFilters} className="grid grid-cols-1 gap-3 mt-5 md:grid-cols-2 xl:grid-cols-12">
-                            <div className="xl:col-span-5">
-                                <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Buscar</label>
-                                <input
-                                    type="text"
-                                    value={form.q}
-                                    onChange={(event) => setForm((prev) => ({ ...prev, q: event.target.value }))}
-                                    className="fin-input"
-                                    placeholder="Número, cliente o producto"
-                                />
-                            </div>
-                            <div className="xl:col-span-3">
-                                <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Estado</label>
-                                <select
-                                    value={form.estado}
-                                    onChange={(event) => setForm((prev) => ({ ...prev, estado: event.target.value }))}
-                                    className="fin-input"
+                        <form onSubmit={applyFilters} className="mt-5 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1">
+                                    <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Buscar</label>
+                                    <input
+                                        type="text"
+                                        value={form.q}
+                                        onChange={(event) => setForm((prev) => ({ ...prev, q: event.target.value }))}
+                                        className="fin-input"
+                                        placeholder="Número, cliente o producto"
+                                    />
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setFilterOpen(true)}
+                                    className="inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl"
                                 >
-                                    {(opciones.estados || []).map((estado) => (
-                                        <option key={estado} value={estado}>{estado}</option>
-                                    ))}
-                                </select>
+                                    Filtros
+                                    {filtrosActivos > 0 && (
+                                        <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-green-700 rounded-full">
+                                            {filtrosActivos}
+                                        </span>
+                                    )}
+                                </button>
                             </div>
-                            <div className="xl:col-span-2">
-                                <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Cliente</label>
-                                <select
-                                    value={form.cliente_id}
-                                    onChange={(event) => setForm((prev) => ({ ...prev, cliente_id: event.target.value }))}
-                                    className="fin-input"
-                                >
-                                    <option value="">Todos</option>
-                                    {(opciones.clientes || []).map((cliente) => (
-                                        <option key={cliente.id} value={cliente.id}>{cliente.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 md:col-span-2 xl:col-span-2 xl:self-end">
+
+                            <div className="grid grid-cols-2 gap-2">
                                 <button type="submit" className="w-full fin-btn-primary">Aplicar</button>
                                 <button type="button" onClick={clearFilters} className="w-full fin-btn-secondary">Limpiar</button>
                             </div>
                         </form>
+
+                        {filterOpen && (
+                            <div className="fin-modal-backdrop" onClick={() => setFilterOpen(false)}>
+                                <div className="fin-modal-sheet max-w-md" onClick={(e) => e.stopPropagation()}>
+                                    <div className="fin-modal-head">
+                                        <div>
+                                            <h2 className="text-lg font-bold text-gray-900">Filtros de vales</h2>
+                                            <p className="mt-1 text-sm text-gray-500">Filtra por estado y cliente.</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFilterOpen(false)}
+                                            className="inline-flex items-center justify-center w-10 h-10 text-gray-600 border border-gray-200 rounded-xl"
+                                            aria-label="Cerrar filtros"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+
+                                    <div className="fin-modal-body space-y-4">
+                                        <div>
+                                            <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Estado</label>
+                                            <select
+                                                value={form.estado}
+                                                onChange={(event) => setForm((prev) => ({ ...prev, estado: event.target.value }))}
+                                                className="fin-input"
+                                            >
+                                                {(opciones.estados || []).map((estado) => (
+                                                    <option key={estado} value={estado}>{estado}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Cliente</label>
+                                            <select
+                                                value={form.cliente_id}
+                                                onChange={(event) => setForm((prev) => ({ ...prev, cliente_id: event.target.value }))}
+                                                className="fin-input"
+                                            >
+                                                <option value="">Todos</option>
+                                                {(opciones.clientes || []).map((cliente) => (
+                                                    <option key={cliente.id} value={cliente.id}>{cliente.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="fin-modal-foot flex gap-2">
+                                        <button type="button" onClick={clearFilters} className="flex-1 fin-btn-secondary">Limpiar</button>
+                                        <button
+                                            type="button"
+                                            onClick={(event) => {
+                                                applyFilters(event);
+                                                setFilterOpen(false);
+                                            }}
+                                            className="flex-1 fin-btn-primary"
+                                        >
+                                            Aplicar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="mt-6 space-y-3">
+                    <div className="mt-6 space-y-3 fin-enter">
                         {!vales.length ? (
                             <div className="fin-card">
                                 <p className="text-sm text-gray-500">No hay vales que cumplan con el filtro actual.</p>
                             </div>
                         ) : (
-                            vales.map((vale) => (
+                            vales.map((vale, index) => (
                                 <button
                                     key={vale.id}
                                     type="button"
                                     onClick={() => selectVale(vale.id)}
-                                    className={`w-full p-4 text-left border rounded-xl transition ${valeSeleccionado?.id === vale.id && modalOpen ? 'border-green-300 bg-green-50/40' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                                    className={`w-full p-4 text-left border rounded-xl fin-interactive fin-stagger-item ${valeSeleccionado?.id === vale.id && modalOpen ? 'border-green-300 bg-green-50/50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                                    style={{ animationDelay: `${Math.min(index * 35, 210)}ms` }}
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div>
@@ -325,22 +391,22 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
                                         </div>
                                         <span className={statusBadgeClass(vale.estado)}>{vale.estado}</span>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3 mt-4 md:grid-cols-4">
+                                    <div className="grid grid-cols-1 gap-2 mt-4 sm:grid-cols-2 md:grid-cols-4">
                                         <div>
                                             <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto principal</p>
-                                            <p className="mt-1 font-semibold text-gray-900">{formatCurrency(vale.monto_principal)}</p>
+                                            <p className="mt-1 text-sm font-semibold text-gray-900">{formatCurrency(vale.monto_principal)}</p>
                                         </div>
                                         <div>
                                             <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Saldo actual</p>
-                                            <p className="mt-1 font-semibold text-gray-900">{formatCurrency(vale.saldo_actual)}</p>
+                                            <p className="mt-1 text-sm font-semibold text-gray-900">{formatCurrency(vale.saldo_actual)}</p>
                                         </div>
                                         <div>
                                             <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Avance</p>
-                                            <p className="mt-1 font-semibold text-gray-900">{formatNumber(vale.pagos_realizados)} / {formatNumber(vale.quincenas_totales)}</p>
+                                            <p className="mt-1 text-sm font-semibold text-gray-900">{formatNumber(vale.pagos_realizados)} / {formatNumber(vale.quincenas_totales)}</p>
                                         </div>
                                         <div>
                                             <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Fecha límite</p>
-                                            <p className="mt-1 font-semibold text-gray-900">{formatDate(vale.fecha_limite_pago)}</p>
+                                            <p className="mt-1 text-sm font-semibold text-gray-900">{formatDate(vale.fecha_limite_pago)}</p>
                                         </div>
                                     </div>
                                 </button>
@@ -354,3 +420,5 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
         </DistribuidoraLayout>
     );
 }
+
+

@@ -22,6 +22,7 @@ class Vale extends Model
         'creado_por_usuario_id',
         'aprobado_por_usuario_id',
         'estado',
+        'monto',
         'porcentaje_comision_empresa_snap',
         'monto_comision_empresa',
         'monto_seguro_snap',
