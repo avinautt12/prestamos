@@ -125,7 +125,6 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                         <div className="flex-1 min-w-0">
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <p className="font-semibold text-gray-900 truncate">{cliente.nombre}</p>
-                                                <span className={statusBadgeClass(cliente.estado_relacion)}>Relación: {cliente.estado_relacion}</span>
                                                 <span className={statusBadgeClass(cliente.estado_cliente)}>Cliente: {cliente.estado_cliente}</span>
                                             </div>
                                             <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1 text-sm text-gray-500">
