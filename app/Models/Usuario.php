@@ -149,9 +149,17 @@ class Usuario extends Authenticatable
      */
     public function obtenerRolPrincipal(): ?Rol
     {
-        return $this->roles()
+        $rolPrincipal = $this->roles()
             ->wherePivot('revocado_en', null)
             ->wherePivot('es_principal', true)
+            ->first();
+
+        if ($rolPrincipal) {
+            return $rolPrincipal;
+        }
+
+        return $this->roles()
+            ->wherePivot('revocado_en', null)
             ->first();
     }
 

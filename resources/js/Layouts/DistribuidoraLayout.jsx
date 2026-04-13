@@ -163,29 +163,6 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                 </main>
 
                 <nav className="fin-mobile-nav bg-white border-t" style={{ borderColor: '#E5E7EB' }}>
-                    <div className="px-3 py-2 border-b border-gray-100">
-                        <button
-                            type="button"
-                            onClick={abrirNotificaciones}
-                            className="flex items-center justify-between w-full px-4 py-3 text-left rounded-2xl bg-slate-50"
-                        >
-                            <span className="flex items-center gap-3">
-                                <span className="inline-flex items-center justify-center w-10 h-10 text-green-700 bg-white rounded-2xl border border-green-100 shadow-sm">
-                                    <FontAwesomeIcon icon={faBell} className="w-4 h-4" />
-                                </span>
-                                <span>
-                                    <span className="block text-sm font-semibold text-gray-900">Notificaciones</span>
-                                    <span className="block text-xs text-gray-500">Abre alertas y mensajes recientes</span>
-                                </span>
-                            </span>
-                            {unreadNotifications > 0 && (
-                                <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-semibold text-white bg-red-600 rounded-full">
-                                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
-                                </span>
-                            )}
-                        </button>
-                    </div>
-
                     <div className="grid grid-cols-5 gap-1 px-2 py-2">
                         {navigation.slice(0, 5).map((item) => {
                             const isActive = route().current(item.current);
@@ -200,6 +177,29 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                                 </Link>
                             );
                         })}
+                    </div>
+
+                    <div className="px-3 pb-3">
+                        <button
+                            type="button"
+                            onClick={abrirNotificaciones}
+                            className="flex items-center justify-between w-full px-3 py-2 text-left border border-gray-200 rounded-2xl bg-white/95 shadow-sm"
+                        >
+                            <span className="flex items-center gap-2 min-w-0">
+                                <span className="inline-flex items-center justify-center w-8 h-8 text-green-700 bg-green-50 rounded-xl">
+                                    <FontAwesomeIcon icon={faBell} className="w-4 h-4" />
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-sm font-semibold text-gray-900 truncate">Notificaciones</span>
+                                    <span className="block text-[11px] text-gray-500 truncate">Toca para ver alertas</span>
+                                </span>
+                            </span>
+                            {unreadNotifications > 0 && (
+                                <span className="inline-flex items-center justify-center min-w-[26px] h-6 px-2 text-[11px] font-semibold text-white bg-red-600 rounded-full">
+                                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                                </span>
+                            )}
+                        </button>
                     </div>
                 </nav>
             </div>

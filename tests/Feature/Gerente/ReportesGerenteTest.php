@@ -80,6 +80,7 @@ class ReportesGerenteTest extends TestCase
                 ->where('filtro.periodo', 'mes')
                 ->where('resumen.presolicitudes_pendientes', 1)
                 ->where('resumen.presolicitudes_validadas', 1)
+                ->where('resumen.capital_colocado', 0)
                 ->where('resumen.saldo_cortes', 800)
                 ->where('saldoCortes.monto_vencido', 800)
                 ->has('puntosPorDistribuidora', 1)

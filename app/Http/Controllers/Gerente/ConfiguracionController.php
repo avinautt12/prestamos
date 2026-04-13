@@ -21,6 +21,7 @@ use App\Services\ProductoFinancieroService;
 use App\Services\ServicioReglasNegocio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -41,6 +42,8 @@ class ConfiguracionController extends Controller
         $sucursal = $this->obtenerSucursalActivaGerente($gerente);
 
         $configuracion = $sucursal ? $this->obtenerOCrearConfiguracion($sucursal, $gerente) : null;
+        $categoriasOverrides = (array) ($configuracion?->categorias_config_json ?? []);
+        $productosOverrides = (array) ($configuracion?->productos_config_json ?? []);
 
         $categorias = CategoriaDistribuidora::query()
             ->orderByDesc('activo')
@@ -51,7 +54,27 @@ class ConfiguracionController extends Controller
                 'nombre',
                 'porcentaje_comision',
                 'activo',
-            ]);
+            ])
+            ->map(function (CategoriaDistribuidora $categoria) use ($categoriasOverrides) {
+                $override = $categoriasOverrides[(string) $categoria->id] ?? null;
+
+                if (is_array($override)) {
+                    if (array_key_exists('nombre', $override)) {
+                        $categoria->nombre = (string) $override['nombre'];
+                    }
+
+                    if (array_key_exists('porcentaje_comision', $override)) {
+                        $categoria->porcentaje_comision = (float) $override['porcentaje_comision'];
+                    }
+
+                    if (array_key_exists('activo', $override)) {
+                        $categoria->activo = (bool) $override['activo'];
+                    }
+                }
+
+                return $categoria;
+            })
+            ->values();
 
         $productos = ProductoFinanciero::query()
             ->withTrashed()
@@ -67,7 +90,39 @@ class ConfiguracionController extends Controller
                 'porcentaje_interes_quincenal',
                 'activo',
                 'deleted_at',
-            ]);
+            ])
+            ->map(function (ProductoFinanciero $producto) use ($productosOverrides) {
+                $override = $productosOverrides[(string) $producto->id] ?? null;
+
+                if (is_array($override)) {
+                    if (array_key_exists('monto_principal', $override)) {
+                        $producto->setAttribute('monto_principal', $override['monto_principal']);
+                    }
+
+                    if (array_key_exists('monto_seguro', $override)) {
+                        $producto->setAttribute('monto_seguro', $override['monto_seguro']);
+                    }
+
+                    if (array_key_exists('porcentaje_comision_empresa', $override)) {
+                        $producto->porcentaje_comision_empresa = (float) $override['porcentaje_comision_empresa'];
+                    }
+
+                    if (array_key_exists('porcentaje_interes_quincenal', $override)) {
+                        $producto->porcentaje_interes_quincenal = (float) $override['porcentaje_interes_quincenal'];
+                    }
+
+                    if (array_key_exists('numero_quincenas', $override)) {
+                        $producto->numero_quincenas = (int) $override['numero_quincenas'];
+                    }
+
+                    if (array_key_exists('activo', $override)) {
+                        $producto->activo = (bool) $override['activo'];
+                    }
+                }
+
+                return $producto;
+            })
+            ->values();
 
         $historialCambios = collect();
 
@@ -138,33 +193,35 @@ class ConfiguracionController extends Controller
 
         $despues = [
             'dia_corte' => $data['dia_corte'] ?? null,
-            'hora_corte' => $data['hora_corte'] ?? null,
+            'hora_corte' => CorteService::HORA_CORTE_FIJA,
             'factor_divisor_puntos' => (int) $data['factor_divisor_puntos'],
             'multiplicador_puntos' => (int) $data['multiplicador_puntos'],
             'valor_punto_mxn' => (float) $data['valor_punto_mxn'],
         ];
 
-        $configuracion->update([
-            'dia_corte' => $despues['dia_corte'],
-            'hora_corte' => $despues['hora_corte'],
-            'factor_divisor_puntos' => $despues['factor_divisor_puntos'],
-            'multiplicador_puntos' => $despues['multiplicador_puntos'],
-            'valor_punto_mxn' => $despues['valor_punto_mxn'],
-            'actualizado_por_usuario_id' => $gerente->id,
-            'actualizado_en' => now(),
-        ]);
+        DB::transaction(function () use ($configuracion, $despues, $gerente, $sucursal, $antes) {
+            $configuracion->update([
+                'dia_corte' => $despues['dia_corte'],
+                'hora_corte' => $despues['hora_corte'],
+                'factor_divisor_puntos' => $despues['factor_divisor_puntos'],
+                'multiplicador_puntos' => $despues['multiplicador_puntos'],
+                'valor_punto_mxn' => $despues['valor_punto_mxn'],
+                'actualizado_por_usuario_id' => $gerente->id,
+                'actualizado_en' => now(),
+            ]);
 
-        $this->corteService->sincronizarProximoCorteProgramado($sucursal, $configuracion->refresh());
+            $this->corteService->sincronizarProximoCorteProgramado($sucursal, $configuracion->refresh());
 
-        $this->registrarCambio(
-            $configuracion,
-            $sucursal,
-            $gerente,
-            'SUCURSAL',
-            null,
-            $antes,
-            $despues
-        );
+            $this->registrarCambio(
+                $configuracion,
+                $sucursal,
+                $gerente,
+                'SUCURSAL',
+                null,
+                $antes,
+                $despues
+            );
+        });
 
         return back()->with('success', 'Configuración de sucursal actualizada.');
     }
@@ -185,22 +242,23 @@ class ConfiguracionController extends Controller
 
         $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
 
-        $antes = [
-            'nombre' => $categoria->nombre,
-            'porcentaje_comision' => (float) $categoria->porcentaje_comision,
-        ];
         $despues = [
             'nombre' => trim((string) $data['nombre']),
             'porcentaje_comision' => (float) $data['porcentaje_comision'],
         ];
 
-        $categoria->update([
-            'nombre' => $despues['nombre'],
-            'porcentaje_comision' => $despues['porcentaje_comision'],
-            'actualizado_en' => now(),
-        ]);
+        $categoriasConfig = (array) ($configuracion->categorias_config_json ?? []);
+        $overrideActual = (array) ($categoriasConfig[(string) $categoria->id] ?? []);
+
+        $antes = [
+            'nombre' => (string) ($overrideActual['nombre'] ?? $categoria->nombre),
+            'porcentaje_comision' => (float) ($overrideActual['porcentaje_comision'] ?? $categoria->porcentaje_comision),
+        ];
+
+        $categoriasConfig[(string) $categoria->id] = array_merge($overrideActual, $despues);
 
         $configuracion->update([
+            'categorias_config_json' => $categoriasConfig,
             'actualizado_por_usuario_id' => $gerente->id,
             'actualizado_en' => now(),
         ]);
@@ -514,24 +572,17 @@ class ConfiguracionController extends Controller
             ]);
         }
 
-        // Validar editabilidad - si tiene vales activos, los snapshots los protegen
-        $editabilidad = $this->productoService->verificarEditabilidad($producto);
-        if (!$editabilidad['puede_editar'] && $producto->vales()->whereIn('estado', [
-            \App\Models\Vale::ESTADO_ACTIVO,
-            \App\Models\Vale::ESTADO_PAGO_PARCIAL,
-            \App\Models\Vale::ESTADO_MOROSO
-        ])->exists()) {
-            return back()->with('info', 'Este producto tiene vales activos vigentes. Los nuevos vales usarán estos datos, pero los activos conservarán sus snapshots.');
-        }
-
         $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $gerente);
 
+        $productosConfig = (array) ($configuracion->productos_config_json ?? []);
+        $overrideActual = (array) ($productosConfig[(string) $producto->id] ?? []);
+
         $antes = [
-            'monto_principal' => (float) $producto->monto_principal,
-            'monto_seguro' => (float) $producto->monto_seguro,
-            'porcentaje_comision_empresa' => (float) $producto->porcentaje_comision_empresa,
-            'porcentaje_interes_quincenal' => (float) $producto->porcentaje_interes_quincenal,
-            'numero_quincenas' => (int) $producto->numero_quincenas,
+            'monto_principal' => (float) ($overrideActual['monto_principal'] ?? $producto->monto_principal),
+            'monto_seguro' => (float) ($overrideActual['monto_seguro'] ?? $producto->monto_seguro),
+            'porcentaje_comision_empresa' => (float) ($overrideActual['porcentaje_comision_empresa'] ?? $producto->porcentaje_comision_empresa),
+            'porcentaje_interes_quincenal' => (float) ($overrideActual['porcentaje_interes_quincenal'] ?? $producto->porcentaje_interes_quincenal),
+            'numero_quincenas' => (int) ($overrideActual['numero_quincenas'] ?? $producto->numero_quincenas),
         ];
 
         $despues = [
@@ -542,25 +593,19 @@ class ConfiguracionController extends Controller
             'numero_quincenas' => (int) $data['numero_quincenas'],
         ];
 
-        // Validar que solo cambió lo permitido y que los nuevos datos sean válidos
+        $productoValidacion = clone $producto;
         $validacionNuevos = $this->productoService->validarConfiguracionCompleta(
-            $producto->fill($despues)
+            $productoValidacion->fill($despues)
         );
 
         if (!empty($validacionNuevos)) {
             return back()->withErrors($validacionNuevos);
         }
 
-        $producto->update([
-            'monto_principal' => $despues['monto_principal'],
-            'monto_seguro' => $despues['monto_seguro'],
-            'porcentaje_comision_empresa' => $despues['porcentaje_comision_empresa'],
-            'porcentaje_interes_quincenal' => $despues['porcentaje_interes_quincenal'],
-            'numero_quincenas' => $despues['numero_quincenas'],
-            'actualizado_en' => now(),
-        ]);
+        $productosConfig[(string) $producto->id] = array_merge($overrideActual, $despues);
 
         $configuracion->update([
+            'productos_config_json' => $productosConfig,
             'actualizado_por_usuario_id' => $gerente->id,
             'actualizado_en' => now(),
         ]);
@@ -575,7 +620,7 @@ class ConfiguracionController extends Controller
             $despues
         );
 
-        return back()->with('success', 'Parámetros del producto actualizados. Esto afectará a los nuevos vales.');
+        return back()->with('success', 'Parámetros del producto actualizados para esta sucursal.');
     }
 
     public function activarProducto(ProductoFinanciero $producto): RedirectResponse
@@ -812,7 +857,7 @@ class ConfiguracionController extends Controller
             ['sucursal_id' => $sucursal->id],
             [
                 'dia_corte' => $corteBase?->dia_base_mes,
-                'hora_corte' => $corteBase?->hora_base,
+                'hora_corte' => CorteService::HORA_CORTE_FIJA,
                 'frecuencia_pago_dias' => 14,
                 'plazo_pago_dias' => 15,
                 'linea_credito_default' => 0,

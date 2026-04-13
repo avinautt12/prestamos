@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import TabConfiguracion from './ConfiguracionesTabs/TabConfiguracion';
 import TabCategorias from './ConfiguracionesTabs/TabCategorias';
@@ -72,12 +72,12 @@ const obtenerPagina = (items, pagina, porPagina) => {
 };
 
 export default function Configuraciones({ sucursal, configuracionSucursal, categorias, productos = [], historialCambios = [] }) {
+    const { errors } = usePage().props;
     const CATEGORIAS_POR_PAGINA = 6;
     const HISTORIAL_POR_PAGINA = 8;
 
     const formSucursal = useForm({
         dia_corte: configuracionSucursal?.dia_corte ?? '',
-        hora_corte: configuracionSucursal?.hora_corte ?? '',
         factor_divisor_puntos: configuracionSucursal?.factor_divisor_puntos ?? 1200,
         multiplicador_puntos: configuracionSucursal?.multiplicador_puntos ?? 3,
         valor_punto_mxn: configuracionSucursal?.valor_punto_mxn ?? 2,
@@ -409,7 +409,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     const guardarConfiguracionSucursal = (event) => {
         event.preventDefault();
 
-        router.put(route('gerente.configuraciones.sucursal.update'), formSucursal.data, {
+        formSucursal.put(route('gerente.configuraciones.sucursal.update'), {
             preserveScroll: true,
             onStart: () => setGuardandoSucursal(true),
             onFinish: () => setGuardandoSucursal(false),
@@ -626,6 +626,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                     formSucursal={formSucursal}
                     guardarConfiguracionSucursal={guardarConfiguracionSucursal}
                     guardandoSucursal={guardandoSucursal}
+                    generalError={errors?.general}
                 />
             )}
 

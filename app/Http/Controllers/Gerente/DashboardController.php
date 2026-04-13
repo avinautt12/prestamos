@@ -20,9 +20,7 @@ class DashboardController extends Controller
 {
     use ResuelveSucursalActivaGerente;
 
-    public function __construct(private readonly CorteService $corteService)
-    {
-    }
+    public function __construct(private readonly CorteService $corteService) {}
 
     public function index()
     {
@@ -172,6 +170,7 @@ class DashboardController extends Controller
                 'resumen' => [
                     'vales_morosos' => 0,
                     'capital_en_riesgo' => 0,
+                    'capital_colocado' => 0,
                     'distribuidoras_morosas' => 0,
                     'proximo_corte' => null,
                     'saldo_cortes' => 0,
@@ -203,6 +202,17 @@ class DashboardController extends Controller
             ->where('estado', Vale::ESTADO_MOROSO);
 
         $capitalEnRiesgo = (float) ((clone $valesMorosos)->sum('saldo_actual') ?? 0);
+
+        $capitalColocado = (float) (Vale::query()
+            ->where('vales.sucursal_id', $sucursalId)
+            ->whereIn('vales.estado', [
+                Vale::ESTADO_ACTIVO,
+                Vale::ESTADO_PAGO_PARCIAL,
+                Vale::ESTADO_MOROSO,
+                Vale::ESTADO_PAGADO,
+            ])
+            ->join('productos_financieros', 'vales.producto_financiero_id', '=', 'productos_financieros.id')
+            ->sum('productos_financieros.monto_principal') ?? 0);
 
         $distribuidorasMorosas = Distribuidora::query()
             ->with(['persona'])
@@ -315,6 +325,7 @@ class DashboardController extends Controller
             'resumen' => [
                 'vales_morosos' => (clone $valesMorosos)->count(),
                 'capital_en_riesgo' => $capitalEnRiesgo,
+                'capital_colocado' => $capitalColocado,
                 'distribuidoras_morosas' => $distribuidorasMorosas->count(),
                 'proximo_corte' => $proximoCorte,
                 'saldo_cortes' => $saldoCortes,
