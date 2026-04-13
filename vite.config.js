@@ -3,7 +3,7 @@ import laravel from 'laravel-vite-plugin';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const devHost = process.env.VITE_DEV_HOST || '192.168.1.7';
+const devHost = process.env.VITE_DEV_HOST || '192.168.1.11';
 const devPort = Number(process.env.VITE_DEV_PORT || 5177);
 
 export default defineConfig({
