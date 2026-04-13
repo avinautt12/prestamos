@@ -68,6 +68,13 @@ export default function Reportes({
             bg: 'bg-amber-50',
         },
         {
+            title: 'Capital colocado',
+            value: formatMoney(resumen?.capital_colocado ?? 0),
+            icon: faMoneyBillWave,
+            tone: 'text-emerald-700',
+            bg: 'bg-emerald-50',
+        },
+        {
             title: 'Distribuidoras morosas',
             value: resumen?.distribuidoras_morosas ?? 0,
             icon: faUsers,

@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\CategoriaDistribuidora;
 use App\Models\Distribuidora;
-use App\Models\Persona;
+use App\Models\Solicitud;
 use App\Models\Sucursal;
 use Illuminate\Database\Seeder;
 
@@ -12,40 +12,42 @@ class DistribuidoraPruebaSeeder extends Seeder
 {
     public function run(): void
     {
-        $persona = Persona::where('curp', 'DISTRI123456789ABC')->first();
+        $categorias = CategoriaDistribuidora::query()->pluck('id', 'codigo');
+        $sucursales = Sucursal::query()->orderBy('codigo')->get();
 
-        if (!$persona) {
-            $this->command?->warn('No se encontró la persona de prueba. Ejecuta UsuarioTestSeeder primero.');
-            return;
+        foreach ($sucursales as $index => $sucursal) {
+            $solicitud = Solicitud::query()
+                ->where('sucursal_id', $sucursal->id)
+                ->where('estado', Solicitud::ESTADO_APROBADA)
+                ->first();
+
+            if (!$solicitud) {
+                continue;
+            }
+
+            $categoriaCodigo = ['COBRE', 'PLATA', 'ORO', 'DIAMANTE', 'PLATA'][$index] ?? 'PLATA';
+
+            Distribuidora::updateOrCreate(
+                ['persona_id' => $solicitud->persona_solicitante_id],
+                [
+                    'persona_id' => $solicitud->persona_solicitante_id,
+                    'solicitud_id' => $solicitud->id,
+                    'sucursal_id' => $sucursal->id,
+                    'coordinador_usuario_id' => $solicitud->coordinador_usuario_id,
+                    'categoria_id' => $categorias[$categoriaCodigo] ?? null,
+                    'numero_distribuidora' => 'DIST-PRI-' . strtoupper(substr($sucursal->codigo, 4, 3)) . '-' . ($index + 1),
+                    'estado' => Distribuidora::ESTADO_ACTIVA,
+                    'limite_credito' => 120000 + ($index * 15000),
+                    'credito_disponible' => 70000 + ($index * 8000),
+                    'sin_limite' => false,
+                    'puntos_actuales' => 80 + ($index * 25),
+                    'puede_emitir_vales' => true,
+                    'es_externa' => false,
+                    'activada_en' => now()->subDays(40 + ($index * 3)),
+                ]
+            );
         }
 
-        $sucursal = Sucursal::where('codigo', 'SUC-MATRIZ')->first() ?? Sucursal::first();
-        
-        $categoria = CategoriaDistribuidora::where('codigo', 'PLATA')->first() ?? CategoriaDistribuidora::first();
-
-        if (!$sucursal || !$categoria) {
-            $this->command?->error('Error: No hay sucursales o categorías cargadas. Revisa SucursalesSeeder.');
-            return;
-        }
-
-        Distribuidora::updateOrCreate(
-            ['persona_id' => $persona->id],
-            [
-                'sucursal_id'            => $sucursal->id,
-                'coordinador_usuario_id' => 2,
-                'categoria_id'           => $categoria->id,
-                'numero_distribuidora'   => 'DIST-PRUEBA-001',
-                'estado'                 => 'ACTIVA',
-                'limite_credito'         => 100000.00,
-                'credito_disponible'     => 100000.00,
-                'sin_limite'             => false,
-                'puntos_actuales'        => 0,
-                'puede_emitir_vales'     => true,
-                'es_externa'             => false,
-                'activada_en'            => now(),
-            ]
-        );
-
-        $this->command?->info("Distribuidora creada en sucursal: {$sucursal->nombre} con categoría: {$categoria->nombre}");
+        $this->command?->info('Distribuidoras primarias creadas o actualizadas por sucursal.');
     }
 }

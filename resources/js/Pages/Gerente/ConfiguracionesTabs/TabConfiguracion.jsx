@@ -4,6 +4,7 @@ export default function TabConfiguracion({
     formSucursal,
     guardarConfiguracionSucursal,
     guardandoSucursal,
+    generalError,
 }) {
     return (
         <form className="space-y-4 fin-card" onSubmit={guardarConfiguracionSucursal}>
@@ -23,15 +24,15 @@ export default function TabConfiguracion({
                         value={formSucursal.data.dia_corte}
                         onChange={(e) => formSucursal.setData('dia_corte', e.target.value)}
                     />
+                    {formSucursal.errors?.dia_corte && (
+                        <p className="mt-1 text-xs text-red-600">{formSucursal.errors.dia_corte}</p>
+                    )}
                 </div>
                 <div>
                     <label className="text-sm text-gray-700">Hora de corte</label>
-                    <input
-                        type="time"
-                        className="mt-1 fin-input"
-                        value={formSucursal.data.hora_corte}
-                        onChange={(e) => formSucursal.setData('hora_corte', e.target.value)}
-                    />
+                    <div className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                        Fija para todas las sucursales: <span className="font-semibold">18:00</span>
+                    </div>
                 </div>
 
 
@@ -45,6 +46,9 @@ export default function TabConfiguracion({
                         value={formSucursal.data.factor_divisor_puntos}
                         onChange={(e) => formSucursal.setData('factor_divisor_puntos', e.target.value)}
                     />
+                    {formSucursal.errors?.factor_divisor_puntos && (
+                        <p className="mt-1 text-xs text-red-600">{formSucursal.errors.factor_divisor_puntos}</p>
+                    )}
                 </div>
 
                 <div>
@@ -57,6 +61,9 @@ export default function TabConfiguracion({
                         value={formSucursal.data.multiplicador_puntos}
                         onChange={(e) => formSucursal.setData('multiplicador_puntos', e.target.value)}
                     />
+                    {formSucursal.errors?.multiplicador_puntos && (
+                        <p className="mt-1 text-xs text-red-600">{formSucursal.errors.multiplicador_puntos}</p>
+                    )}
                 </div>
 
                 <div>
@@ -69,8 +76,16 @@ export default function TabConfiguracion({
                         value={formSucursal.data.valor_punto_mxn}
                         onChange={(e) => formSucursal.setData('valor_punto_mxn', e.target.value)}
                     />
+                    {formSucursal.errors?.valor_punto_mxn && (
+                        <p className="mt-1 text-xs text-red-600">{formSucursal.errors.valor_punto_mxn}</p>
+                    )}
                 </div>
             </div>
+            {generalError && (
+                <div className="px-3 py-2 text-sm text-red-700 border border-red-200 rounded-lg bg-red-50">
+                    {generalError}
+                </div>
+            )}
             <button type="submit" className="mt-4 fin-btn-primary" disabled={guardandoSucursal}>
                 {guardandoSucursal ? 'Guardando configuración...' : 'Guardar configuración de sucursal'}
             </button>
