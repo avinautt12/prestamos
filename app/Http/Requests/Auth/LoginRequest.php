@@ -6,6 +6,8 @@ use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Models\Usuario;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -25,11 +27,17 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'nombre_usuario' => ['nullable', 'string', 'required_without:email'],
             'email' => ['nullable', 'email', 'required_without:nombre_usuario'],
             'password' => ['required', 'string'],
         ];
+
+        if (config('recaptcha.enabled')) {
+            $rules['recaptcha_token'] = ['required', 'string'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -41,6 +49,7 @@ class LoginRequest extends FormRequest
             'nombre_usuario.required_without' => 'El correo electrónico o el nombre de usuario son obligatorios.',
             'email.required_without' => 'El correo electrónico o el nombre de usuario son obligatorios.',
             'password.required' => 'La contraseña es obligatoria.',
+            'recaptcha_token.required' => 'Validación de seguridad requerida. Recarga la página e intenta de nuevo.',
         ];
     }
 
@@ -52,6 +61,7 @@ class LoginRequest extends FormRequest
     public function authenticate(): void
     {
         $this->ensureIsNotRateLimited();
+        $this->ensureRecaptchaIsValid();
 
         $identifier = trim((string) ($this->input('nombre_usuario') ?: $this->input('email') ?: ''));
 
@@ -91,6 +101,59 @@ class LoginRequest extends FormRequest
                 'minutes' => ceil($seconds / 60),
             ]),
         ]);
+    }
+
+    /**
+     * Verifica el token de reCAPTCHA v3 contra la API de Google.
+     * Rechaza el login si el score esta por debajo del umbral o el action no coincide.
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    protected function ensureRecaptchaIsValid(): void
+    {
+        if (! config('recaptcha.enabled')) {
+            return;
+        }
+
+        try {
+            $response = Http::asForm()
+                ->timeout(5)
+                ->post(config('recaptcha.verify_url'), [
+                    'secret'   => config('recaptcha.secret_key'),
+                    'response' => $this->input('recaptcha_token'),
+                    'remoteip' => $this->ip(),
+                ]);
+
+            $data = $response->json() ?? [];
+        } catch (\Throwable $e) {
+            Log::warning('reCAPTCHA verify request failed', [
+                'ip' => $this->ip(),
+                'exception' => $e->getMessage(),
+            ]);
+            $data = [];
+        }
+
+        $success = (bool) ($data['success'] ?? false);
+        $score   = (float) ($data['score'] ?? 0);
+        $action  = (string) ($data['action'] ?? '');
+
+        Log::info('reCAPTCHA verify', [
+            'ip'      => $this->ip(),
+            'success' => $success,
+            'score'   => $score,
+            'action'  => $action,
+            'errors'  => $data['error-codes'] ?? [],
+        ]);
+
+        $valid = $success
+            && $action === config('recaptcha.expected_action')
+            && $score >= config('recaptcha.min_score');
+
+        if (! $valid) {
+            throw ValidationException::withMessages([
+                'nombre_usuario' => 'No pudimos validar que seas un humano. Recarga la página e intenta de nuevo.',
+            ]);
+        }
     }
 
     /**
