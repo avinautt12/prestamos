@@ -49,19 +49,20 @@ class Vale extends Model
     ];
 
     protected $casts = [
-        // ✅ float en lugar de decimal:X para que sean numéricos reales
-        'porcentaje_comision_empresa_snap'  => 'float',
-        'monto_comision_empresa'            => 'float',
-        'monto_seguro_snap'                 => 'float',
-        'porcentaje_interes_snap'           => 'float',
-        'monto_interes'                     => 'float',
-        'porcentaje_ganancia_dist_snap'     => 'float',
-        'monto_ganancia_distribuidora'      => 'float',
-        'monto_multa_snap'                  => 'float',
-        'monto_total_deuda'                 => 'float',
-        'monto_quincenal'                   => 'float',
-        'saldo_actual'                      => 'float',
-        'monto_principal'                   => 'float',
+        // Montos en decimal:2 para preservar exactitud al centavo (BCMath-friendly).
+        // Porcentajes en decimal:4 para soportar centesimas de punto porcentual.
+        'porcentaje_comision_empresa_snap'  => 'decimal:4',
+        'monto_comision_empresa'            => 'decimal:2',
+        'monto_seguro_snap'                 => 'decimal:2',
+        'porcentaje_interes_snap'           => 'decimal:4',
+        'monto_interes'                     => 'decimal:2',
+        'porcentaje_ganancia_dist_snap'     => 'decimal:4',
+        'monto_ganancia_distribuidora'      => 'decimal:2',
+        'monto_multa_snap'                  => 'decimal:2',
+        'monto_total_deuda'                 => 'decimal:2',
+        'monto_quincenal'                   => 'decimal:2',
+        'saldo_actual'                      => 'decimal:2',
+        'monto_principal'                   => 'decimal:2',
         'cancelado'                         => 'boolean',
         'fecha_emision'                     => 'datetime',
         'fecha_transferencia'               => 'datetime',

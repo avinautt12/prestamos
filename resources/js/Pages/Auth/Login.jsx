@@ -9,23 +9,53 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { Head, Link, useForm } from '@inertiajs/react';
 
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+
 export default function Login({ status, canResetPassword }) {
     const [mostrarPassword, setMostrarPassword] = useState(false);
 
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset, transform } = useForm({
         nombre_usuario: '',
         password: '',
         remember: false,
+        recaptcha_token: '',
     });
 
     useEffect(() => {
+        if (RECAPTCHA_SITE_KEY) {
+            const scriptId = 'recaptcha-v3-script';
+            if (!document.getElementById(scriptId)) {
+                const script = document.createElement('script');
+                script.id = scriptId;
+                script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
+                script.async = true;
+                script.defer = true;
+                document.head.appendChild(script);
+            }
+        }
+
         return () => {
             reset('password');
         };
     }, []);
 
-    const submit = (e) => {
+    const submit = async (e) => {
         e.preventDefault();
+
+        let token = '';
+
+        if (RECAPTCHA_SITE_KEY && window.grecaptcha) {
+            try {
+                await new Promise((resolve) => window.grecaptcha.ready(resolve));
+                token = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'login' });
+            } catch (err) {
+                console.error('reCAPTCHA error:', err);
+            }
+        }
+
+        // transform inyecta el token al payload justo antes del POST,
+        // evitando el race condition de setData async + post inmediato.
+        transform((current) => ({ ...current, recaptcha_token: token }));
         post(route('login'));
     };
 

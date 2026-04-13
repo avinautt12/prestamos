@@ -96,6 +96,17 @@ class Usuario extends Authenticatable
         return 'remember_token';
     }
 
+    /**
+     * Fuerza el canal de notificaciones broadcast al namespace real del modelo (Usuario).
+     * Sin este override, Laravel usa el nombre de clase del Authenticatable resuelto por el
+     * guard — que con el adapter User extends Usuario termina siendo "App.Models.User" en
+     * algunos contextos y "App.Models.Usuario" en otros, causando subscription errors.
+     */
+    public function receivesBroadcastNotificationsOn(): string
+    {
+        return 'App.Models.Usuario.' . $this->getKey();
+    }
+
     // Relaciones
     public function persona(): BelongsTo
     {

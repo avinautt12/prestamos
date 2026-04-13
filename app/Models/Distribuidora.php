@@ -33,10 +33,10 @@ class Distribuidora extends Model
     ];
 
     protected $casts = [
-        // ✅ float en lugar de decimal:2
-        'limite_credito'     => 'float',
-        'credito_disponible' => 'float',
-        'puntos_actuales'    => 'float',
+        // Montos en decimal:2 para preservar exactitud al centavo (BCMath-friendly).
+        'limite_credito'     => 'decimal:2',
+        'credito_disponible' => 'decimal:2',
+        'puntos_actuales'    => 'decimal:2',
         'sin_limite'         => 'boolean',
         'puede_emitir_vales' => 'boolean',
         'es_externa'         => 'boolean',
