@@ -138,7 +138,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                             <span className="ml-2 text-base font-bold text-gray-900">Préstamo Fácil</span>
                         </Link>
 
-                        <Link href={route('logout')} method="post" as="button" className="p-2 text-red-600">
+                        <Link href={route('logout', {}, false)} method="post" as="button" className="p-2 text-red-600">
                             <FontAwesomeIcon icon={faRightFromBracket} className="w-5 h-5" />
                         </Link>
                     </div>

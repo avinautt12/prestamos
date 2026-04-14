@@ -18,10 +18,6 @@ const csrfToken = document
     .querySelector('meta[name="csrf-token"]')
     ?.getAttribute('content');
 
-if (csrfToken) {
-    window.axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
-}
-
 window.Echo = new Echo({
     broadcaster: 'pusher',
     key: import.meta.env.VITE_PUSHER_APP_KEY,

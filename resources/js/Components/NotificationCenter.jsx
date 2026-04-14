@@ -287,6 +287,10 @@ export default function NotificationCenter() {
             if (rol === 'cajera') {
                 return buildRouteIfExists('cajera.conciliaciones');
             }
+
+            if (rol === 'distribuidora') {
+                return buildRouteIfExists('distribuidora.estado-cuenta');
+            }
         }
 
         if (tipo === 'LIMITE_AUTORIZADO' || tipo === 'ACTUALIZACION_CREDITO') {
@@ -309,6 +313,20 @@ export default function NotificationCenter() {
 
         if (tipo === 'CORTE_PUNTOS_LISTO' && rol === 'distribuidora') {
             return buildRouteIfExists('distribuidora.puntos');
+        }
+
+        if (tipo === 'PUNTOS_CANJE_APLICADO' && rol === 'distribuidora') {
+            return buildRouteIfExists('distribuidora.puntos');
+        }
+
+        if (tipo.startsWith('TRASPASO_')) {
+            if (rol === 'coordinador') {
+                return buildRouteIfExists('coordinador.traspasos.index');
+            }
+
+            if (rol === 'distribuidora') {
+                return buildRouteIfExists('distribuidora.traspasos.index');
+            }
         }
 
         return null;

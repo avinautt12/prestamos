@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#1FA62D">
     <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
     <meta name="mobile-web-app-capable" content="yes">
