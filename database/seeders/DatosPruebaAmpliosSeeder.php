@@ -99,7 +99,7 @@ class DatosPruebaAmpliosSeeder extends Seeder
                         'resultado_buro' => $extra['estado'] === Solicitud::ESTADO_RECHAZADA ? 'NEGADO' : 'EN_PROCESO',
                         'motivo_rechazo' => $extra['estado'] === Solicitud::ESTADO_RECHAZADA ? 'Referencia laboral no confirmada' : null,
                         'prevale_aprobado' => false,
-                        'fotos_casa_completas' => $extraIndex === 0,
+                        // 'fotos_casa_completas' => $extraIndex === 0,
                         'enviada_en' => now()->subDays(4 + $extraIndex),
                         'revisada_en' => now()->subDays(2 + $extraIndex),
                         'decidida_en' => $extra['estado'] === Solicitud::ESTADO_RECHAZADA ? now()->subDay() : null,

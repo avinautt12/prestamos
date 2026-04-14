@@ -97,7 +97,7 @@ class SolicitudesPruebaSeeder extends Seeder
                         'resultado_buro' => $estado === Solicitud::ESTADO_RECHAZADA ? 'NEGADO' : ($estado === Solicitud::ESTADO_PRE ? 'SIN_REPORTE' : 'APTO'),
                         'motivo_rechazo' => $estado === Solicitud::ESTADO_RECHAZADA ? 'Inconsistencia en ingresos y referencias' : null,
                         'prevale_aprobado' => in_array($estado, [Solicitud::ESTADO_VERIFICADA, Solicitud::ESTADO_APROBADA], true),
-                        'fotos_casa_completas' => $estado !== Solicitud::ESTADO_PRE,
+                        //'fotos_casa_completas' => $estado !== Solicitud::ESTADO_PRE,
                         'enviada_en' => now()->subDays(10 - $i),
                         'tomada_en' => $estado !== Solicitud::ESTADO_PRE ? now()->subDays(9 - $i) : null,
                         'revisada_en' => in_array($estado, [Solicitud::ESTADO_VERIFICADA, Solicitud::ESTADO_APROBADA, Solicitud::ESTADO_RECHAZADA], true) ? now()->subDays(8 - $i) : null,
