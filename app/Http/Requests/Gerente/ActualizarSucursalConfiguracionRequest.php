@@ -19,6 +19,10 @@ class ActualizarSucursalConfiguracionRequest extends FormRequest
         return [
             'dia_corte' => ['nullable', 'integer', 'between:1,31'],
             'hora_corte' => ['prohibited'],
+            // Campos globales (se guardan en puntos_conf, no en sucursal_configuraciones).
+            'factor_divisor_puntos' => ['required', 'integer', 'min:1', 'max:999999'],
+            'multiplicador_puntos' => ['required', 'integer', 'min:1', 'max:999999'],
+            'valor_punto_mxn' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
         ];
     }
 

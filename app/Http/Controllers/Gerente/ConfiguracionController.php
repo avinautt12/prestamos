@@ -14,6 +14,7 @@ use App\Models\CategoriaDistribuidora;
 use App\Models\Corte;
 use App\Models\Distribuidora;
 use App\Models\ProductoFinanciero;
+use App\Models\PuntosConf;
 use App\Models\Sucursal;
 use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
@@ -165,6 +166,14 @@ class ConfiguracionController extends Controller
                 ->values();
         }
 
+        // Inyectamos los valores globales de puntos_conf dentro de configuracionSucursal
+        // para que el frontend existente los lea sin cambios (compatibilidad).
+        $puntosConf = PuntosConf::actual();
+        $configuracionPayload = $configuracion ? $configuracion->toArray() : [];
+        $configuracionPayload['factor_divisor_puntos'] = (int) $puntosConf->factor_divisor_puntos;
+        $configuracionPayload['multiplicador_puntos']  = (int) $puntosConf->multiplicador_puntos;
+        $configuracionPayload['valor_punto_mxn']       = (float) $puntosConf->valor_punto_mxn;
+
         return Inertia::render('Gerente/Configuraciones', [
             'sucursal' => $sucursal,
             'sucursales' => $esAdmin
@@ -175,7 +184,7 @@ class ConfiguracionController extends Controller
             'puedeEditar' => $esAdmin,
             'soloLecturaProductos' => !$esAdmin,
             'routePrefix' => $esAdmin ? 'admin' : 'gerente',
-            'configuracionSucursal' => $configuracion,
+            'configuracionSucursal' => $configuracionPayload,
             'categorias' => $categorias,
             'productos' => $productos,
             'historialCambios' => $historialCambios,
@@ -206,9 +215,23 @@ class ConfiguracionController extends Controller
         $despues = [
             'dia_corte' => $data['dia_corte'] ?? null,
             'hora_corte' => CorteService::HORA_CORTE_FIJA,
+            // Campos globales (se guardan en puntos_conf):
+            'factor_divisor_puntos' => (int) $data['factor_divisor_puntos'],
+            'multiplicador_puntos' => (int) $data['multiplicador_puntos'],
+            'valor_punto_mxn' => (float) $data['valor_punto_mxn'],
         ];
 
         DB::transaction(function () use ($sucursalesObjetivo, $usuario, $despues) {
+            // 1) Actualizar config GLOBAL de puntos (1 sola vez, no por sucursal).
+            $puntosConf = PuntosConf::actual();
+            $puntosConf->update([
+                'factor_divisor_puntos' => $despues['factor_divisor_puntos'],
+                'multiplicador_puntos'  => $despues['multiplicador_puntos'],
+                'valor_punto_mxn'       => $despues['valor_punto_mxn'],
+                'actualizado_por_usuario_id' => $usuario->id,
+            ]);
+
+            // 2) Actualizar día de corte por sucursal.
             foreach ($sucursalesObjetivo as $sucursal) {
                 $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $usuario);
 

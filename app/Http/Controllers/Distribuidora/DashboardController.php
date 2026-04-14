@@ -713,7 +713,7 @@ class DashboardController extends Controller
             'resumen' => [
                 'saldo_actual' => (float) $distribuidora->puntos_actuales,
                 'movimientos' => $movimientos->count(),
-                'valor_estimado' => $movimientos->first()['valor_punto_snapshot'] ?? (float) PuntosConf::actual()->valor_punto_mxn,
+                'valor_estimado' => (float) PuntosConf::actual()->valor_punto_mxn,
                 'positivos' => $positivos,
                 'negativos' => $negativos,
             ],
