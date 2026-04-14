@@ -236,10 +236,9 @@ class SolicitudController extends Controller
             })
             ->firstOrFail();
 
-        // Decodificar JSONs
-        $solicitud->datos_familiares = $solicitud->datos_familiares_json ? json_decode($solicitud->datos_familiares_json, true) : null;
-        $solicitud->afiliaciones = $solicitud->afiliaciones_externas_json ? json_decode($solicitud->afiliaciones_externas_json, true) : null;
-        $solicitud->vehiculos = $solicitud->vehiculos_json ? json_decode($solicitud->vehiculos_json, true) : null;
+        $solicitud->datos_familiares = $solicitud->datos_familiares_json;
+        $solicitud->afiliaciones     = $solicitud->afiliaciones_externas_json;
+        $solicitud->vehiculos        = $solicitud->vehiculos_json;
 
         if ($solicitud->verificacion) {
             $solicitud->verificacion->foto_fachada_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_fachada);
