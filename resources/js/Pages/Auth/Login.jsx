@@ -56,7 +56,7 @@ export default function Login({ status, canResetPassword }) {
         // transform inyecta el token al payload justo antes del POST,
         // evitando el race condition de setData async + post inmediato.
         transform((current) => ({ ...current, recaptcha_token: token }));
-        post(route('login'));
+        post(route('login', {}, false));
     };
 
     return (

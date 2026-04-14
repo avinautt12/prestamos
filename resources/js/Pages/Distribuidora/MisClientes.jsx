@@ -12,6 +12,25 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
     });
     const [filterOpen, setFilterOpen] = useState(false);
 
+    const copiarCodigo = async (codigo) => {
+        if (!codigo) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(codigo);
+            window.alert(`Codigo copiado: ${codigo}`);
+        } catch (error) {
+            const input = document.createElement('input');
+            input.value = codigo;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            window.alert(`Codigo copiado: ${codigo}`);
+        }
+    };
+
     const submitFilters = (event) => {
         event.preventDefault();
         router.get(route('distribuidora.clientes'), form, { preserveState: true, preserveScroll: true, replace: true });
@@ -188,6 +207,18 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                                     <span className={statusBadgeClass(cliente.estado_cliente)}>Cliente: {cliente.estado_cliente}</span>
                                                 </div>
                                                 <div className="grid grid-cols-1 gap-y-1 mt-2 text-sm text-gray-600">
+                                                    <span className="flex items-center gap-2">
+                                                        Codigo cliente: <span className="font-semibold text-gray-700">{cliente.codigo_cliente || 'Sin codigo'}</span>
+                                                        {cliente.codigo_cliente && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => copiarCodigo(cliente.codigo_cliente)}
+                                                                className="inline-flex items-center rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                                            >
+                                                                Copiar
+                                                            </button>
+                                                        )}
+                                                    </span>
                                                     <span>Vales abiertos: <span className="font-semibold text-gray-700">{formatNumber(cliente.vales_abiertos)}</span></span>
                                                     <span>Saldo pendiente: <span className="font-semibold text-gray-700">{formatCurrency(cliente.saldo_pendiente)}</span></span>
                                                     {cliente.siguiente_vencimiento && (

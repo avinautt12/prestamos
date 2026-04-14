@@ -120,11 +120,11 @@ export default function AdminLayout({ children, title = 'Prestamo Fácil' }) {
                                     <p className="text-sm font-semibold">
                                         {auth.user.persona?.primer_nombre} {auth.user.persona?.apellido_paterno}
                                     </p>
-                                    <p className="text-xs text-slate-500 capitalize">{auth.user.rol_nombre}</p>
+                                    <p className="text-xs capitalize text-slate-500">{auth.user.rol_nombre}</p>
                                 </>
                             )}
                         </div>
-                        <Link href={route('logout')} method="post" as="button" className="text-red-600 hover:text-red-800">
+                        <Link href={route('logout', {}, false)} method="post" as="button" className="text-red-600 hover:text-red-800">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                             </svg>
@@ -145,7 +145,7 @@ export default function AdminLayout({ children, title = 'Prestamo Fácil' }) {
 
             <div className="fixed z-50 space-y-2 top-16 right-4">
                 {toasts.map((toast) => (
-                    <div key={toast.id} className="w-72 p-3 text-sm bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <div key={toast.id} className="p-3 text-sm bg-white border border-gray-200 rounded-lg shadow-lg w-72">
                         <p className="font-semibold text-gray-800">{toast.titulo}</p>
                         <p className="mt-1 text-gray-600">{toast.mensaje}</p>
                     </div>

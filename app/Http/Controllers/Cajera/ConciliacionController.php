@@ -14,6 +14,7 @@ use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
 use App\Notifications\ConciliacionProcesadaNotification;
 use App\Services\Cajera\ConciliacionHistorialService;
+use App\Services\Distribuidora\DistribuidoraNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,7 +32,10 @@ use Throwable;
 
 class ConciliacionController extends Controller
 {
-    public function __construct(private readonly ConciliacionHistorialService $historialService) {}
+    public function __construct(
+        private readonly ConciliacionHistorialService $historialService,
+        private readonly DistribuidoraNotificationService $notificationService
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -665,6 +669,8 @@ class ConciliacionController extends Controller
                     ]
                 );
 
+                $this->notificarDistribuidoraConciliacion($relacion, $estadoConciliacion);
+
                 if ($estadoConciliacion === Conciliacion::ESTADO_RECHAZADA || $relacion->estado === RelacionCorte::ESTADO_VENCIDA) {
                     event(new AlertaMorosidad(
                         (int) $sucursalId,
@@ -695,6 +701,30 @@ class ConciliacionController extends Controller
         foreach ($gerentes as $gerente) {
             $gerente->notify(new ConciliacionProcesadaNotification($titulo, $mensaje, $meta));
         }
+    }
+
+    private function notificarDistribuidoraConciliacion(RelacionCorte $relacion, string $estadoConciliacion): void
+    {
+        $relacion->loadMissing('distribuidora.persona');
+
+        if (!$relacion->distribuidora) {
+            return;
+        }
+
+        $nombreDistribuidora = $this->nombreDistribuidora($relacion);
+
+        $this->notificationService->notificar(
+            $relacion->distribuidora,
+            'CONCILIACION_PROCESADA',
+            'Conciliacion de pago procesada',
+            "La relación {$relacion->numero_relacion} quedó con estado {$estadoConciliacion} ({$nombreDistribuidora}).",
+            [
+                'relacion_corte_id' => (int) $relacion->id,
+                'numero_relacion' => (string) $relacion->numero_relacion,
+                'estado_conciliacion' => (string) $estadoConciliacion,
+                'estado_relacion' => (string) $relacion->estado,
+            ]
+        );
     }
 
     private function nombreDistribuidora(RelacionCorte $relacion): string
@@ -765,6 +795,10 @@ class ConciliacionController extends Controller
         ]);
 
         $this->actualizarEstadoRelacionPorPagos($relacion);
+
+        DB::afterCommit(function () use ($relacion) {
+            $this->notificarDistribuidoraConciliacion($relacion, Conciliacion::ESTADO_CONCILIADA);
+        });
 
         return true;
     }

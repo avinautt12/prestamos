@@ -104,6 +104,9 @@ Route::middleware(['auth', 'role:COORDINADOR'])->prefix('coordinador')->name('co
     // Gestión de clientes y distribuidoras
     Route::get('/clientes', [App\Http\Controllers\Coordinador\DashboardController::class, 'clientes'])->name('clientes');
     Route::get('/mis-distribuidoras', [App\Http\Controllers\Coordinador\DashboardController::class, 'misDistribuidoras'])->name('mis-distribuidoras');
+    Route::get('/traspasos', [App\Http\Controllers\Coordinador\TraspasoClienteController::class, 'index'])->name('traspasos.index');
+    Route::post('/traspasos/{traspaso}/aprobar', [App\Http\Controllers\Coordinador\TraspasoClienteController::class, 'aprobar'])->name('traspasos.aprobar');
+    Route::post('/traspasos/{traspaso}/rechazar', [App\Http\Controllers\Coordinador\TraspasoClienteController::class, 'rechazar'])->name('traspasos.rechazar');
 
     // Gestión de solicitudes (nuevas rutas)
     Route::get('/solicitudes', [SolicitudController::class, 'index'])->name('solicitudes.index');
@@ -174,6 +177,10 @@ Route::middleware(['auth', 'role:DISTRIBUIDORA'])->prefix('distribuidora')->name
     Route::get('/puntos', [App\Http\Controllers\Distribuidora\DashboardController::class, 'puntos'])->name('puntos');
     Route::post('/puntos/canjear', [App\Http\Controllers\Distribuidora\DashboardController::class, 'canjearPuntos'])->name('puntos.canjear');
     Route::get('/clientes', [App\Http\Controllers\Distribuidora\DashboardController::class, 'misClientes'])->name('clientes');
+    Route::get('/traspasos', [App\Http\Controllers\Distribuidora\TraspasoClienteController::class, 'index'])->name('traspasos.index');
+    Route::post('/traspasos', [App\Http\Controllers\Distribuidora\TraspasoClienteController::class, 'store'])->name('traspasos.store');
+    Route::post('/traspasos/{traspaso}/confirmar', [App\Http\Controllers\Distribuidora\TraspasoClienteController::class, 'confirmar'])->name('traspasos.confirmar');
+    Route::post('/traspasos/{traspaso}/cancelar', [App\Http\Controllers\Distribuidora\TraspasoClienteController::class, 'cancelar'])->name('traspasos.cancelar');
     Route::get('/estado-cuenta', [App\Http\Controllers\Distribuidora\DashboardController::class, 'estadoCuenta'])->name('estado-cuenta');
     Route::post('/relaciones/{relacion}/reportar-pago', [App\Http\Controllers\Distribuidora\DashboardController::class, 'reportarPago'])->name('relaciones.reportar-pago');
 });

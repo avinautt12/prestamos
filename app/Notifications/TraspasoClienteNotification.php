@@ -6,7 +6,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 
-class DistribuidoraOperacionNotification extends Notification
+class TraspasoClienteNotification extends Notification
 {
     use Queueable;
 

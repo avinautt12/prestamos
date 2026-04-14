@@ -16,6 +16,7 @@ use App\Models\ProductoFinanciero;
 use App\Models\RelacionCorte;
 use App\Models\Vale;
 use App\Services\Distribuidora\DistribuidoraContextService;
+use App\Services\Distribuidora\DistribuidoraNotificationService;
 use App\Services\ProductoFinancieroService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,7 +30,8 @@ class DashboardController extends Controller
 {
     public function __construct(
         private readonly DistribuidoraContextService $contextService,
-        private readonly ProductoFinancieroService $productoService
+        private readonly ProductoFinancieroService $productoService,
+        private readonly DistribuidoraNotificationService $notificationService
     ) {}
 
     public function index(Request $request): Response
@@ -576,6 +578,19 @@ class DashboardController extends Controller
                 $distribuidora->decrement('puntos_actuales', $puntosACanjear);
                 $relacion->decrement('total_a_pagar', $valorEnPesos);
             });
+
+            $this->notificationService->notificar(
+                $distribuidora,
+                'PUNTOS_CANJE_APLICADO',
+                'Canje de puntos aplicado',
+                "Se aplicaron {$puntosACanjear} puntos (-$" . number_format($valorEnPesos, 2) . ") a la relación {$relacion->numero_relacion}.",
+                [
+                    'relacion_corte_id' => (int) $relacion->id,
+                    'numero_relacion' => (string) $relacion->numero_relacion,
+                    'puntos_canjeados' => (int) $puntosACanjear,
+                    'valor_aplicado' => (float) $valorEnPesos,
+                ]
+            );
 
             return back()->with('success', "Se canjearon {$puntosACanjear} puntos (-\${$valorEnPesos}) en la relación {$relacion->numero_relacion}.");
         } catch (\Exception $e) {

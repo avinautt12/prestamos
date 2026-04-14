@@ -225,7 +225,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
                             <ApplicationLogo className="block w-auto h-8 text-green-600 fill-current" />
                             <span className="ml-2 text-base font-bold md:text-lg" style={{ color: '#1F2937' }}>Prestamo Fácil</span>
                         </Link>
-                        <Link href={route('logout')} method="post" as="button" className="p-2">
+                        <Link href={route('logout', {}, false)} method="post" as="button" className="p-2">
                             <FontAwesomeIcon icon={faRightFromBracket} className="w-5 h-5 text-red-600" />
                         </Link>
                     </div>
