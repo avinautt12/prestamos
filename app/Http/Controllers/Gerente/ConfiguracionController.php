@@ -347,7 +347,6 @@ class ConfiguracionController extends Controller
             'nombre' => $nombre,
             'porcentaje_comision' => (float) $data['porcentaje_comision'],
             'puntos_por_cada_1200' => 3,
-            'valor_punto' => 2,
             'castigo_pct_atraso' => 20,
             'activo' => true,
             'creado_en' => now(),

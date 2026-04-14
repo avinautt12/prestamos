@@ -1369,7 +1369,6 @@ class DashboardController extends Controller
                 'codigo' => $distribuidora->categoria->codigo,
                 'nombre' => $distribuidora->categoria->nombre,
                 'porcentaje_comision' => (float) $distribuidora->categoria->porcentaje_comision,
-                'valor_punto' => (float) ($distribuidora->categoria->valor_punto ?? 2),
             ] : null,
             'sucursal' => $distribuidora->sucursal ? [
                 'id' => $distribuidora->sucursal->id,

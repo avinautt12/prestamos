@@ -16,7 +16,7 @@ class DistribuidoraContextService
         return Distribuidora::query()
             ->with([
                 'persona:id,primer_nombre,segundo_nombre,apellido_paterno,apellido_materno,telefono_celular,correo_electronico',
-                'categoria:id,codigo,nombre,porcentaje_comision,valor_punto',
+                'categoria:id,codigo,nombre,porcentaje_comision',
                 'sucursal:id,codigo,nombre',
                 'sucursal.configuracion:id,sucursal_id,valor_punto_mxn,factor_divisor_puntos,multiplicador_puntos',
                 'cuentaBancaria:id,banco,nombre_titular,numero_cuenta_mascarado,clabe,convenio,referencia_base',
