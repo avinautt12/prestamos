@@ -60,9 +60,9 @@ class RolesSeeder extends Seeder
                 'actualizado_en' => now(),
             ],
             [
-                'codigo' => 'ADIM',
+                'codigo' => 'ADMIN',
                 'nombre' => 'Administrador (Alias)',
-                'descripcion' => 'Alias temporal para compatibilidad con ambientes que referencian ADIM',
+                'descripcion' => 'Alias temporal para compatibilidad con ambientes que referencian ADMIN',
                 'activo' => true,
                 'creado_en' => now(),
                 'actualizado_en' => now(),
