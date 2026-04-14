@@ -31,10 +31,14 @@ class UsuariosSeeder extends Seeder
         $usuarios = $this->definicionUsuarios();
 
         foreach ($usuarios as $u) {
-            $sucursal = Sucursal::where('codigo', $u['sucursal'])->first();
-            if (!$sucursal) {
-                $this->command?->warn("Sucursal {$u['sucursal']} no encontrada. Saltando {$u['nombre_usuario']}.");
-                continue;
+            $sucursalId = null;
+            if (!empty($u['sucursal'])) {
+                $sucursal = Sucursal::where('codigo', $u['sucursal'])->first();
+                if (!$sucursal) {
+                    $this->command?->warn("Sucursal {$u['sucursal']} no encontrada. Saltando {$u['nombre_usuario']}.");
+                    continue;
+                }
+                $sucursalId = $sucursal->id;
             }
 
             $rol = Rol::where('codigo', $u['rol'])->first();
@@ -79,7 +83,7 @@ class UsuariosSeeder extends Seeder
                 [
                     'usuario_id'  => $usuario->id,
                     'rol_id'      => $rol->id,
-                    'sucursal_id' => $sucursal->id,
+                    'sucursal_id' => $sucursalId,
                 ],
                 [
                     'asignado_en'  => now(),
@@ -89,9 +93,9 @@ class UsuariosSeeder extends Seeder
             );
         }
 
-        $this->command?->info('15 usuarios operativos creados (3 sucursales x {1 gerente + 1 coordinador + 2 verificadores + 1 cajera}).');
+        $this->command?->info('16 usuarios creados: 1 admin global + 15 operativos (3 sucursales).');
         $this->command?->info('Password comun: password123');
-        $this->command?->info('Alias de sucursal Centro: gerente, coordinador, verificador, cajera');
+        $this->command?->info('Alias: admin / gerente / coordinador / verificador / cajera (los 4 de Centro)');
     }
 
     /**
@@ -101,6 +105,22 @@ class UsuariosSeeder extends Seeder
     private function definicionUsuarios(): array
     {
         return [
+            // ---------- ADMIN (global, sin sucursal) ----------
+            [
+                'nombre_usuario'   => 'admin',
+                'rol'              => 'ADMIN',
+                'sucursal'         => null,
+                'primer_nombre'    => 'Admin',
+                'apellido_paterno' => 'Sistema',
+                'apellido_materno' => 'Prestamofacil',
+                'sexo'             => 'M',
+                'fecha_nacimiento' => '1980-01-01',
+                'curp'             => 'SIPA800101HCLRRD00',
+                'rfc'              => 'SIPA800101000',
+                'telefono'         => '8711000000',
+                'correo'           => 'admin@prestamofacil.test',
+            ],
+
             // ---------- GERENTES ----------
             [
                 'nombre_usuario'   => 'gerente',
