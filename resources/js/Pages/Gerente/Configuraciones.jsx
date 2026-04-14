@@ -73,6 +73,14 @@ const obtenerPagina = (items, pagina, porPagina) => {
 
 export default function Configuraciones({ sucursal, configuracionSucursal, categorias, productos = [], historialCambios = [] }) {
     const { errors } = usePage().props;
+    const {
+        sucursales = [],
+        esAdmin = false,
+        puedeEditar = false,
+        soloLecturaProductos = false,
+        routePrefix = 'gerente',
+        sucursalSeleccionadaId = null,
+    } = usePage().props;
     const CATEGORIAS_POR_PAGINA = 6;
     const HISTORIAL_POR_PAGINA = 8;
 
@@ -81,6 +89,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         factor_divisor_puntos: configuracionSucursal?.factor_divisor_puntos ?? 1200,
         multiplicador_puntos: configuracionSucursal?.multiplicador_puntos ?? 3,
         valor_punto_mxn: configuracionSucursal?.valor_punto_mxn ?? 2,
+        sucursal_id: sucursalSeleccionadaId ?? sucursal?.id ?? '',
     });
 
     const categoriasMap = React.useMemo(() => {
@@ -121,7 +130,8 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     const [categoriaValues, setCategoriaValues] = React.useState(categoriasMap);
     const [productoValues, setProductoValues] = React.useState(productosMap);
     const [guardandoSucursal, setGuardandoSucursal] = React.useState(false);
-    const [tabActiva, setTabActiva] = React.useState('sucursal');
+    const [tabActiva, setTabActiva] = React.useState(soloLecturaProductos ? 'productos' : 'sucursal');
+    const [sucursalActivaId, setSucursalActivaId] = React.useState(sucursalSeleccionadaId ?? sucursal?.id ?? '');
     const [paginaActivas, setPaginaActivas] = React.useState(1);
     const [paginaInactivas, setPaginaInactivas] = React.useState(1);
     const [paginaHistorial, setPaginaHistorial] = React.useState(1);
@@ -136,6 +146,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     const nuevaCategoriaForm = useForm({
         nombre: '',
         porcentaje_comision: '',
+        sucursal_id: sucursalSeleccionadaId ?? sucursal?.id ?? '',
     });
 
     const nuevoProductoForm = useForm({
@@ -145,6 +156,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         porcentaje_comision_empresa: '',
         monto_seguro: '',
         porcentaje_interes_quincenal: '',
+        sucursal_id: sucursalSeleccionadaId ?? sucursal?.id ?? '',
     });
 
     React.useEffect(() => {
@@ -153,7 +165,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         }
 
         try {
-            const raw = window.localStorage.getItem('gerente-configuraciones-v2');
+            const raw = window.localStorage.getItem(`configuraciones-${routePrefix}-v2`);
             if (!raw) {
                 return;
             }
@@ -185,7 +197,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         }
 
         window.localStorage.setItem(
-            'gerente-configuraciones-v2',
+            `configuraciones-${routePrefix}-v2`,
             JSON.stringify({
                 tabActiva,
                 busquedaCategorias,
@@ -194,7 +206,37 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                 ordenHistorial,
             })
         );
-    }, [tabActiva, busquedaCategorias, busquedaHistorial, ordenCategorias, ordenHistorial]);
+    }, [tabActiva, busquedaCategorias, busquedaHistorial, ordenCategorias, ordenHistorial, routePrefix]);
+
+    React.useEffect(() => {
+        if (soloLecturaProductos && tabActiva !== 'productos') {
+            setTabActiva('productos');
+        }
+    }, [soloLecturaProductos, tabActiva]);
+
+    React.useEffect(() => {
+        setSucursalActivaId(sucursalSeleccionadaId ?? sucursal?.id ?? '');
+        formSucursal.setData('sucursal_id', sucursalSeleccionadaId ?? sucursal?.id ?? '');
+        nuevaCategoriaForm.setData('sucursal_id', sucursalSeleccionadaId ?? sucursal?.id ?? '');
+        nuevoProductoForm.setData('sucursal_id', sucursalSeleccionadaId ?? sucursal?.id ?? '');
+    }, [sucursalSeleccionadaId, sucursal?.id]);
+
+    const cambiarSucursal = (sucursalId) => {
+        setSucursalActivaId(sucursalId);
+        formSucursal.setData('sucursal_id', sucursalId || '');
+        nuevaCategoriaForm.setData('sucursal_id', sucursalId || '');
+        nuevoProductoForm.setData('sucursal_id', sucursalId || '');
+
+        if (!esAdmin) {
+            return;
+        }
+
+        router.get(route(`${routePrefix}.configuraciones`), {
+            sucursal_id: sucursalId || undefined,
+        }, {
+            preserveScroll: true,
+        });
+    };
 
     React.useEffect(() => {
         setCategoriaValues(categoriasMap);
@@ -409,7 +451,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     const guardarConfiguracionSucursal = (event) => {
         event.preventDefault();
 
-        formSucursal.put(route('gerente.configuraciones.sucursal.update'), {
+        formSucursal.put(route(`${routePrefix}.configuraciones.sucursal.update`), {
             preserveScroll: true,
             onStart: () => setGuardandoSucursal(true),
             onFinish: () => setGuardandoSucursal(false),
@@ -420,10 +462,11 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
 
     const guardarCategoria = (categoriaId) => {
         router.put(
-            route('gerente.configuraciones.categorias.update', categoriaId),
+            route(`${routePrefix}.configuraciones.categorias.update`, categoriaId),
             {
                 nombre: categoriaValues[categoriaId]?.nombre,
                 porcentaje_comision: categoriaValues[categoriaId]?.porcentaje_comision,
+                sucursal_id: sucursalActivaId || undefined,
             },
             {
                 preserveScroll: true,
@@ -435,7 +478,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
 
     const crearCategoria = (event) => {
         event.preventDefault();
-        nuevaCategoriaForm.post(route('gerente.configuraciones.categorias.store'), {
+        nuevaCategoriaForm.post(route(`${routePrefix}.configuraciones.categorias.store`), {
             preserveScroll: true,
             onSuccess: () => {
                 nuevaCategoriaForm.reset();
@@ -445,7 +488,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
 
     const crearProducto = (event) => {
         event.preventDefault();
-        nuevoProductoForm.post(route('gerente.configuraciones.productos.store'), {
+        nuevoProductoForm.post(route(`${routePrefix}.configuraciones.productos.store`), {
             preserveScroll: true,
             onSuccess: () => {
                 nuevoProductoForm.reset();
@@ -458,7 +501,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
             return;
         }
 
-        router.put(route('gerente.configuraciones.categorias.inactivar', categoriaId), {}, {
+        router.put(route(`${routePrefix}.configuraciones.categorias.inactivar`, categoriaId), { sucursal_id: sucursalActivaId || undefined }, {
             preserveScroll: true,
             onStart: () => marcarAccionCategoria(categoriaId, 'Inactivando...'),
             onFinish: () => limpiarAccionCategoria(categoriaId),
@@ -466,7 +509,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     };
 
     const activarCategoria = (categoriaId) => {
-        router.put(route('gerente.configuraciones.categorias.activar', categoriaId), {}, {
+        router.put(route(`${routePrefix}.configuraciones.categorias.activar`, categoriaId), { sucursal_id: sucursalActivaId || undefined }, {
             preserveScroll: true,
             onStart: () => marcarAccionCategoria(categoriaId, 'Activando...'),
             onFinish: () => limpiarAccionCategoria(categoriaId),
@@ -478,7 +521,8 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
             return;
         }
 
-        router.delete(route('gerente.configuraciones.categorias.delete', categoriaId), {
+        router.delete(route(`${routePrefix}.configuraciones.categorias.delete`, categoriaId), {
+            data: { sucursal_id: sucursalActivaId || undefined },
             preserveScroll: true,
             onStart: () => marcarAccionCategoria(categoriaId, 'Eliminando...'),
             onFinish: () => limpiarAccionCategoria(categoriaId),
@@ -487,13 +531,14 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
 
     const guardarProducto = (productoId) => {
         router.put(
-            route('gerente.configuraciones.productos.update', productoId),
+            route(`${routePrefix}.configuraciones.productos.update`, productoId),
             {
                 monto_principal: productoValues[productoId]?.monto_principal,
                 monto_seguro: productoValues[productoId]?.monto_seguro,
                 porcentaje_comision_empresa: productoValues[productoId]?.porcentaje_comision_empresa,
                 porcentaje_interes_quincenal: productoValues[productoId]?.porcentaje_interes_quincenal,
                 numero_quincenas: productoValues[productoId]?.numero_quincenas,
+                sucursal_id: sucursalActivaId || undefined,
             },
             {
                 preserveScroll: true,
@@ -504,7 +549,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     };
 
     const activarProducto = (productoId) => {
-        router.put(route('gerente.configuraciones.productos.activar', productoId), {}, {
+        router.put(route(`${routePrefix}.configuraciones.productos.activar`, productoId), { sucursal_id: sucursalActivaId || undefined }, {
             preserveScroll: true,
             onStart: () => marcarAccionProducto(productoId, 'Activando...'),
             onFinish: () => limpiarAccionProducto(productoId),
@@ -512,7 +557,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     };
 
     const inactivarProducto = (productoId) => {
-        router.put(route('gerente.configuraciones.productos.inactivar', productoId), {}, {
+        router.put(route(`${routePrefix}.configuraciones.productos.inactivar`, productoId), { sucursal_id: sucursalActivaId || undefined }, {
             preserveScroll: true,
             onStart: () => marcarAccionProducto(productoId, 'Inactivando...'),
             onFinish: () => limpiarAccionProducto(productoId),
@@ -524,7 +569,8 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
             return;
         }
 
-        router.delete(route('gerente.configuraciones.productos.delete', productoId), {
+        router.delete(route(`${routePrefix}.configuraciones.productos.delete`, productoId), {
+            data: { sucursal_id: sucursalActivaId || undefined },
             preserveScroll: true,
             onStart: () => marcarAccionProducto(productoId, 'Eliminando...'),
             onFinish: () => limpiarAccionProducto(productoId),
@@ -532,7 +578,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     };
 
     const restaurarProducto = (productoId) => {
-        router.post(route('gerente.configuraciones.productos.restaurar', productoId), {}, {
+        router.post(route(`${routePrefix}.configuraciones.productos.restaurar`, productoId), { sucursal_id: sucursalActivaId || undefined }, {
             preserveScroll: true,
             onStart: () => marcarAccionProducto(productoId, 'Restaurando...'),
             onFinish: () => limpiarAccionProducto(productoId),
@@ -591,11 +637,24 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
             <div className="mb-4 fin-card">
                 <h2 className="fin-title">Parámetros variables del negocio</h2>
                 <p className="mt-1 fin-subtitle">
-                    Ajusta reglas operativas de sucursal, categorías y productos (monto y quincenas) para el esquema actual.
+                    {puedeEditar
+                        ? 'Como Admin, los cambios se aplican automáticamente en todas las sucursales activas.'
+                        : 'Consulta el catálogo de productos vigente para la operación comercial.'}
                 </p>
-                <p className="mt-2 text-sm text-gray-600">
-                    Sucursal activa: <span className="font-semibold">{sucursal?.nombre || 'Sin sucursal asignada'}</span>
-                </p>
+                {esAdmin ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                        <span>
+                            Ámbito: <span className="font-semibold text-gray-900">Global</span>
+                        </span>
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                            Aplica a todas las sucursales activas
+                        </span>
+                    </div>
+                ) : (
+                    <p className="mt-2 text-sm text-gray-600">
+                        Sucursal activa: <span className="font-semibold">{sucursal?.nombre || 'Sin sucursal asignada'}</span>
+                    </p>
+                )}
             </div>
 
             <div className="mb-4 fin-card">
@@ -605,32 +664,35 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                         { id: 'categorias', label: `Categorías (${categorias.length})` },
                         { id: 'productos', label: `Productos (${productos.length})` },
                         { id: 'historial', label: `Historial (${historialCambios.length})` },
-                    ].map((tab) => (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setTabActiva(tab.id)}
-                            className={`px-4 py-2 text-sm rounded-lg border transition ${tabActiva === tab.id
-                                ? 'bg-emerald-600 text-white border-emerald-600'
-                                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                                }`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
+                    ]
+                        .filter((tab) => (soloLecturaProductos ? tab.id === 'productos' : true))
+                        .map((tab) => (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => setTabActiva(tab.id)}
+                                className={`px-4 py-2 text-sm rounded-lg border transition ${tabActiva === tab.id
+                                    ? 'bg-emerald-600 text-white border-emerald-600'
+                                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                    }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
                 </div>
             </div>
 
-            {tabActiva === 'sucursal' && (
+            {tabActiva === 'sucursal' && !soloLecturaProductos && (
                 <TabConfiguracion
                     formSucursal={formSucursal}
                     guardarConfiguracionSucursal={guardarConfiguracionSucursal}
                     guardandoSucursal={guardandoSucursal}
                     generalError={errors?.general}
+                    esAdmin={esAdmin}
                 />
             )}
 
-            {tabActiva === 'categorias' && (
+            {tabActiva === 'categorias' && !soloLecturaProductos && (
                 <TabCategorias
                     nuevaCategoriaForm={nuevaCategoriaForm}
                     crearCategoria={crearCategoria}
@@ -659,7 +721,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                 />
             )}
 
-            {tabActiva === 'historial' && (
+            {tabActiva === 'historial' && !soloLecturaProductos && (
                 <TabHistorial
                     historialFiltrado={historialFiltrado}
                     historialCambios={historialCambios}
@@ -690,6 +752,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                     accionesProducto={accionesProducto}
                     nuevoProductoForm={nuevoProductoForm}
                     crearProducto={crearProducto}
+                    soloLectura={soloLecturaProductos}
                 />
             )}
 

@@ -120,9 +120,9 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
     };
 
     return (
-        <div data-fin-a11y={friendlyMode ? 'on' : 'off'} className="fin-mobile-shell">
-            <div className="fin-mobile-device">
-                <header className="fin-mobile-header border-b" style={{ borderColor: '#E5E7EB' }}>
+        <div data-fin-a11y={friendlyMode ? 'on' : 'off'} className="fin-mobile-shell bg-[radial-gradient(circle_at_top_right,_#d1fae5_0%,_#f8fafc_40%,_#eef2ff_100%)]">
+            <div className="fin-mobile-device bg-white/90 backdrop-blur">
+                <header className="fin-mobile-header border-b" style={{ borderColor: '#D1FAE5' }}>
                     <div className="flex items-center justify-between px-4 py-3">
                         <button
                             type="button"
@@ -162,7 +162,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                     </div>
                 </main>
 
-                <nav className="fin-mobile-nav bg-white border-t" style={{ borderColor: '#E5E7EB' }}>
+                <nav className="fin-mobile-nav bg-white/95 border-t" style={{ borderColor: '#D1FAE5' }}>
                     <div className="grid grid-cols-5 gap-1 px-2 py-2">
                         {navigation.slice(0, 5).map((item) => {
                             const isActive = route().current(item.current);
@@ -183,7 +183,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                         <button
                             type="button"
                             onClick={abrirNotificaciones}
-                            className="flex items-center justify-between w-full px-3 py-2 text-left border border-gray-200 rounded-2xl bg-white/95 shadow-sm"
+                            className="flex items-center justify-between w-full px-3 py-2 text-left border border-emerald-100 rounded-2xl bg-white/95 shadow-sm"
                         >
                             <span className="flex items-center gap-2 min-w-0">
                                 <span className="inline-flex items-center justify-center w-8 h-8 text-green-700 bg-green-50 rounded-xl">

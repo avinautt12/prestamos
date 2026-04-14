@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SucursalesSeeder::class,
             RolesSeeder::class,
+            UsuariosDemoSencillosSeeder::class,
             CategoriasDistribuidoraSeeder::class,
             ProductosFinancierosSeeder::class,
             CuentasBancariasEmpresaSeeder::class,
@@ -18,6 +19,7 @@ class DatabaseSeeder extends Seeder
             SolicitudesPruebaSeeder::class,
             DistribuidoraPruebaSeeder::class,
             DistribuidoraCompletaPruebaSeeder::class,
+            DistribuidoraDemoAccesoSeeder::class,
             DatosPruebaAmpliosSeeder::class,
             PrevalesCajeraSeeder::class,
             ConciliacionesCajeraSeeder::class,

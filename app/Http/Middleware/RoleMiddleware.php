@@ -23,6 +23,13 @@ class RoleMiddleware
 
         $user = Auth::user();
         /** @var \App\Models\Usuario $user */
+        if ($user->tieneCombinacionRolesIncompatible()) {
+            Auth::logout();
+            return redirect()->route('login')->withErrors([
+                'nombre_usuario' => 'Tu cuenta tiene una combinación de roles inválida (Admin + Gerente).',
+            ]);
+        }
+
         // Obtener el rol principal del usuario
         $userRole = $user->obtenerRolPrincipal();
 
@@ -45,6 +52,8 @@ class RoleMiddleware
         $rolNombre = strtolower($userRole->codigo);
 
         switch ($rolNombre) {
+            case 'admin':
+                return redirect()->route('admin.dashboard');
             case 'gerente':
                 return redirect()->route('gerente.dashboard');
             case 'coordinador':

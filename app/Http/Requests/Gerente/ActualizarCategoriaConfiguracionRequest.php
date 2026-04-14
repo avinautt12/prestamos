@@ -11,7 +11,7 @@ class ActualizarCategoriaConfiguracionRequest extends FormRequest
         /** @var \App\Models\Usuario $usuario */
         $usuario = auth()->user();
 
-        return $usuario->roles()->where('codigo', 'GERENTE')->exists();
+        return $usuario->roles()->whereIn('codigo', ['ADMIN', 'GERENTE'])->exists();
     }
 
     public function rules(): array

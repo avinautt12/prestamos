@@ -20,7 +20,7 @@ import {
 export default function Dashboard({ stats, actividadReciente = [] }) {
     const statCards = [
         {
-            title: 'Pendientes por decidir',
+            title: 'Solicitudes pendientes',
             value: stats.solicitudes_pendientes ?? 0,
             icon: faClock,
             accent: 'text-amber-600',
@@ -73,9 +73,9 @@ export default function Dashboard({ stats, actividadReciente = [] }) {
             accent: 'bg-rose-50 text-rose-700 border-rose-200',
         },
         {
-            title: 'Configurar reglas',
-            subtitle: 'Parametros por sucursal',
-            href: route('gerente.configuraciones'),
+            title: 'Productos',
+            subtitle: 'Catalogo para oferta comercial',
+            href: route('gerente.productos'),
             icon: faSliders,
             accent: 'bg-blue-50 text-blue-700 border-blue-200',
         },

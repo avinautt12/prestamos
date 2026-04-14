@@ -11,6 +11,12 @@ class RolesSeeder extends Seeder
     {
         $roles = [
             [
+                'codigo' => 'ADMIN',
+                'nombre' => 'Admin',
+                'descripcion' => 'Administrador global del sistema - gestión de usuarios, roles y configuraciones multi-sucursal',
+                'activo' => true,
+            ],
+            [
                 'codigo' => 'GERENTE',
                 'nombre' => 'Gerente',
                 'descripcion' => 'Gerente de sucursal - Acceso a reportes y administración general',
