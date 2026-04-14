@@ -14,6 +14,7 @@ use App\Models\CategoriaDistribuidora;
 use App\Models\Corte;
 use App\Models\Distribuidora;
 use App\Models\ProductoFinanciero;
+use App\Models\PuntosConf;
 use App\Models\Sucursal;
 use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
@@ -165,6 +166,14 @@ class ConfiguracionController extends Controller
                 ->values();
         }
 
+        // Inyectamos los valores globales de puntos_conf dentro de configuracionSucursal
+        // para que el frontend existente los lea sin cambios (compatibilidad).
+        $puntosConf = PuntosConf::actual();
+        $configuracionPayload = $configuracion ? $configuracion->toArray() : [];
+        $configuracionPayload['factor_divisor_puntos'] = (int) $puntosConf->factor_divisor_puntos;
+        $configuracionPayload['multiplicador_puntos']  = (int) $puntosConf->multiplicador_puntos;
+        $configuracionPayload['valor_punto_mxn']       = (float) $puntosConf->valor_punto_mxn;
+
         return Inertia::render('Gerente/Configuraciones', [
             'sucursal' => $sucursal,
             'sucursales' => $esAdmin
@@ -175,7 +184,7 @@ class ConfiguracionController extends Controller
             'puedeEditar' => $esAdmin,
             'soloLecturaProductos' => !$esAdmin,
             'routePrefix' => $esAdmin ? 'admin' : 'gerente',
-            'configuracionSucursal' => $configuracion,
+            'configuracionSucursal' => $configuracionPayload,
             'categorias' => $categorias,
             'productos' => $productos,
             'historialCambios' => $historialCambios,
@@ -206,29 +215,34 @@ class ConfiguracionController extends Controller
         $despues = [
             'dia_corte' => $data['dia_corte'] ?? null,
             'hora_corte' => CorteService::HORA_CORTE_FIJA,
+            // Campos globales (se guardan en puntos_conf):
             'factor_divisor_puntos' => (int) $data['factor_divisor_puntos'],
             'multiplicador_puntos' => (int) $data['multiplicador_puntos'],
             'valor_punto_mxn' => (float) $data['valor_punto_mxn'],
         ];
 
         DB::transaction(function () use ($sucursalesObjetivo, $usuario, $despues) {
+            // 1) Actualizar config GLOBAL de puntos (1 sola vez, no por sucursal).
+            $puntosConf = PuntosConf::actual();
+            $puntosConf->update([
+                'factor_divisor_puntos' => $despues['factor_divisor_puntos'],
+                'multiplicador_puntos'  => $despues['multiplicador_puntos'],
+                'valor_punto_mxn'       => $despues['valor_punto_mxn'],
+                'actualizado_por_usuario_id' => $usuario->id,
+            ]);
+
+            // 2) Actualizar día de corte por sucursal.
             foreach ($sucursalesObjetivo as $sucursal) {
                 $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $usuario);
 
                 $antes = [
                     'dia_corte' => $configuracion->dia_corte,
                     'hora_corte' => $configuracion->hora_corte,
-                    'factor_divisor_puntos' => (int) $configuracion->factor_divisor_puntos,
-                    'multiplicador_puntos' => (int) $configuracion->multiplicador_puntos,
-                    'valor_punto_mxn' => (float) $configuracion->valor_punto_mxn,
                 ];
 
                 $configuracion->update([
                     'dia_corte' => $despues['dia_corte'],
                     'hora_corte' => $despues['hora_corte'],
-                    'factor_divisor_puntos' => $despues['factor_divisor_puntos'],
-                    'multiplicador_puntos' => $despues['multiplicador_puntos'],
-                    'valor_punto_mxn' => $despues['valor_punto_mxn'],
                     'actualizado_por_usuario_id' => $usuario->id,
                     'actualizado_en' => now(),
                 ]);
@@ -347,7 +361,6 @@ class ConfiguracionController extends Controller
             'nombre' => $nombre,
             'porcentaje_comision' => (float) $data['porcentaje_comision'],
             'puntos_por_cada_1200' => 3,
-            'valor_punto' => 2,
             'castigo_pct_atraso' => 20,
             'activo' => true,
             'creado_en' => now(),
@@ -1069,9 +1082,6 @@ class ConfiguracionController extends Controller
                 'porcentaje_comision_apertura' => 10,
                 'porcentaje_interes_quincenal' => 5,
                 'multa_incumplimiento_monto' => 300,
-                'factor_divisor_puntos' => 1200,
-                'multiplicador_puntos' => 3,
-                'valor_punto_mxn' => 2,
                 'categorias_config_json' => [],
                 'productos_config_json' => [],
                 'actualizado_por_usuario_id' => $usuario->id,

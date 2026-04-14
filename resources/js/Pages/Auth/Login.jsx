@@ -41,6 +41,21 @@ export default function Login({ status, canResetPassword }) {
 
     const submit = async (e) => {
         e.preventDefault();
+
+        let token = '';
+
+        if (RECAPTCHA_SITE_KEY && window.grecaptcha) {
+            try {
+                await new Promise((resolve) => window.grecaptcha.ready(resolve));
+                token = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'login' });
+            } catch (err) {
+                console.error('reCAPTCHA error:', err);
+            }
+        }
+
+        // transform inyecta el token al payload justo antes del POST,
+        // evitando el race condition de setData async + post inmediato.
+        transform((current) => ({ ...current, recaptcha_token: token }));
         post(route('login', {}, false));
     };
 

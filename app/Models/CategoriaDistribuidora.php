@@ -19,14 +19,12 @@ class CategoriaDistribuidora extends Model
         'nombre',
         'porcentaje_comision',
         'puntos_por_cada_1200',
-        'valor_punto',
         'castigo_pct_atraso',
         'activo'
     ];
 
     protected $casts = [
         'porcentaje_comision' => 'float',
-        'valor_punto' => 'decimal:2',
         'castigo_pct_atraso' => 'float',
         'activo' => 'boolean',
         'creado_en' => 'datetime',

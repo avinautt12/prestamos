@@ -13,12 +13,11 @@ use Illuminate\Support\Facades\Hash;
 class UsuariosSeeder extends Seeder
 {
     /**
-     * Crea 16 usuarios (15 operativos + 1 admin) distribuidos en las 3 sucursales de Torreon:
+     * Crea 15 usuarios operativos distribuidos en las 3 sucursales de Torreon:
      *   - 3 gerentes (1 por sucursal)
      *   - 3 coordinadores (1 por sucursal)
      *   - 6 verificadores (2 por sucursal)
      *   - 3 cajeras (1 por sucursal)
-     *   - 1 administrador
      *
      * Los usuarios de rol DISTRIBUIDORA se crean en DistribuidorasSeeder (Fase 3).
      *
@@ -27,17 +26,19 @@ class UsuariosSeeder extends Seeder
      */
     public function run(): void
     {
-        $passwordPlano = 'password123';
-        $password = Hash::make($passwordPlano);
-        $credenciales = [];
+        $password = Hash::make('password123');
 
         $usuarios = $this->definicionUsuarios();
 
         foreach ($usuarios as $u) {
-            $sucursal = Sucursal::where('codigo', $u['sucursal'])->first();
-            if (!$sucursal) {
-                $this->command?->warn("Sucursal {$u['sucursal']} no encontrada. Saltando {$u['nombre_usuario']}.");
-                continue;
+            $sucursalId = null;
+            if (!empty($u['sucursal'])) {
+                $sucursal = Sucursal::where('codigo', $u['sucursal'])->first();
+                if (!$sucursal) {
+                    $this->command?->warn("Sucursal {$u['sucursal']} no encontrada. Saltando {$u['nombre_usuario']}.");
+                    continue;
+                }
+                $sucursalId = $sucursal->id;
             }
 
             $rol = Rol::where('codigo', $u['rol'])->first();
@@ -82,7 +83,7 @@ class UsuariosSeeder extends Seeder
                 [
                     'usuario_id'  => $usuario->id,
                     'rol_id'      => $rol->id,
-                    'sucursal_id' => $sucursal->id,
+                    'sucursal_id' => $sucursalId,
                 ],
                 [
                     'asignado_en'  => now(),
@@ -90,31 +91,11 @@ class UsuariosSeeder extends Seeder
                     'es_principal' => true,
                 ]
             );
-
-            $credenciales[] = [
-                'usuario' => $u['nombre_usuario'],
-                'password' => $passwordPlano,
-                'rol' => $u['rol'],
-                'sucursal' => $u['sucursal'],
-            ];
         }
 
-        $this->command?->info('16 usuarios creados (15 operativos + 1 admin).');
-        $this->command?->info('Password comun: ' . $passwordPlano);
-        $this->command?->info('Alias de sucursal Centro: gerente, coordinador, verificador, cajera');
-
-        if ($this->command && !empty($credenciales)) {
-            $this->command->line('--- Credenciales usuarios operativos ---');
-            foreach ($credenciales as $credencial) {
-                $this->command->line(sprintf(
-                    '%s | password: %s | rol: %s | sucursal: %s',
-                    $credencial['usuario'],
-                    $credencial['password'],
-                    $credencial['rol'],
-                    $credencial['sucursal']
-                ));
-            }
-        }
+        $this->command?->info('16 usuarios creados: 1 admin global + 15 operativos (3 sucursales).');
+        $this->command?->info('Password comun: password123');
+        $this->command?->info('Alias: admin / gerente / coordinador / verificador / cajera (los 4 de Centro)');
     }
 
     /**
@@ -124,6 +105,22 @@ class UsuariosSeeder extends Seeder
     private function definicionUsuarios(): array
     {
         return [
+            // ---------- ADMIN (global, sin sucursal) ----------
+            [
+                'nombre_usuario'   => 'admin',
+                'rol'              => 'ADMIN',
+                'sucursal'         => null,
+                'primer_nombre'    => 'Admin',
+                'apellido_paterno' => 'Sistema',
+                'apellido_materno' => 'Prestamofacil',
+                'sexo'             => 'M',
+                'fecha_nacimiento' => '1980-01-01',
+                'curp'             => 'SIPA800101HCLRRD00',
+                'rfc'              => 'SIPA800101000',
+                'telefono'         => '8711000000',
+                'correo'           => 'admin@prestamofacil.test',
+            ],
+
             // ---------- GERENTES ----------
             [
                 'nombre_usuario'   => 'gerente',
@@ -340,22 +337,6 @@ class UsuariosSeeder extends Seeder
                 'rfc'              => 'SIHM840708P35',
                 'telefono'         => '8711400003',
                 'correo'           => 'cajera.trc_sur@prestamofacil.test',
-            ],
-
-            // ---------- ADMIN ----------
-            [
-                'nombre_usuario'   => 'admin',
-                'rol'              => 'ADMIN',
-                'sucursal'         => 'SUC-TRC-CENTRO',
-                'primer_nombre'    => 'Admin',
-                'apellido_paterno' => 'Sistema',
-                'apellido_materno' => 'Principal',
-                'sexo'             => 'OTRO',
-                'fecha_nacimiento' => '1980-01-01',
-                'curp'             => 'SIPA800101HCLNRD16',
-                'rfc'              => 'SIPA800101Q12',
-                'telefono'         => '8711500001',
-                'correo'           => 'admin@prestamofacil.test',
             ],
         ];
     }
