@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\ActivacionDistribuidoraController;
 use App\Http\Controllers\Coordinador\SolicitudController;
 use App\Http\Controllers\Gerente\AprobacionController;
 use App\Http\Controllers\Gerente\DashboardController;
@@ -19,6 +20,13 @@ Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
+
+    Route::get('/distribuidora/activar/{token}', [ActivacionDistribuidoraController::class, 'show'])
+        ->middleware('throttle:30,1')
+        ->name('distribuidora.activacion.show');
+    Route::post('/distribuidora/activar/{token}', [ActivacionDistribuidoraController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('distribuidora.activacion.store');
 });
 
 // Rutas protegidas
@@ -35,15 +43,12 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // ============================================================
-// RUTAS POR ROL - GERENTE
+// RUTAS POR ROL - ADMIN
 // ============================================================
-Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')->group(function () {
-    Route::get('/dashboard', [App\Http\Controllers\Gerente\DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/reportes', [App\Http\Controllers\Gerente\DashboardController::class, 'reportes'])->name('reportes');
-    Route::get('/cortes', [App\Http\Controllers\Gerente\CorteController::class, 'index'])->name('cortes');
-    Route::post('/cortes/{corte}/cerrar-manual', [App\Http\Controllers\Gerente\CorteController::class, 'cerrarManual'])
-        ->middleware('gerente.secure-action')
-        ->name('cortes.cerrar-manual');
+Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/reportes', [App\Http\Controllers\Admin\DashboardController::class, 'reportes'])->name('reportes');
+
     Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
     Route::put('/configuraciones/sucursal', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarSucursal'])->name('configuraciones.sucursal.update');
     Route::post('/configuraciones/categorias', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearCategoria'])->name('configuraciones.categorias.store');
@@ -57,6 +62,26 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
     Route::put('/configuraciones/productos/{producto}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarProducto'])->name('configuraciones.productos.activar');
     Route::post('/configuraciones/productos/{producto}/restaurar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'restaurarProducto'])->name('configuraciones.productos.restaurar');
     Route::delete('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarProducto'])->name('configuraciones.productos.delete');
+
+    Route::get('/usuarios', [App\Http\Controllers\Admin\UsuarioController::class, 'index'])->name('usuarios.index');
+    Route::post('/usuarios', [App\Http\Controllers\Admin\UsuarioController::class, 'store'])->name('usuarios.store');
+    Route::put('/usuarios/{usuario}/rol', [App\Http\Controllers\Admin\UsuarioController::class, 'actualizarRol'])->name('usuarios.rol.update');
+    Route::patch('/usuarios/{usuario}/estado', [App\Http\Controllers\Admin\UsuarioController::class, 'actualizarEstado'])->name('usuarios.estado.update');
+    Route::post('/usuarios/{usuario}/reenviar-activacion', [App\Http\Controllers\Admin\UsuarioController::class, 'reenviarActivacionDistribuidora'])->name('usuarios.reenviar-activacion');
+});
+
+// ============================================================
+// RUTAS POR ROL - GERENTE
+// ============================================================
+Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')->group(function () {
+    Route::get('/dashboard', [App\Http\Controllers\Gerente\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/reportes', [App\Http\Controllers\Gerente\DashboardController::class, 'reportes'])->name('reportes');
+    Route::get('/cortes', [App\Http\Controllers\Gerente\CorteController::class, 'index'])->name('cortes');
+    Route::post('/cortes/{corte}/cerrar-manual', [App\Http\Controllers\Gerente\CorteController::class, 'cerrarManual'])
+        ->middleware('gerente.secure-action')
+        ->name('cortes.cerrar-manual');
+    Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
+    Route::get('/productos', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('productos');
     Route::get('/distribuidoras', [App\Http\Controllers\Gerente\AprobacionController::class, 'index'])->name('distribuidoras');
     Route::get('/distribuidoras/rechazadas', [App\Http\Controllers\Gerente\AprobacionController::class, 'rechazadas'])->name('distribuidoras.rechazadas');
     Route::get('/distribuidoras/{id}', [App\Http\Controllers\Gerente\AprobacionController::class, 'show'])->name('distribuidoras.show');
@@ -79,6 +104,9 @@ Route::middleware(['auth', 'role:COORDINADOR'])->prefix('coordinador')->name('co
     // Gestión de clientes y distribuidoras
     Route::get('/clientes', [App\Http\Controllers\Coordinador\DashboardController::class, 'clientes'])->name('clientes');
     Route::get('/mis-distribuidoras', [App\Http\Controllers\Coordinador\DashboardController::class, 'misDistribuidoras'])->name('mis-distribuidoras');
+    Route::get('/traspasos', [App\Http\Controllers\Coordinador\TraspasoClienteController::class, 'index'])->name('traspasos.index');
+    Route::post('/traspasos/{traspaso}/aprobar', [App\Http\Controllers\Coordinador\TraspasoClienteController::class, 'aprobar'])->name('traspasos.aprobar');
+    Route::post('/traspasos/{traspaso}/rechazar', [App\Http\Controllers\Coordinador\TraspasoClienteController::class, 'rechazar'])->name('traspasos.rechazar');
 
     // Gestión de solicitudes (nuevas rutas)
     Route::get('/solicitudes', [SolicitudController::class, 'index'])->name('solicitudes.index');
@@ -149,6 +177,10 @@ Route::middleware(['auth', 'role:DISTRIBUIDORA'])->prefix('distribuidora')->name
     Route::get('/puntos', [App\Http\Controllers\Distribuidora\DashboardController::class, 'puntos'])->name('puntos');
     Route::post('/puntos/canjear', [App\Http\Controllers\Distribuidora\DashboardController::class, 'canjearPuntos'])->name('puntos.canjear');
     Route::get('/clientes', [App\Http\Controllers\Distribuidora\DashboardController::class, 'misClientes'])->name('clientes');
+    Route::get('/traspasos', [App\Http\Controllers\Distribuidora\TraspasoClienteController::class, 'index'])->name('traspasos.index');
+    Route::post('/traspasos', [App\Http\Controllers\Distribuidora\TraspasoClienteController::class, 'store'])->name('traspasos.store');
+    Route::post('/traspasos/{traspaso}/confirmar', [App\Http\Controllers\Distribuidora\TraspasoClienteController::class, 'confirmar'])->name('traspasos.confirmar');
+    Route::post('/traspasos/{traspaso}/cancelar', [App\Http\Controllers\Distribuidora\TraspasoClienteController::class, 'cancelar'])->name('traspasos.cancelar');
     Route::get('/estado-cuenta', [App\Http\Controllers\Distribuidora\DashboardController::class, 'estadoCuenta'])->name('estado-cuenta');
     Route::post('/relaciones/{relacion}/reportar-pago', [App\Http\Controllers\Distribuidora\DashboardController::class, 'reportarPago'])->name('relaciones.reportar-pago');
 });
@@ -160,6 +192,8 @@ Route::middleware(['auth'])->get('/dashboard', function () {
     $rol = $user->getRolNombreAttribute();
 
     switch ($rol) {
+        case 'admin':
+            return redirect()->route('admin.dashboard');
         case 'gerente':
             return redirect()->route('gerente.dashboard');
         case 'coordinador':

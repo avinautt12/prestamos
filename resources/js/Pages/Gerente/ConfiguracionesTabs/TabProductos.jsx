@@ -32,6 +32,7 @@ export default function TabProductos({
     accionesProducto,
     nuevoProductoForm,
     crearProducto,
+    soloLectura = false,
 }) {
     const [busqueda, setBusqueda] = useState('');
     const [pagina, setPagina] = useState(1);
@@ -112,17 +113,19 @@ export default function TabProductos({
                 </div>
             </div>
 
-            <div className="flex items-center justify-between">
-                <button
-                    type="button"
-                    className="fin-btn-primary"
-                    onClick={() => setExpandirFormulario(!expandirFormulario)}
-                >
-                    {expandirFormulario ? '✕ Cancelar' : '+ Nuevo producto'}
-                </button>
-            </div>
+            {!soloLectura && (
+                <div className="flex items-center justify-between">
+                    <button
+                        type="button"
+                        className="fin-btn-primary"
+                        onClick={() => setExpandirFormulario(!expandirFormulario)}
+                    >
+                        {expandirFormulario ? '✕ Cancelar' : '+ Nuevo producto'}
+                    </button>
+                </div>
+            )}
 
-            {expandirFormulario && (
+            {expandirFormulario && !soloLectura && (
                 <form className="p-4 border-2 border-emerald-300 rounded-lg bg-emerald-50" onSubmit={crearProducto}>
                     <p className="mb-3 text-sm font-semibold text-gray-900">Agregar nuevo producto</p>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -230,7 +233,7 @@ export default function TabProductos({
                                     </span>
                                 </div>
                                 <div className="flex flex-col items-end gap-2">
-                                    {!eliminado ? (
+                                    {!eliminado && !soloLectura ? (
                                         <button
                                             type="button"
                                             className="px-3 py-2 text-xs fin-btn-secondary"
@@ -238,7 +241,7 @@ export default function TabProductos({
                                         >
                                             {abierto ? 'Ocultar' : 'Editar'}
                                         </button>
-                                    ) : (
+                                    ) : !soloLectura ? (
                                         <button
                                             type="button"
                                             className="px-3 py-2 text-xs fin-btn-secondary"
@@ -247,7 +250,7 @@ export default function TabProductos({
                                         >
                                             {accionesProducto[producto.id] || 'Restaurar'}
                                         </button>
-                                    )}
+                                    ) : null}
                                 </div>
                             </div>
 
@@ -379,7 +382,7 @@ export default function TabProductos({
 
                             {abierto && !eliminado && (
                                 <div className="flex justify-end mt-3">
-                                    <div className="flex flex-wrap gap-2">
+                                    {!soloLectura && <div className="flex flex-wrap gap-2">
                                         <button
                                             type="button"
                                             className="fin-btn-secondary"
@@ -404,7 +407,7 @@ export default function TabProductos({
                                         >
                                             Eliminar
                                         </button>
-                                    </div>
+                                    </div>}
                                 </div>
                             )}
                         </div>

@@ -209,6 +209,14 @@ class Usuario extends Authenticatable
             ->exists();
     }
 
+    public function tieneCombinacionRolesIncompatible(): bool
+    {
+        return $this->roles()
+            ->wherePivot('revocado_en', null)
+            ->whereIn('codigo', ['ADMIN', 'GERENTE'])
+            ->count() > 1;
+    }
+
     /**
      * Override save method to handle timestamps manually
      * 

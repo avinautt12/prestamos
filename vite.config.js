@@ -33,8 +33,13 @@ export default defineConfig({
                 cleanupOutdatedCaches: true,
                 skipWaiting: true,
                 clientsClaim: true,
-                globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
+                // No cacheamos HTML para evitar tokens CSRF obsoletos en navegación.
+                globPatterns: ['**/*.{js,css,ico,png,svg,webp,woff2}'],
                 runtimeCaching: [
+                    {
+                        urlPattern: ({ request }) => request.mode === 'navigate',
+                        handler: 'NetworkOnly',
+                    },
                     {
                         urlPattern: ({ request, url }) => request.destination === 'image' && url.origin === self.location.origin,
                         handler: 'CacheFirst',

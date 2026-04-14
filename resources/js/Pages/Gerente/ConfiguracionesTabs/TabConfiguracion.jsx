@@ -5,12 +5,19 @@ export default function TabConfiguracion({
     guardarConfiguracionSucursal,
     guardandoSucursal,
     generalError,
+    esAdmin = false,
 }) {
     return (
         <form className="space-y-4 fin-card" onSubmit={guardarConfiguracionSucursal}>
             <div>
-                <h3 className="font-semibold text-gray-900">1) Configuración por sucursal</h3>
-                <p className="mt-1 text-xs text-gray-500">Aquí ajustas corte, seguro y reglas de puntos de la sucursal.</p>
+                <h3 className="font-semibold text-gray-900">
+                    {esAdmin ? '1) Configuración global' : '1) Configuración por sucursal'}
+                </h3>
+                <p className="mt-1 text-xs text-gray-500">
+                    {esAdmin
+                        ? 'Aquí ajustas corte, seguro y reglas de puntos que se sincronizan en todas las sucursales activas.'
+                        : 'Aquí ajustas corte, seguro y reglas de puntos de la sucursal.'}
+                </p>
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -87,7 +94,7 @@ export default function TabConfiguracion({
                 </div>
             )}
             <button type="submit" className="mt-4 fin-btn-primary" disabled={guardandoSucursal}>
-                {guardandoSucursal ? 'Guardando configuración...' : 'Guardar configuración de sucursal'}
+                {guardandoSucursal ? 'Guardando configuración...' : (esAdmin ? 'Guardar configuración global' : 'Guardar configuración de sucursal')}
             </button>
         </form>
     );

@@ -11,6 +11,25 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
         elegibilidad: filtros.elegibilidad || 'TODOS',
     });
 
+    const copiarCodigo = async (codigo) => {
+        if (!codigo) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(codigo);
+            window.alert(`Codigo copiado: ${codigo}`);
+        } catch (error) {
+            const input = document.createElement('input');
+            input.value = codigo;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            window.alert(`Codigo copiado: ${codigo}`);
+        }
+    };
+
     const submitFilters = (event) => {
         event.preventDefault();
         router.get(route('distribuidora.clientes'), form, { preserveState: true, preserveScroll: true, replace: true });
@@ -109,7 +128,10 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                         <div className="mt-6 space-y-3">
                             {clientes.map((cliente) => (
                                 <div key={cliente.id} className="overflow-hidden border rounded-xl border-gray-200 bg-white">
+                                    
+                                    {/* CONTENEDOR DE LA FILA (Avatar + Info + Acciones) */}
                                     <div className="flex items-center gap-4 p-4">
+                                        
                                         {/* Avatar con iniciales */}
                                         <div className={`flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold ${
                                             cliente.puede_solicitar_vale
@@ -121,19 +143,32 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                             {iniciales(cliente.nombre)}
                                         </div>
 
-                                        {/* Info principal */}
+                                        {/* Info del Cliente */}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <p className="font-semibold text-gray-900 truncate">{cliente.nombre}</p>
+                                                <span className={statusBadgeClass(cliente.estado_relacion)}>Relación: {cliente.estado_relacion}</span>
                                                 <span className={statusBadgeClass(cliente.estado_cliente)}>Cliente: {cliente.estado_cliente}</span>
                                             </div>
-                                            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1 text-sm text-gray-500">
-                                                <span>Vales: <span className="font-semibold text-gray-700">{formatNumber(cliente.vales_abiertos)}</span></span>
-                                                <span>Saldo: <span className="font-semibold text-gray-700">{formatCurrency(cliente.saldo_pendiente)}</span></span>
+                                            <div className="grid grid-cols-1 gap-y-1 mt-2 text-sm text-gray-600">
+                                                <span className="flex items-center gap-2">
+                                                    Codigo cliente: <span className="font-semibold text-gray-700">{cliente.codigo_cliente || 'Sin codigo'}</span>
+                                                    {cliente.codigo_cliente && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => copiarCodigo(cliente.codigo_cliente)}
+                                                            className="inline-flex items-center rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                                        >
+                                                            Copiar
+                                                        </button>
+                                                    )}
+                                                </span>
+                                                <span>Vales abiertos: <span className="font-semibold text-gray-700">{formatNumber(cliente.vales_abiertos)}</span></span>
+                                                <span>Saldo pendiente: <span className="font-semibold text-gray-700">{formatCurrency(cliente.saldo_pendiente)}</span></span>
                                                 {cliente.siguiente_vencimiento && (
-                                                    <span>Vence: <span className="font-semibold text-gray-700">{formatDate(cliente.siguiente_vencimiento)}</span></span>
+                                                    <span>Siguiente vencimiento: <span className="font-semibold text-gray-700">{formatDate(cliente.siguiente_vencimiento)}</span></span>
                                                 )}
-                                                <span>Desde: <span className="font-semibold text-gray-700">{formatDate(cliente.vinculado_en)}</span></span>
+                                                <span>Vinculado: <span className="font-semibold text-gray-700">{formatDate(cliente.vinculado_en)}</span></span>
                                             </div>
                                         </div>
 
@@ -148,9 +183,10 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                                 </Link>
                                             )}
                                         </div>
-                                    </div>
+                                        
+                                    </div> {/* <--- AQUÍ SE CIERRA LA FILA CORRECTAMENTE */}
 
-                                    {/* Alertas (solo si aplica) */}
+                                    {/* Alertas (Aparecen debajo de la fila) */}
                                     {cliente.bloqueado_por_parentesco && (
                                         <div className="px-4 py-2 text-sm border-t bg-amber-50 border-amber-100 text-amber-700">
                                             Bloqueado por parentesco — {cliente.observaciones_parentesco || 'Relación sensible marcada para revisión.'}

@@ -9,6 +9,8 @@ use App\Providers\RouteServiceProvider;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -47,6 +49,13 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        if ($usuario->tieneCombinacionRolesIncompatible()) {
+            Auth::logout();
+            return back()->withErrors([
+                'nombre_usuario' => 'Tu cuenta tiene una configuración de roles inválida (Admin + Gerente). Contacta al administrador.',
+            ]);
+        }
+
         // Compatibilidad con pruebas base de Laravel: usuarios sin persona salen directo al dashboard.
         if (!$usuario->persona_id) {
             return redirect()->intended(RouteServiceProvider::HOME);
@@ -63,6 +72,13 @@ class AuthenticatedSessionController extends Controller
             Auth::logout();
             return back()->withErrors([
                 'nombre_usuario' => 'No tienes un rol asignado. Contacta al administrador.',
+            ]);
+        }
+
+        if ($rolPrincipal->codigo === 'DISTRIBUIDORA' && $this->tieneActivacionPendiente((int) $usuario->id)) {
+            Auth::logout();
+            return back()->withErrors([
+                'nombre_usuario' => 'Tu cuenta aun no esta activada. Usa el enlace de activacion que te compartio tu gerente.',
             ]);
         }
 
@@ -90,6 +106,8 @@ class AuthenticatedSessionController extends Controller
     protected function redirectBasedOnRole(string $rolCodigo): RedirectResponse
     {
         switch ($rolCodigo) {
+            case 'ADMIN':
+                return redirect()->intended(route('admin.dashboard'));
             case 'GERENTE':
                 return redirect()->intended(route('gerente.dashboard'));
             case 'COORDINADOR':
@@ -103,5 +121,17 @@ class AuthenticatedSessionController extends Controller
             default:
                 return redirect()->intended(route('dashboard'));
         }
+    }
+
+    private function tieneActivacionPendiente(int $usuarioId): bool
+    {
+        if (!Schema::hasTable('activaciones_distribuidora')) {
+            return false;
+        }
+
+        return DB::table('activaciones_distribuidora')
+            ->where('usuario_id', $usuarioId)
+            ->whereNull('usado_en')
+            ->exists();
     }
 }
