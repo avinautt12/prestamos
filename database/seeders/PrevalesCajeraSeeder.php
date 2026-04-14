@@ -73,7 +73,7 @@ class PrevalesCajeraSeeder extends Seeder
                         'vehiculos_json' => ['tiene_vehiculo' => $i === 0],
                         'resultado_buro' => $scenario['estado'] === Solicitud::ESTADO_VERIFICADA ? 'APTO' : 'SIN_REPORTE',
                         'prevale_aprobado' => false,
-                        'fotos_casa_completas' => $scenario['cuenta'],
+                        // 'fotos_casa_completas' => $scenario['cuenta'],
                         'enviada_en' => now()->subDays(2 + $i),
                         'tomada_en' => now()->subDay(),
                         'revisada_en' => $scenario['estado'] === Solicitud::ESTADO_VERIFICADA ? now() : null,
