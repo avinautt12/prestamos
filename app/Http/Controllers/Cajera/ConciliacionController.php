@@ -8,6 +8,7 @@ use App\Models\Conciliacion;
 use App\Models\MovimientoBancario;
 use App\Models\PagoDistribuidora;
 use App\Models\RelacionCorte;
+use App\Models\Vale;
 use App\Models\Sucursal;
 use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
@@ -791,6 +792,8 @@ class ConciliacionController extends Controller
 
     private function actualizarEstadoRelacionPorPagos(RelacionCorte $relacion): void
     {
+        $estadoAnterior = $relacion->estado;
+
         $montoConciliado = (float) PagoDistribuidora::query()
             ->where('relacion_corte_id', $relacion->id)
             ->where('estado', PagoDistribuidora::ESTADO_CONCILIADO)
@@ -809,6 +812,25 @@ class ConciliacionController extends Controller
         }
 
         $relacion->save();
+
+        if ($estadoAnterior !== RelacionCorte::ESTADO_PAGADA && $relacion->estado === RelacionCorte::ESTADO_PAGADA) {
+            $this->restaurarCreditoDistribuidoraPorRelacion($relacion);
+        }
+    }
+
+    private function restaurarCreditoDistribuidoraPorRelacion(RelacionCorte $relacion): void
+    {
+        $relacion->loadMissing('partidas.vale');
+
+        $creditoArestaurar = (float) $relacion->partidas->sum(function ($partida) {
+            return (float) ($partida->vale?->monto_principal ?? 0);
+        });
+
+        if ($creditoArestaurar <= 0) {
+            return;
+        }
+
+        $relacion->distribuidora?->increment('credito_disponible', $creditoArestaurar);
     }
 
     private function relacionYaTienePagoConciliado(int $relacionId): bool

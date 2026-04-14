@@ -8,6 +8,7 @@ import {
     faRightFromBracket,
     faXmark,
     faHouse,
+    faChartLine,
     faFileLines,
     faFileCirclePlus,
     faUsers,
@@ -102,12 +103,14 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
     if (auth.user?.rol_nombre === 'coordinador') {
         navigation = [
             { name: 'Dashboard', href: route('coordinador.dashboard'), icon: faHouse, active: route().current('coordinador.dashboard') },
+            { name: 'Reportes', href: route('coordinador.reportes'), icon: faChartLine, active: route().current('coordinador.reportes') },
             { name: 'Nueva Solicitud', href: route('coordinador.solicitudes.create'), icon: faFileCirclePlus, active: route().current('coordinador.solicitudes.create') },
             { name: 'Solicitudes', href: route('coordinador.solicitudes.index'), icon: faFileLines, active: route().current('coordinador.solicitudes.*') },
             { name: 'Clientes', href: route('coordinador.clientes'), icon: faUsers, active: route().current('coordinador.clientes') },
             { name: 'Mis Distribuidoras', href: route('coordinador.mis-distribuidoras'), icon: faPeopleGroup, active: route().current('coordinador.mis-distribuidoras') }
         ];
         shortcuts = [
+            { name: 'Reportes', href: route('coordinador.reportes') },
             { name: 'Captura Rápida', href: route('coordinador.solicitudes.create') },
             { name: 'Ver Cartera', href: route('coordinador.clientes') },
         ];
@@ -138,19 +141,19 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
     }
 
     return (
-        <div className="relative flex min-h-screen" style={{ backgroundColor: '#F8FAFC' }}>
+        <div className="relative flex min-h-screen bg-[radial-gradient(circle_at_top_right,_#d1fae5_0%,_#f8fafc_40%,_#eef2ff_100%)]">
             {sidebarOpen && (
                 <button
                     type="button"
                     aria-label="Cerrar menú"
-                    className="fixed inset-0 z-20 bg-black/20"
+                    className="fixed inset-0 z-20 bg-emerald-950/10 backdrop-blur-[1px]"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
 
-            <aside className={`fixed top-0 left-0 z-30 h-full w-72 bg-white border-r transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} style={{ borderColor: '#E5E7EB' }}>
+            <aside className={`fixed top-0 left-0 z-30 h-full w-72 bg-white/92 border-r transition-transform duration-300 backdrop-blur ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} style={{ borderColor: '#D1FAE5' }}>
                 <div className="h-full overflow-y-auto">
-                    <div className="p-4 border-b" style={{ borderColor: '#E5E7EB' }}>
+                    <div className="p-4 border-b" style={{ borderColor: '#D1FAE5' }}>
                         <div className="flex items-center justify-between">
                             <Link href={homeRoute} onClick={() => setSidebarOpen(false)}>
                                 <ApplicationLogo className="block w-auto h-8 text-green-600 fill-current" />
@@ -189,7 +192,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
                     </nav>
 
                     <div className="px-4 pb-4">
-                        <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                        <div className="p-3 border border-emerald-100 rounded-lg bg-emerald-50/60">
                             <p className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase">Atajos</p>
                             <div className="space-y-1">
                                 {shortcuts.map((shortcut) => (
@@ -209,7 +212,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
             </aside>
 
             <div className="flex-1 min-w-0">
-                <header className="sticky top-0 z-10 bg-white border-b" style={{ borderColor: '#E5E7EB' }}>
+                <header className="sticky top-0 z-10 bg-white/90 border-b backdrop-blur" style={{ borderColor: '#D1FAE5' }}>
                     <div className="flex items-center justify-between px-4 py-3">
                         <button
                             onClick={() => setSidebarOpen(!sidebarOpen)}

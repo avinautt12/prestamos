@@ -10,18 +10,25 @@ use App\Models\Sucursal;
 use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
 use App\Models\Vale;
+use App\Services\Distribuidora\DistribuidoraNotificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class CorteService
 {
+    public const HORA_CORTE_FIJA = '18:00:00';
+
+    public function __construct(
+        private readonly DistribuidoraNotificationService $distribuidoraNotificationService
+    ) {}
+
     public function sincronizarProximoCorteProgramado(Sucursal $sucursal, SucursalConfiguracion $configuracion): ?Corte
     {
         $diaCorte = $configuracion->dia_corte;
-        $horaCorte = $configuracion->hora_corte;
+        $horaCorte = self::HORA_CORTE_FIJA;
 
-        if (!$diaCorte || !$horaCorte) {
+        if (!$diaCorte) {
             return null;
         }
 
@@ -45,6 +52,25 @@ class CorteService
 
     public function obtenerProximoCorte(Sucursal $sucursal): ?Corte
     {
+        $configuracion = SucursalConfiguracion::query()->where('sucursal_id', $sucursal->id)->first();
+
+        if ($configuracion && $configuracion->dia_corte) {
+            $this->sincronizarProximoCorteProgramado($sucursal, $configuracion);
+        }
+
+        $proximoConfig = Corte::query()
+            ->where('sucursal_id', $sucursal->id)
+            ->where('estado', Corte::ESTADO_PROGRAMADO)
+            ->where('observaciones', 'AUTO_CONFIG_SUCURSAL')
+            ->whereDate('fecha_programada', '>=', today())
+            ->orderBy('fecha_programada')
+            ->first();
+
+        if ($proximoConfig) {
+            $proximoConfig->setAttribute('es_atrasado', false);
+            return $proximoConfig;
+        }
+
         $proximo = Corte::query()
             ->where('sucursal_id', $sucursal->id)
             ->where('estado', Corte::ESTADO_PROGRAMADO)
@@ -76,9 +102,19 @@ class CorteService
         $inicio = $mes->copy()->startOfMonth();
         $fin = $mes->copy()->endOfMonth();
 
+        $configuracion = SucursalConfiguracion::query()->where('sucursal_id', $sucursal->id)->first();
+        if ($configuracion && $configuracion->dia_corte) {
+            $this->sincronizarProximoCorteProgramado($sucursal, $configuracion);
+        }
+
         return Corte::query()
             ->where('sucursal_id', $sucursal->id)
             ->whereBetween('fecha_programada', [$inicio, $fin])
+            ->where(function ($query) {
+                $query->where('observaciones', 'AUTO_CONFIG_SUCURSAL')
+                    ->orWhereNull('observaciones')
+                    ->orWhere('estado', Corte::ESTADO_EJECUTADO);
+            })
             ->orderBy('fecha_programada')
             ->get();
     }
@@ -154,8 +190,17 @@ class CorteService
             }
 
             DB::transaction(function () use (
-                $distribuidora, $vales, $corte, $sucursalCodigo, $year, $ymd,
-                $fechaLimite, $fechaInicioAnticipado, $fechaFinAnticipado, &$consecutivo, &$relacionesCreadas
+                $distribuidora,
+                $vales,
+                $corte,
+                $sucursalCodigo,
+                $year,
+                $ymd,
+                $fechaLimite,
+                $fechaInicioAnticipado,
+                $fechaFinAnticipado,
+                &$consecutivo,
+                &$relacionesCreadas
             ) {
                 $totalComision = 0.0;
                 $totalPago = 0.0;
@@ -217,6 +262,37 @@ class CorteService
                     PartidaRelacionCorte::create($partida);
                 }
 
+                DB::afterCommit(function () use ($corte, $distribuidora, $relacion) {
+                    if ($corte->tipo_corte === Corte::TIPO_PUNTOS) {
+                        $this->distribuidoraNotificationService->notificar(
+                            $distribuidora,
+                            'CORTE_PUNTOS_LISTO',
+                            'Tu corte de puntos esta listo',
+                            "Se genero el corte de puntos {$relacion->numero_relacion}. Revisa tus movimientos de puntos.",
+                            [
+                                'corte_id' => (int) $corte->id,
+                                'relacion_corte_id' => (int) $relacion->id,
+                                'numero_relacion' => (string) $relacion->numero_relacion,
+                            ]
+                        );
+
+                        return;
+                    }
+
+                    $this->distribuidoraNotificationService->notificar(
+                        $distribuidora,
+                        'CORTE_LISTO',
+                        'Tu corte esta listo',
+                        "Se genero tu relacion {$relacion->numero_relacion} por un total de $" . number_format((float) $relacion->total_a_pagar, 2) . '.',
+                        [
+                            'corte_id' => (int) $corte->id,
+                            'relacion_corte_id' => (int) $relacion->id,
+                            'numero_relacion' => (string) $relacion->numero_relacion,
+                            'total_a_pagar' => (float) $relacion->total_a_pagar,
+                        ]
+                    );
+                });
+
                 $relacionesCreadas++;
             });
         }
@@ -226,12 +302,13 @@ class CorteService
 
     private function calcularFechaProgramada(int $diaCorte, string $horaCorte): Carbon
     {
+        $horaNormalizada = $this->normalizarHoraCorte($horaCorte);
         $ahora = now();
         $diasMesActual = $ahora->copy()->endOfMonth()->day;
 
         $fechaProgramada = $ahora->copy()
             ->day(min($diaCorte, $diasMesActual))
-            ->setTimeFromTimeString($horaCorte . ':00');
+            ->setTimeFromTimeString($horaNormalizada);
 
         if ($fechaProgramada->lessThanOrEqualTo($ahora)) {
             $siguienteMes = $ahora->copy()->addMonthNoOverflow();
@@ -239,9 +316,28 @@ class CorteService
 
             $fechaProgramada = $siguienteMes
                 ->day(min($diaCorte, $diasSiguienteMes))
-                ->setTimeFromTimeString($horaCorte . ':00');
+                ->setTimeFromTimeString($horaNormalizada);
         }
 
         return $fechaProgramada;
+    }
+
+    private function normalizarHoraCorte(string $horaCorte): string
+    {
+        $hora = trim($horaCorte);
+
+        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $hora) === 1) {
+            return $hora;
+        }
+
+        if (preg_match('/^\d{2}:\d{2}$/', $hora) === 1) {
+            return $hora . ':00';
+        }
+
+        try {
+            return Carbon::parse($hora)->format('H:i:s');
+        } catch (\Throwable) {
+            return '18:00:00';
+        }
     }
 }

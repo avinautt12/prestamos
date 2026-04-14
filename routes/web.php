@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\ActivacionDistribuidoraController;
 use App\Http\Controllers\Coordinador\SolicitudController;
 use App\Http\Controllers\Gerente\AprobacionController;
 use App\Http\Controllers\Gerente\DashboardController;
@@ -19,6 +20,13 @@ Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
+
+    Route::get('/distribuidora/activar/{token}', [ActivacionDistribuidoraController::class, 'show'])
+        ->middleware('throttle:30,1')
+        ->name('distribuidora.activacion.show');
+    Route::post('/distribuidora/activar/{token}', [ActivacionDistribuidoraController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('distribuidora.activacion.store');
 });
 
 // Rutas protegidas
@@ -35,6 +43,34 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // ============================================================
+// RUTAS POR ROL - ADMIN
+// ============================================================
+Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/reportes', [App\Http\Controllers\Admin\DashboardController::class, 'reportes'])->name('reportes');
+
+    Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
+    Route::put('/configuraciones/sucursal', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarSucursal'])->name('configuraciones.sucursal.update');
+    Route::post('/configuraciones/categorias', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearCategoria'])->name('configuraciones.categorias.store');
+    Route::put('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarCategoria'])->name('configuraciones.categorias.update');
+    Route::put('/configuraciones/categorias/{categoria}/inactivar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'inactivarCategoria'])->name('configuraciones.categorias.inactivar');
+    Route::put('/configuraciones/categorias/{categoria}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarCategoria'])->name('configuraciones.categorias.activar');
+    Route::delete('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarCategoria'])->name('configuraciones.categorias.delete');
+    Route::put('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarProducto'])->name('configuraciones.productos.update');
+    Route::post('/configuraciones/productos', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearProducto'])->name('configuraciones.productos.store');
+    Route::put('/configuraciones/productos/{producto}/inactivar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'inactivarProducto'])->name('configuraciones.productos.inactivar');
+    Route::put('/configuraciones/productos/{producto}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarProducto'])->name('configuraciones.productos.activar');
+    Route::post('/configuraciones/productos/{producto}/restaurar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'restaurarProducto'])->name('configuraciones.productos.restaurar');
+    Route::delete('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarProducto'])->name('configuraciones.productos.delete');
+
+    Route::get('/usuarios', [App\Http\Controllers\Admin\UsuarioController::class, 'index'])->name('usuarios.index');
+    Route::post('/usuarios', [App\Http\Controllers\Admin\UsuarioController::class, 'store'])->name('usuarios.store');
+    Route::put('/usuarios/{usuario}/rol', [App\Http\Controllers\Admin\UsuarioController::class, 'actualizarRol'])->name('usuarios.rol.update');
+    Route::patch('/usuarios/{usuario}/estado', [App\Http\Controllers\Admin\UsuarioController::class, 'actualizarEstado'])->name('usuarios.estado.update');
+    Route::post('/usuarios/{usuario}/reenviar-activacion', [App\Http\Controllers\Admin\UsuarioController::class, 'reenviarActivacionDistribuidora'])->name('usuarios.reenviar-activacion');
+});
+
+// ============================================================
 // RUTAS POR ROL - GERENTE
 // ============================================================
 Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')->group(function () {
@@ -45,13 +81,7 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
         ->middleware('gerente.secure-action')
         ->name('cortes.cerrar-manual');
     Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
-    Route::put('/configuraciones/sucursal', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarSucursal'])->name('configuraciones.sucursal.update');
-    Route::post('/configuraciones/categorias', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearCategoria'])->name('configuraciones.categorias.store');
-    Route::put('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarCategoria'])->name('configuraciones.categorias.update');
-    Route::put('/configuraciones/categorias/{categoria}/inactivar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'inactivarCategoria'])->name('configuraciones.categorias.inactivar');
-    Route::put('/configuraciones/categorias/{categoria}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarCategoria'])->name('configuraciones.categorias.activar');
-    Route::delete('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarCategoria'])->name('configuraciones.categorias.delete');
-    Route::put('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarProducto'])->name('configuraciones.productos.update');
+    Route::get('/productos', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('productos');
     Route::get('/distribuidoras', [App\Http\Controllers\Gerente\AprobacionController::class, 'index'])->name('distribuidoras');
     Route::get('/distribuidoras/rechazadas', [App\Http\Controllers\Gerente\AprobacionController::class, 'rechazadas'])->name('distribuidoras.rechazadas');
     Route::get('/distribuidoras/{id}', [App\Http\Controllers\Gerente\AprobacionController::class, 'show'])->name('distribuidoras.show');
@@ -69,6 +99,7 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
 Route::middleware(['auth', 'role:COORDINADOR'])->prefix('coordinador')->name('coordinador.')->group(function () {
     // Dashboard
     Route::get('/dashboard', [App\Http\Controllers\Coordinador\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/reportes', [App\Http\Controllers\Coordinador\DashboardController::class, 'reportes'])->name('reportes');
 
     // Gestión de clientes y distribuidoras
     Route::get('/clientes', [App\Http\Controllers\Coordinador\DashboardController::class, 'clientes'])->name('clientes');
@@ -154,6 +185,8 @@ Route::middleware(['auth'])->get('/dashboard', function () {
     $rol = $user->getRolNombreAttribute();
 
     switch ($rol) {
+        case 'admin':
+            return redirect()->route('admin.dashboard');
         case 'gerente':
             return redirect()->route('gerente.dashboard');
         case 'coordinador':

@@ -160,9 +160,17 @@ class Usuario extends Authenticatable
      */
     public function obtenerRolPrincipal(): ?Rol
     {
-        return $this->roles()
+        $rolPrincipal = $this->roles()
             ->wherePivot('revocado_en', null)
             ->wherePivot('es_principal', true)
+            ->first();
+
+        if ($rolPrincipal) {
+            return $rolPrincipal;
+        }
+
+        return $this->roles()
+            ->wherePivot('revocado_en', null)
             ->first();
     }
 
@@ -199,6 +207,14 @@ class Usuario extends Authenticatable
             ->where('codigo', $rolCodigo)
             ->wherePivot('revocado_en', null)
             ->exists();
+    }
+
+    public function tieneCombinacionRolesIncompatible(): bool
+    {
+        return $this->roles()
+            ->wherePivot('revocado_en', null)
+            ->whereIn('codigo', ['ADMIN', 'GERENTE'])
+            ->count() > 1;
     }
 
     /**

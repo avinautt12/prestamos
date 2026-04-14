@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Gerente;
 
+use App\Mail\ActivacionDistribuidoraMail;
 use App\Events\ActualizacionCredito;
 use App\Http\Controllers\Concerns\ResuelveSucursalActivaGerente;
 use App\Http\Controllers\Controller;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -129,12 +131,13 @@ class AprobacionController extends Controller
             ->where('sucursal_id', $sucursalId)
             ->findOrFail($id);
 
-        $solicitud->datos_familiares = $solicitud->datos_familiares_json ? json_decode($solicitud->datos_familiares_json, true) : null;
-        $solicitud->afiliaciones = $solicitud->afiliaciones_externas_json ? json_decode($solicitud->afiliaciones_externas_json, true) : null;
-        $solicitud->vehiculos = $solicitud->vehiculos_json ? json_decode($solicitud->vehiculos_json, true) : null;
+        // Los campos JSON ya están decodificados por los casts del modelo
+        $solicitud->datos_familiares = $solicitud->datos_familiares_json ?? null;
+        $solicitud->afiliaciones = $solicitud->afiliaciones_externas_json ?? null;
+        $solicitud->vehiculos = $solicitud->vehiculos_json ?? null;
 
-        if ($solicitud->verificacion && $solicitud->verificacion->checklist_json) {
-            $solicitud->verificacion->checklist = json_decode($solicitud->verificacion->checklist_json, true);
+        if ($solicitud->verificacion) {
+            $solicitud->verificacion->checklist = $solicitud->verificacion->checklist_json ?? null;
         }
 
         if ($solicitud->verificacion) {
@@ -271,11 +274,45 @@ class AprobacionController extends Controller
                 'monto_nuevo' => $montoNuevo,
             ]);
 
+            $usuarioCreado = false;
+            $rolAsignado = false;
+
             $usuarioDistribuidora = $this->obtenerOCrearUsuarioDistribuidora(
                 $solicitud,
                 $distribuidora,
-                $rolDistribuidora
+                $rolDistribuidora,
+                $usuarioCreado,
+                $rolAsignado
             );
+
+            $activationLink = null;
+            if (($usuarioCreado ?? false) || ($rolAsignado ?? false)) {
+                $activationLink = $this->generarEnlaceActivacionDistribuidora($usuarioDistribuidora);
+            }
+
+            $correoDistribuidora = (string) ($solicitud->persona?->correo_electronico ?? '');
+            $correoDistribuidora = trim($correoDistribuidora);
+
+            if ($activationLink && $correoDistribuidora !== '') {
+                $nombre = $this->obtenerNombreTitularDistribuidora($solicitud);
+                $numeroDistribuidora = (string) $distribuidora->numero_distribuidora;
+
+                DB::afterCommit(function () use ($correoDistribuidora, $nombre, $activationLink, $numeroDistribuidora) {
+                    try {
+                        Mail::to($correoDistribuidora)->send(new ActivacionDistribuidoraMail(
+                            $nombre,
+                            $activationLink,
+                            $numeroDistribuidora
+                        ));
+                    } catch (\Throwable $e) {
+                        logger()->warning('No se pudo enviar correo de activacion de distribuidora', [
+                            'correo' => $correoDistribuidora,
+                            'numero_distribuidora' => $numeroDistribuidora,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                });
+            }
 
             DB::afterCommit(function () use ($usuarioDistribuidora, $distribuidora, $montoNuevo) {
                 event(new ActualizacionCredito(
@@ -289,13 +326,20 @@ class AprobacionController extends Controller
             $usuarioDistribuidora->notify(
                 new DistribuidoraAprobadaNotification(
                     $montoNuevo,
-                    $distribuidora->numero_distribuidora
+                    $distribuidora->numero_distribuidora,
+                    $distribuidoraActual && $montoNuevo > $montoAnterior
                 )
             );
 
             return redirect()
                 ->route('gerente.distribuidoras')
-                ->with('success', 'Solicitud aprobada y promovida a distribuidora correctamente.');
+                ->with('success', 'Solicitud aprobada y promovida a distribuidora correctamente.')
+                ->with('activation_link', $activationLink)
+                ->with('message', $activationLink
+                    ? ($correoDistribuidora !== ''
+                        ? 'Se genero enlace de activacion y se envio al correo registrado de la distribuidora. Tambien puedes compartir el enlace manualmente.'
+                        : 'Se genero enlace de activacion. Como no hay correo registrado, compartelo manualmente con la distribuidora.')
+                    : 'La distribuidora ya contaba con acceso activo, no se genero un nuevo enlace.');
         });
     }
 
@@ -391,13 +435,16 @@ class AprobacionController extends Controller
     private function obtenerOCrearUsuarioDistribuidora(
         Solicitud $solicitud,
         Distribuidora $distribuidora,
-        Rol $rolDistribuidora
+        Rol $rolDistribuidora,
+        bool &$usuarioCreado = false,
+        bool &$rolAsignado = false
     ): Usuario {
         $usuario = Usuario::query()
             ->where('persona_id', $solicitud->persona_solicitante_id)
             ->first();
 
         if (!$usuario) {
+            $usuarioCreado = true;
             $usuario = Usuario::query()->create([
                 'persona_id' => $solicitud->persona_solicitante_id,
                 'nombre_usuario' => $this->generarNombreUsuarioDistribuidora($solicitud, $distribuidora),
@@ -417,6 +464,7 @@ class AprobacionController extends Controller
             ->exists();
 
         if (!$rolActivo) {
+            $rolAsignado = true;
             DB::table('usuario_rol')->insert([
                 'usuario_id' => $usuario->id,
                 'rol_id' => $rolDistribuidora->id,
@@ -428,6 +476,24 @@ class AprobacionController extends Controller
         }
 
         return $usuario;
+    }
+
+    private function generarEnlaceActivacionDistribuidora(Usuario $usuario): string
+    {
+        $tokenPlano = Str::random(64);
+
+        DB::table('activaciones_distribuidora')->updateOrInsert(
+            ['usuario_id' => $usuario->id],
+            [
+                'token_hash' => hash('sha256', $tokenPlano),
+                'expira_en' => now()->addDay(),
+                'usado_en' => null,
+                'actualizado_en' => now(),
+                'creado_en' => now(),
+            ]
+        );
+
+        return route('distribuidora.activacion.show', ['token' => $tokenPlano]);
     }
 
     private function generarNombreUsuarioDistribuidora(Solicitud $solicitud, Distribuidora $distribuidora): string

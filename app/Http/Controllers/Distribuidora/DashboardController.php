@@ -16,6 +16,7 @@ use App\Models\ProductoFinanciero;
 use App\Models\RelacionCorte;
 use App\Models\Vale;
 use App\Services\Distribuidora\DistribuidoraContextService;
+use App\Services\ProductoFinancieroService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -27,9 +28,9 @@ use Inertia\Response;
 class DashboardController extends Controller
 {
     public function __construct(
-        private readonly DistribuidoraContextService $contextService
-    ) {
-    }
+        private readonly DistribuidoraContextService $contextService,
+        private readonly ProductoFinancieroService $productoService
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -75,7 +76,7 @@ class DashboardController extends Controller
             ->orderByDesc('id')
             ->limit(5)
             ->get()
-            ->map(fn (Vale $vale) => $this->transformarVale($vale))
+            ->map(fn(Vale $vale) => $this->transformarVale($vale))
             ->values();
 
         $proximosVencimientos = Vale::query()
@@ -93,7 +94,7 @@ class DashboardController extends Controller
             ->orderBy('fecha_limite_pago')
             ->limit(4)
             ->get()
-            ->map(fn (Vale $vale) => $this->transformarVale($vale))
+            ->map(fn(Vale $vale) => $this->transformarVale($vale))
             ->values();
 
         $pagosRecientes = PagoDistribuidora::query()
@@ -103,7 +104,7 @@ class DashboardController extends Controller
             ->orderByDesc('id')
             ->limit(4)
             ->get()
-            ->map(fn (PagoDistribuidora $pago) => $this->transformarPagoDistribuidora($pago))
+            ->map(fn(PagoDistribuidora $pago) => $this->transformarPagoDistribuidora($pago))
             ->values();
 
         return Inertia::render('Distribuidora/DistribuidoraDashboard', [
@@ -186,7 +187,7 @@ class DashboardController extends Controller
             ->orderByDesc('fecha_emision')
             ->limit(60)
             ->get()
-            ->map(fn (Vale $vale) => $this->transformarVale($vale))
+            ->map(fn(Vale $vale) => $this->transformarVale($vale))
             ->values();
 
         $valeSeleccionado = $filtros['seleccionado']
@@ -207,7 +208,7 @@ class DashboardController extends Controller
             ])
             ->orderBy('p.primer_nombre')
             ->get()
-            ->map(fn ($cliente) => [
+            ->map(fn($cliente) => [
                 'id' => $cliente->id,
                 'label' => trim(($cliente->codigo_cliente ? $cliente->codigo_cliente . ' · ' : '') . $this->nombreCompletoDesdePartes(
                     $cliente->primer_nombre,
@@ -273,7 +274,7 @@ class DashboardController extends Controller
                 'monto_multa_tardia',
                 'modo_desembolso',
             ])
-            ->map(fn (ProductoFinanciero $producto) => [
+            ->map(fn(ProductoFinanciero $producto) => [
                 'id' => $producto->id,
                 'codigo' => $producto->codigo,
                 'nombre' => $producto->nombre,
@@ -345,20 +346,14 @@ class DashboardController extends Controller
             return back()->withErrors(['general' => 'Tu cuenta no tiene habilitada la emisión de vales.']);
         }
 
-        $producto = ProductoFinanciero::query()
-            ->where('id', $request->producto_id)
-            ->where('activo', true)
-            ->first();
-
-        if (!$producto) {
-            return back()->withErrors(['producto_id' => 'El producto seleccionado no es válido o no está activo.']);
+        // Usar el servicio para obtener y validar el producto
+        try {
+            $producto = $this->productoService->obtenerProductoActivoValidado($request->producto_id);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->errors());
         }
 
         $montoPrincipal = round((float) $producto->monto_principal, 2);
-
-        if ($montoPrincipal <= 0) {
-            return back()->withErrors(['producto_id' => 'El producto seleccionado no tiene monto principal configurado.']);
-        }
 
         if (!(bool) $distribuidora->sin_limite && $montoPrincipal > (float) $distribuidora->credito_disponible) {
             return back()->withErrors(['general' => 'El monto fijo del producto supera el crédito disponible actual.']);
@@ -369,121 +364,128 @@ class DashboardController extends Controller
         }
 
         try {
-        $numeroVale = DB::transaction(function () use ($request, $distribuidora, $producto, $montoPrincipal) {
-            $esClienteExistente = $request->filled('cliente_id');
+            $numeroVale = DB::transaction(function () use ($request, $distribuidora, $producto, $montoPrincipal) {
+                $esClienteExistente = $request->filled('cliente_id');
 
-            if ($esClienteExistente) {
-                // Cliente existente: validar que pertenece a esta distribuidora
-                $cliente = Cliente::findOrFail($request->cliente_id);
-                $relacion = DB::table('clientes_distribuidora')
-                    ->where('distribuidora_id', $distribuidora->id)
-                    ->where('cliente_id', $cliente->id)
-                    ->where('estado_relacion', 'ACTIVA')
-                    ->first();
+                if ($esClienteExistente) {
+                    // Cliente existente: validar que pertenece a esta distribuidora
+                    $cliente = Cliente::findOrFail($request->cliente_id);
+                    $relacion = DB::table('clientes_distribuidora')
+                        ->where('distribuidora_id', $distribuidora->id)
+                        ->where('cliente_id', $cliente->id)
+                        ->where('estado_relacion', 'ACTIVA')
+                        ->first();
 
-                if (!$relacion) {
-                    throw new \Exception('El cliente no está vinculado a tu distribuidora.');
+                    if (!$relacion) {
+                        throw new \Exception('El cliente no está vinculado a tu distribuidora.');
+                    }
+
+                    // Verificar que no tenga vales abiertos con esta distribuidora
+                    $valesAbiertos = Vale::where('distribuidora_id', $distribuidora->id)
+                        ->where('cliente_id', $cliente->id)
+                        ->whereIn('estado', [Vale::ESTADO_BORRADOR, Vale::ESTADO_ACTIVO, Vale::ESTADO_PAGO_PARCIAL, Vale::ESTADO_MOROSO])
+                        ->exists();
+
+                    if ($valesAbiertos) {
+                        throw new \Exception('El cliente tiene deuda abierta con tu distribuidora.');
+                    }
+                } else {
+                    // Cliente nuevo: crear Persona + Cliente + relación
+                    $persona = Persona::create([
+                        'primer_nombre'      => $request->primer_nombre,
+                        'segundo_nombre'     => $request->segundo_nombre,
+                        'apellido_paterno'   => $request->apellido_paterno,
+                        'apellido_materno'   => $request->apellido_materno,
+                        'sexo'               => $request->sexo,
+                        'fecha_nacimiento'   => $request->fecha_nacimiento,
+                        'curp'               => $request->curp,
+                        'telefono_celular'   => $request->telefono_celular,
+                        'correo_electronico' => $request->correo_electronico,
+                        'calle'              => $request->calle,
+                        'numero_exterior'    => $request->numero_exterior,
+                        'colonia'            => $request->colonia,
+                        'ciudad'             => $request->ciudad,
+                        'estado'             => $request->estado_direccion,
+                        'codigo_postal'      => $request->codigo_postal,
+                    ]);
+
+                    // Subir fotos
+                    $fotoIneFrente = $request->file('foto_ine_frente')?->store('clientes/ine_frente', 'spaces');
+                    $fotoIneReverso = $request->file('foto_ine_reverso')?->store('clientes/ine_reverso', 'spaces');
+                    $fotoSelfieIne = $request->file('foto_selfie_ine')?->store('clientes/selfie_ine', 'spaces');
+
+                    $cliente = Cliente::create([
+                        'persona_id'       => $persona->id,
+                        'codigo_cliente'   => $this->generarCodigoCliente(),
+                        'estado'           => Cliente::ESTADO_EN_VERIFICACION,
+                        'foto_ine_frente'  => $fotoIneFrente,
+                        'foto_ine_reverso' => $fotoIneReverso,
+                        'foto_selfie_ine'  => $fotoSelfieIne,
+                        'cuenta_banco'     => $request->cuenta_banco,
+                        'cuenta_clabe'     => $request->cuenta_clabe,
+                        'cuenta_titular'   => $request->cuenta_titular,
+                    ]);
+
+                    DB::table('clientes_distribuidora')->insert([
+                        'distribuidora_id' => $distribuidora->id,
+                        'cliente_id'       => $cliente->id,
+                        'estado_relacion'  => 'ACTIVA',
+                        'vinculado_en'     => now(),
+                    ]);
                 }
 
-                // Verificar que no tenga vales abiertos con esta distribuidora
-                $valesAbiertos = Vale::where('distribuidora_id', $distribuidora->id)
-                    ->where('cliente_id', $cliente->id)
-                    ->whereIn('estado', [Vale::ESTADO_BORRADOR, Vale::ESTADO_ACTIVO, Vale::ESTADO_PAGO_PARCIAL, Vale::ESTADO_MOROSO])
-                    ->exists();
+                // Usar el servicio para calcular montos (usa valores del producto del VER momento)
+                $montos = $this->productoService->calcularMontosDelProducto(
+                    $montoPrincipal,
+                    (float) $producto->porcentaje_comision_empresa,
+                    (float) $producto->monto_seguro,
+                    (float) $producto->porcentaje_interes_quincenal,
+                    (int) $producto->numero_quincenas
+                );
 
-                if ($valesAbiertos) {
-                    throw new \Exception('El cliente tiene deuda abierta con tu distribuidora.');
-                }
-            } else {
-                // Cliente nuevo: crear Persona + Cliente + relación
-                $persona = Persona::create([
-                    'primer_nombre'      => $request->primer_nombre,
-                    'segundo_nombre'     => $request->segundo_nombre,
-                    'apellido_paterno'   => $request->apellido_paterno,
-                    'apellido_materno'   => $request->apellido_materno,
-                    'sexo'               => $request->sexo,
-                    'fecha_nacimiento'   => $request->fecha_nacimiento,
-                    'curp'               => $request->curp,
-                    'telefono_celular'   => $request->telefono_celular,
-                    'correo_electronico' => $request->correo_electronico,
-                    'calle'              => $request->calle,
-                    'numero_exterior'    => $request->numero_exterior,
-                    'colonia'            => $request->colonia,
-                    'ciudad'             => $request->ciudad,
-                    'estado'             => $request->estado_direccion,
-                    'codigo_postal'      => $request->codigo_postal,
+                $gananciaDistribuidora = $this->productoService->calcularGananciaDistribuidora(
+                    $montoPrincipal,
+                    (float) ($distribuidora->categoria?->porcentaje_comision ?? 0)
+                );
+
+                // Generar numero_vale único
+                do {
+                    $numeroVale = 'VALE-' . now()->format('ymdHis') . '-' . random_int(100, 999);
+                } while (Vale::where('numero_vale', $numeroVale)->exists());
+
+                // Crear Vale en estado BORRADOR
+                // Usar snapshots para preservar valores en caso de cambios futuros a producto
+                Vale::create([
+                    'numero_vale'                      => $numeroVale,
+                    'distribuidora_id'                 => $distribuidora->id,
+                    'cliente_id'                       => $cliente->id,
+                    'producto_financiero_id'           => $producto->id,
+                    'sucursal_id'                      => $distribuidora->sucursal_id,
+                    'creado_por_usuario_id'            => auth()->user()->id,
+                    'estado'                           => Vale::ESTADO_BORRADOR,
+                    'monto'                            => $montos['monto_principal'],
+                    'porcentaje_comision_empresa_snap' => (float) $producto->porcentaje_comision_empresa,
+                    'monto_comision_empresa'           => $montos['comision_empresa'],
+                    'monto_seguro_snap'                => $montos['seguro'],
+                    'porcentaje_interes_snap'          => (float) $producto->porcentaje_interes_quincenal,
+                    'monto_interes'                    => $montos['interes_total'],
+                    'porcentaje_ganancia_dist_snap'    => $distribuidora->categoria?->porcentaje_comision ?? 0,
+                    'monto_ganancia_distribuidora'     => $gananciaDistribuidora,
+                    'monto_multa_snap'                 => (float) $producto->monto_multa_tardia,
+                    'monto_total_deuda'                => $montos['total_deuda'],
+                    'monto_quincenal'                  => $montos['monto_quincenal'],
+                    'quincenas_totales'                => $montos['quincenas_totales'],
+                    'pagos_realizados'                 => 0,
+                    'saldo_actual'                     => $montos['total_deuda'],
+                    'fecha_emision'                    => now(),
                 ]);
 
-                // Subir fotos
-                $fotoIneFrente = $request->file('foto_ine_frente')?->store('clientes/ine_frente', 'spaces');
-                $fotoIneReverso = $request->file('foto_ine_reverso')?->store('clientes/ine_reverso', 'spaces');
-                $fotoSelfieIne = $request->file('foto_selfie_ine')?->store('clientes/selfie_ine', 'spaces');
+                return $numeroVale;
+            });
 
-                $cliente = Cliente::create([
-                    'persona_id'       => $persona->id,
-                    'codigo_cliente'   => $this->generarCodigoCliente(),
-                    'estado'           => Cliente::ESTADO_EN_VERIFICACION,
-                    'foto_ine_frente'  => $fotoIneFrente,
-                    'foto_ine_reverso' => $fotoIneReverso,
-                    'foto_selfie_ine'  => $fotoSelfieIne,
-                    'cuenta_banco'     => $request->cuenta_banco,
-                    'cuenta_clabe'     => $request->cuenta_clabe,
-                    'cuenta_titular'   => $request->cuenta_titular,
-                ]);
-
-                DB::table('clientes_distribuidora')->insert([
-                    'distribuidora_id' => $distribuidora->id,
-                    'cliente_id'       => $cliente->id,
-                    'estado_relacion'  => 'ACTIVA',
-                    'vinculado_en'     => now(),
-                ]);
-            }
-
-            // Calcular montos server-side
-            $comisionEmpresa = round($montoPrincipal * ((float) $producto->porcentaje_comision_empresa / 100), 2);
-            $interes = round($montoPrincipal * ((float) $producto->porcentaje_interes_quincenal / 100) * (int) $producto->numero_quincenas, 2);
-            $seguro = round((float) $producto->monto_seguro, 2);
-            $gananciaDistribuidora = round($montoPrincipal * (((float) ($distribuidora->categoria?->porcentaje_comision ?? 0)) / 100), 2);
-            $totalDeuda = round($montoPrincipal + $comisionEmpresa + $seguro + $interes, 2);
-            $montoQuincenal = round($totalDeuda / max(1, (int) $producto->numero_quincenas), 2);
-
-            // 5. Generar numero_vale único
-            do {
-                $numeroVale = 'VALE-' . now()->format('ymdHis') . '-' . random_int(100, 999);
-            } while (Vale::where('numero_vale', $numeroVale)->exists());
-
-            // 6. Crear Vale en estado BORRADOR
-            Vale::create([
-                'numero_vale'                      => $numeroVale,
-                'distribuidora_id'                 => $distribuidora->id,
-                'cliente_id'                       => $cliente->id,
-                'producto_financiero_id'           => $producto->id,
-                'sucursal_id'                      => $distribuidora->sucursal_id,
-                'creado_por_usuario_id'            => auth()->user()->id,
-                'estado'                           => Vale::ESTADO_BORRADOR,
-                'monto'                            => $montoPrincipal,
-                'porcentaje_comision_empresa_snap' => $producto->porcentaje_comision_empresa,
-                'monto_comision_empresa'           => $comisionEmpresa,
-                'monto_seguro_snap'                => $seguro,
-                'porcentaje_interes_snap'          => $producto->porcentaje_interes_quincenal,
-                'monto_interes'                    => $interes,
-                'porcentaje_ganancia_dist_snap'    => $distribuidora->categoria?->porcentaje_comision ?? 0,
-                'monto_ganancia_distribuidora'     => $gananciaDistribuidora,
-                'monto_multa_snap'                 => $producto->monto_multa_tardia,
-                'monto_total_deuda'                => $totalDeuda,
-                'monto_quincenal'                  => $montoQuincenal,
-                'quincenas_totales'                => $producto->numero_quincenas,
-                'pagos_realizados'                 => 0,
-                'saldo_actual'                     => $totalDeuda,
-                'fecha_emision'                    => now(),
-            ]);
-
-            return $numeroVale;
-        });
-
-        return redirect()
-            ->route('distribuidora.vales')
-            ->with('success', "Pre vale {$numeroVale} creado exitosamente.");
+            return redirect()
+                ->route('distribuidora.vales')
+                ->with('success', "Pre vale {$numeroVale} creado exitosamente.");
         } catch (\Exception $e) {
             $mensaje = str_starts_with($e->getMessage(), 'El cliente')
                 ? $e->getMessage()
@@ -676,7 +678,7 @@ class DashboardController extends Controller
             ->orderByDesc('id')
             ->limit(60)
             ->get()
-            ->map(fn (MovimientoPunto $movimiento) => [
+            ->map(fn(MovimientoPunto $movimiento) => [
                 'id' => $movimiento->id,
                 'tipo_movimiento' => $movimiento->tipo_movimiento,
                 'puntos' => (float) $movimiento->puntos,
@@ -721,7 +723,7 @@ class DashboardController extends Controller
                 ])
                 ->orderBy('fecha_limite_pago')
                 ->get(['id', 'numero_relacion', 'total_a_pagar', 'fecha_limite_pago', 'estado'])
-                ->map(fn ($r) => [
+                ->map(fn($r) => [
                     'id' => $r->id,
                     'numero_relacion' => $r->numero_relacion,
                     'total_a_pagar' => (float) $r->total_a_pagar,
@@ -927,7 +929,7 @@ class DashboardController extends Controller
             ->get();
 
         $relacionesTransformadas = $relaciones
-            ->map(fn (RelacionCorte $relacion) => $this->transformarRelacion($relacion, true))
+            ->map(fn(RelacionCorte $relacion) => $this->transformarRelacion($relacion, true))
             ->values();
 
         $relacionSeleccionada = $relacionesTransformadas->firstWhere('id', (int) $filtros['relacion_id'])
@@ -953,7 +955,7 @@ class DashboardController extends Controller
             ->skip(($pagosPage - 1) * $perPage)
             ->take($perPage)
             ->get()
-            ->map(fn (PagoDistribuidora $pago) => $this->transformarPagoDistribuidora($pago))
+            ->map(fn(PagoDistribuidora $pago) => $this->transformarPagoDistribuidora($pago))
             ->values();
 
         $totalPendiente = RelacionCorte::query()
@@ -1015,7 +1017,7 @@ class DashboardController extends Controller
             'cuentasEmpresa' => CuentaBancaria::where('tipo_propietario', CuentaBancaria::TIPO_EMPRESA)
                 ->orderByDesc('es_principal')
                 ->get(['banco', 'nombre_titular', 'clabe', 'convenio'])
-                ->map(fn ($c) => [
+                ->map(fn($c) => [
                     'banco' => $c->banco,
                     'titular' => $c->nombre_titular,
                     'clabe' => $c->clabe,
@@ -1255,13 +1257,24 @@ class DashboardController extends Controller
         if ($montoPrincipal <= 0) {
             return null;
         }
-        $comisionEmpresa = round($montoPrincipal * ((float) $producto['porcentaje_comision_empresa'] / 100), 2);
-        $interes = round($montoPrincipal * ((float) $producto['porcentaje_interes_quincenal'] / 100) * (int) $producto['numero_quincenas'], 2);
+        $montos = $this->productoService->calcularMontosDelProducto(
+            $montoPrincipal,
+            (float) ($producto['porcentaje_comision_empresa'] ?? 0),
+            (float) ($producto['monto_seguro'] ?? 0),
+            (float) ($producto['porcentaje_interes_quincenal'] ?? 0),
+            (int) ($producto['numero_quincenas'] ?? 0)
+        );
+
+        $comisionEmpresa = $montos['comision_empresa'];
+        $interes = $montos['interes_total'];
         $seguro = round((float) $producto['monto_seguro'], 2);
         $multa = round((float) $producto['monto_multa_tardia'], 2);
-        $gananciaDistribuidora = round($montoPrincipal * (((float) ($distribuidora->categoria?->porcentaje_comision ?? 0)) / 100), 2);
-        $totalDeuda = round($montoPrincipal + $comisionEmpresa + $seguro + $interes, 2);
-        $montoQuincenal = round($totalDeuda / max(1, (int) $producto['numero_quincenas']), 2);
+        $gananciaDistribuidora = $this->productoService->calcularGananciaDistribuidora(
+            $montoPrincipal,
+            (float) ($distribuidora->categoria?->porcentaje_comision ?? 0)
+        );
+        $totalDeuda = $montos['total_deuda'];
+        $montoQuincenal = $montos['monto_quincenal'];
         $consumoCredito = $distribuidora->sin_limite ? 0 : $montoPrincipal;
         $creditoRestante = $distribuidora->sin_limite ? null : round((float) $distribuidora->credito_disponible - $montoPrincipal, 2);
 
@@ -1365,7 +1378,7 @@ class DashboardController extends Controller
             return null;
         }
 
-        $pagosEnRevision = $relacion->pagosDistribuidora->filter(fn (PagoDistribuidora $p) => in_array($p->estado, [
+        $pagosEnRevision = $relacion->pagosDistribuidora->filter(fn(PagoDistribuidora $p) => in_array($p->estado, [
             PagoDistribuidora::ESTADO_REPORTADO,
             PagoDistribuidora::ESTADO_DETECTADO,
         ], true));
@@ -1391,7 +1404,7 @@ class DashboardController extends Controller
             'pagos_en_revision_total' => (float) $pagosEnRevision->sum('monto'),
             'partidas_count' => $relacion->partidas_count ?? $relacion->partidas->count(),
             'pagos' => $relacion->pagosDistribuidora
-                ->map(fn (PagoDistribuidora $pago) => $this->transformarPagoDistribuidora($pago))
+                ->map(fn(PagoDistribuidora $pago) => $this->transformarPagoDistribuidora($pago))
                 ->values(),
             'partidas' => $withPartidas
                 ? $relacion->partidas->map(function ($partida) {
@@ -1476,7 +1489,7 @@ class DashboardController extends Controller
 
     private function nombreCompletoDesdePartes(?string ...$partes): string
     {
-        $partesFiltradas = array_filter($partes, fn (?string $parte) => filled($parte));
+        $partesFiltradas = array_filter($partes, fn(?string $parte) => filled($parte));
 
         return trim(implode(' ', $partesFiltradas));
     }

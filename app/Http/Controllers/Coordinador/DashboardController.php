@@ -111,6 +111,143 @@ class DashboardController extends Controller
         return Inertia::render('Coordinador/Solicitudes/Index');
     }
 
+    public function reportes(Request $request)
+    {
+        /** @var \App\Models\Usuario $usuario */
+        $usuario = Auth::user();
+        $sucursal = $this->obtenerSucursalActivaCoordinador($usuario);
+        $sucursalId = $sucursal?->id;
+
+        $periodo = $request->string('periodo')->toString();
+        if (! in_array($periodo, ['mes', 'trimestre', 'anio'], true)) {
+            $periodo = 'mes';
+        }
+
+        $inicioPeriodo = match ($periodo) {
+            'trimestre' => now()->startOfQuarter(),
+            'anio' => now()->startOfYear(),
+            default => now()->startOfMonth(),
+        };
+
+        $solicitudesScope = Solicitud::query()
+            ->where(function ($query) use ($usuario, $sucursalId) {
+                $query->where('coordinador_usuario_id', $usuario->id);
+
+                if ($sucursalId) {
+                    $query->orWhere('sucursal_id', $sucursalId);
+                }
+            });
+
+        $solicitudesPeriodo = (clone $solicitudesScope)
+            ->where('creado_en', '>=', $inicioPeriodo);
+
+        $conteoEstados = (clone $solicitudesPeriodo)
+            ->selectRaw('estado, COUNT(*) as total')
+            ->groupBy('estado')
+            ->pluck('total', 'estado');
+
+        $solicitudesPendientes = (int) (($conteoEstados[Solicitud::ESTADO_PRE] ?? 0) + ($conteoEstados[Solicitud::ESTADO_EN_REVISION] ?? 0));
+        $solicitudesValidadas = (int) ($conteoEstados[Solicitud::ESTADO_VERIFICADA] ?? 0);
+        $solicitudesAprobadas = (int) ($conteoEstados[Solicitud::ESTADO_APROBADA] ?? 0);
+        $solicitudesRechazadas = (int) ($conteoEstados[Solicitud::ESTADO_RECHAZADA] ?? 0);
+
+        $totalSolicitudesPeriodo = $solicitudesPendientes + $solicitudesValidadas + $solicitudesAprobadas + $solicitudesRechazadas;
+
+        $tasaAprobacion = ($solicitudesAprobadas + $solicitudesRechazadas) > 0
+            ? round(($solicitudesAprobadas / ($solicitudesAprobadas + $solicitudesRechazadas)) * 100, 1)
+            : 0;
+
+        $tiempoRevisionHoras = (clone $solicitudesPeriodo)
+            ->whereNotNull('enviada_en')
+            ->whereNotNull('revisada_en')
+            ->get(['enviada_en', 'revisada_en'])
+            ->map(function (Solicitud $solicitud) {
+                if (! $solicitud->enviada_en || ! $solicitud->revisada_en) {
+                    return null;
+                }
+
+                return max($solicitud->enviada_en->diffInHours($solicitud->revisada_en), 0);
+            })
+            ->filter(fn($value) => $value !== null)
+            ->avg();
+
+        $distribuidorasScope = Distribuidora::query()
+            ->where(function ($query) use ($usuario, $sucursalId) {
+                $query->where('coordinador_usuario_id', $usuario->id);
+
+                if ($sucursalId) {
+                    $query->orWhere('sucursal_id', $sucursalId);
+                }
+            });
+
+        $distribuidorasIds = (clone $distribuidorasScope)->pluck('id');
+
+        $clientesActivos = 0;
+        if ($distribuidorasIds->isNotEmpty()) {
+            $clientesActivos = DB::table('clientes_distribuidora')
+                ->whereIn('distribuidora_id', $distribuidorasIds)
+                ->where('estado_relacion', 'ACTIVA')
+                ->count();
+        }
+
+        $topDistribuidoras = Distribuidora::query()
+            ->with(['persona'])
+            ->whereIn('id', $distribuidorasIds)
+            ->withCount([
+                'clientes as clientes_activos_count' => function ($query) {
+                    $query->where('estado_relacion', 'ACTIVA');
+                },
+                'vales as vales_activos_count' => function ($query) {
+                    $query->whereIn('estado', [Vale::ESTADO_ACTIVO, Vale::ESTADO_PAGO_PARCIAL]);
+                },
+            ])
+            ->orderByDesc('clientes_activos_count')
+            ->orderByDesc('vales_activos_count')
+            ->limit(8)
+            ->get()
+            ->map(function (Distribuidora $dist) {
+                $nombre = trim(implode(' ', array_filter([
+                    $dist->persona?->primer_nombre,
+                    $dist->persona?->apellido_paterno,
+                    $dist->persona?->apellido_materno,
+                ])));
+
+                return [
+                    'id' => $dist->id,
+                    'nombre' => $nombre !== '' ? $nombre : 'Sin nombre',
+                    'numero_distribuidora' => $dist->numero_distribuidora,
+                    'estado' => $dist->estado,
+                    'clientes_activos' => (int) $dist->clientes_activos_count,
+                    'vales_activos' => (int) $dist->vales_activos_count,
+                    'credito_disponible' => (float) $dist->credito_disponible,
+                ];
+            })
+            ->values();
+
+        return Inertia::render('Coordinador/Reportes', [
+            'sucursal' => $sucursal,
+            'filtro' => [
+                'periodo' => $periodo,
+                'inicio' => $inicioPeriodo,
+            ],
+            'resumen' => [
+                'solicitudes_total_periodo' => $totalSolicitudesPeriodo,
+                'solicitudes_pendientes' => $solicitudesPendientes,
+                'solicitudes_validadas' => $solicitudesValidadas,
+                'solicitudes_aprobadas' => $solicitudesAprobadas,
+                'solicitudes_rechazadas' => $solicitudesRechazadas,
+                'tasa_aprobacion' => $tasaAprobacion,
+                'tiempo_revision_promedio_horas' => $tiempoRevisionHoras ? round($tiempoRevisionHoras, 1) : 0,
+                'distribuidoras_asignadas' => (clone $distribuidorasScope)->count(),
+                'clientes_activos' => (int) $clientesActivos,
+                'distribuidoras_morosas' => (clone $distribuidorasScope)
+                    ->where('estado', Distribuidora::ESTADO_MOROSA)
+                    ->count(),
+            ],
+            'topDistribuidoras' => $topDistribuidoras,
+        ]);
+    }
+
     public function clientes(Request $request)
     {
         /** @var \App\Models\Usuario $usuario */

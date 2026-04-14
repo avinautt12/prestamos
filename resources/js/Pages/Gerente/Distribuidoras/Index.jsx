@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -10,6 +10,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function Index({ solicitudes, filters, securityPolicy }) {
+    const { flash = {} } = usePage().props;
     const [ultimaSolicitudEnTiempoReal, setUltimaSolicitudEnTiempoReal] = useState(null);
 
     useEffect(() => {
@@ -137,6 +138,34 @@ export default function Index({ solicitudes, filters, securityPolicy }) {
                 {ultimaSolicitudEnTiempoReal?.solicitud_id && (
                     <div className="mt-4 p-3 rounded-lg border border-emerald-200 bg-emerald-50 text-sm text-emerald-800">
                         Nueva solicitud recibida en tiempo real: folio #{ultimaSolicitudEnTiempoReal.solicitud_id}.
+                    </div>
+                )}
+
+                {flash?.message && (
+                    <div className="mt-4 p-3 rounded-lg border border-blue-200 bg-blue-50 text-sm text-blue-800">
+                        {flash.message}
+                    </div>
+                )}
+
+                {flash?.activation_link && (
+                    <div className="mt-3 p-3 rounded-lg border border-slate-200 bg-slate-50 text-sm">
+                        <p className="font-semibold text-slate-700">Enlace de activacion generado</p>
+                        <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-center">
+                            <a href={flash.activation_link} target="_blank" rel="noreferrer" className="text-blue-700 underline break-all">
+                                {flash.activation_link}
+                            </a>
+                            <button
+                                type="button"
+                                className="fin-btn-secondary"
+                                onClick={async () => {
+                                    if (navigator?.clipboard) {
+                                        await navigator.clipboard.writeText(flash.activation_link);
+                                    }
+                                }}
+                            >
+                                Copiar enlace
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>

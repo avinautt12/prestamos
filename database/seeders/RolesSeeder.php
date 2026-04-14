@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Rol;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Seeder;
 
 class RolesSeeder extends Seeder
 {
@@ -12,54 +11,53 @@ class RolesSeeder extends Seeder
     {
         $roles = [
             [
+                'codigo' => 'ADMIN',
+                'nombre' => 'Admin',
+                'descripcion' => 'Administrador global del sistema - gestión de usuarios, roles y configuraciones multi-sucursal',
+                'activo' => true,
+            ],
+            [
                 'codigo' => 'GERENTE',
                 'nombre' => 'Gerente',
                 'descripcion' => 'Gerente de sucursal - Acceso a reportes y administración general',
                 'activo' => true,
-                'creado_en' => now(),
-                'actualizado_en' => now(),
             ],
             [
                 'codigo' => 'COORDINADOR',
                 'nombre' => 'Coordinador',
-                'descripcion' => 'Coordinador de distribuidoras - Registro y gestión de solicitudes',
+                'descripcion' => 'Coordinador de sucursal - Registro y seguimiento de solicitudes',
                 'activo' => true,
-                'creado_en' => now(),
-                'actualizado_en' => now(),
             ],
             [
                 'codigo' => 'VERIFICADOR',
                 'nombre' => 'Verificador',
-                'descripcion' => 'Valida solicitudes y verifica información domiciliaria',
+                'descripcion' => 'Valida domicilios y expedientes',
                 'activo' => true,
-                'creado_en' => now(),
-                'actualizado_en' => now(),
             ],
             [
                 'codigo' => 'CAJERA',
                 'nombre' => 'Cajera',
-                'descripcion' => 'Opera prevale y cobros, gestiona pagos',
+                'descripcion' => 'Opera pagos, prevales y conciliaciones',
                 'activo' => true,
-                'creado_en' => now(),
-                'actualizado_en' => now(),
             ],
             [
                 'codigo' => 'DISTRIBUIDORA',
                 'nombre' => 'Distribuidora',
-                'descripcion' => 'Distribuidora del sistema - Emisión de vales y gestión de puntos',
+                'descripcion' => 'Gestiona clientes, vales y puntos',
                 'activo' => true,
-                'creado_en' => now(),
-                'actualizado_en' => now(),
             ],
         ];
 
         foreach ($roles as $role) {
             Rol::updateOrCreate(
                 ['codigo' => $role['codigo']],
-                $role
+                $role + [
+                    'creado_en' => now(),
+                    'actualizado_en' => now(),
+                ]
             );
         }
 
-        $this->command->info('Roles creados exitosamente');
+        $this->command?->info('Roles base creados o actualizados.');
     }
 }

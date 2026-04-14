@@ -36,16 +36,18 @@ class HandleInertiaRequests extends Middleware
             $usuario->loadMissing('persona');
             $usuario->append('rol_nombre');
 
-            $rolPrincipal = $usuario->roles()
-                ->wherePivotNull('revocado_en')
-                ->whereNotNull('usuario_rol.sucursal_id')
-                ->orderByDesc('usuario_rol.es_principal')
-                ->orderByDesc('usuario_rol.asignado_en')
-                ->first();
+            $rolPrincipal = $usuario->obtenerRolPrincipal();
 
-            $sucursalId = $rolPrincipal?->pivot?->sucursal_id;
+            if ($rolPrincipal) {
+                $sucursalId = $usuario->roles()
+                    ->where('roles.id', $rolPrincipal->id)
+                    ->wherePivotNull('revocado_en')
+                    ->orderByDesc('usuario_rol.es_principal')
+                    ->orderByDesc('usuario_rol.asignado_en')
+                    ->value('usuario_rol.sucursal_id');
 
-            $usuario->rol_nombre = $rolPrincipal?->nombre;
+                $usuario->rol_nombre = $rolPrincipal->nombre;
+            }
         }
 
         return [
@@ -55,8 +57,11 @@ class HandleInertiaRequests extends Middleware
                 'sucursal_id' => $sucursalId,
             ],
             'flash' => [
+                'success' => fn() => $request->session()->get('success'),
                 'message' => fn() => $request->session()->get('message'),
                 'error' => fn() => $request->session()->get('error'),
+                'activation_link' => fn() => $request->session()->get('activation_link'),
+                'activation_expires_at' => fn() => $request->session()->get('activation_expires_at'),
                 'import_result' => fn() => $request->session()->get('import_result'),
             ],
         ];

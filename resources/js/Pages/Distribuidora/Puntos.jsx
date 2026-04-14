@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { formatCurrency, formatDate, formatNumber, signedPoints, statusBadgeClass } from './utils';
@@ -8,6 +8,7 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
     const { errors } = usePage().props;
 
     const [form, setForm] = useState({ tipo: filtros.tipo || 'TODOS', direccion: filtros.direccion || 'TODOS', q: filtros.q || '' });
+    const [filterOpen, setFilterOpen] = useState(false);
     const [modalCanje, setModalCanje] = useState(false);
     const [canje, setCanje] = useState({ relacion_corte_id: '', puntos_a_canjear: '' });
     const [canjeando, setCanjeando] = useState(false);
@@ -21,7 +22,16 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
         const empty = { tipo: 'TODOS', direccion: 'TODOS', q: '' };
         setForm(empty);
         router.get(route('distribuidora.puntos'), empty, { preserveState: true, preserveScroll: true, replace: true });
+        setFilterOpen(false);
     };
+
+    const filtrosActivos = useMemo(() => {
+        let total = 0;
+        if ((form.q || '').trim().length > 0) total += 1;
+        if (form.tipo !== 'TODOS') total += 1;
+        if (form.direccion !== 'TODOS') total += 1;
+        return total;
+    }, [form]);
 
     const relacionSeleccionada = relacionesPendientes.find((r) => Number(r.id) === Number(canje.relacion_corte_id));
     const puntosNum = parseInt(canje.puntos_a_canjear, 10) || 0;
@@ -48,7 +58,7 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
         setCanjeando(true);
         router.post(route('distribuidora.puntos.canjear'), canje, {
             onSuccess: () => { setModalCanje(false); setCanje({ relacion_corte_id: '', puntos_a_canjear: '' }); },
-            onError: () => {},
+            onError: () => { },
             onFinish: () => setCanjeando(false),
         });
     };
@@ -60,7 +70,7 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
             <Head title="Puntos" />
 
             {sinConfig ? (
-                <div className="fin-card">
+                <div className="fin-card bg-white/95 backdrop-blur">
                     <p className="fin-title">Todavía no hay una distribuidora ligada a tu acceso</p>
                     <p className="mt-2 fin-subtitle">Cuando exista el registro operativo, aquí verás tus puntos.</p>
                 </div>
@@ -68,19 +78,19 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                 <>
                     {/* Resumen + botón canjear */}
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                        <div className="fin-card">
+                        <div className="fin-card border-green-100 bg-green-50/50">
                             <p className="text-xs font-medium text-gray-500">Saldo</p>
                             <p className="mt-1 text-xl font-bold text-gray-900">{formatNumber(resumen.saldo_actual)} pts</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-indigo-100 bg-indigo-50/60">
                             <p className="text-xs font-medium text-gray-500">Equivale a</p>
                             <p className="mt-1 text-xl font-bold text-green-700">{formatCurrency(resumen.saldo_actual * valorPorPunto)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-green-100 bg-green-50/60">
                             <p className="text-xs font-medium text-gray-500">Ganados</p>
                             <p className="mt-1 text-xl font-bold text-green-600">+{formatNumber(resumen.positivos)}</p>
                         </div>
-                        <div className="fin-card">
+                        <div className="fin-card border-rose-100 bg-rose-50/60">
                             <p className="text-xs font-medium text-gray-500">Descontados</p>
                             <p className="mt-1 text-xl font-bold text-red-600">-{formatNumber(resumen.negativos)}</p>
                         </div>
@@ -106,29 +116,84 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                         </div>
                     )}
 
-                    {/* Filtros */}
-                    <form onSubmit={applyFilters} className="flex flex-wrap items-end gap-3 mt-6">
-                        <div className="flex-1 min-w-[180px]">
-                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Buscar</label>
-                            <input type="text" value={form.q} onChange={(e) => setForm((p) => ({ ...p, q: e.target.value }))} className="fin-input" placeholder="Motivo o vale" />
+                    <form onSubmit={applyFilters} className="mt-6 space-y-3">
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Buscar</label>
+                                <input type="text" value={form.q} onChange={(e) => setForm((p) => ({ ...p, q: e.target.value }))} className="fin-input" placeholder="Motivo o vale" />
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setFilterOpen(true)}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl"
+                            >
+                                Filtros
+                                {filtrosActivos > 0 && (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-green-700 rounded-full">
+                                        {filtrosActivos}
+                                    </span>
+                                )}
+                            </button>
                         </div>
-                        <div className="w-44">
-                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Tipo</label>
-                            <select value={form.tipo} onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value }))} className="fin-input">
-                                {(opciones.tipos || []).map((t) => <option key={t} value={t}>{t}</option>)}
-                            </select>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <button type="submit" className="w-full fin-btn-primary">Aplicar</button>
+                            <button type="button" onClick={clearFilters} className="w-full fin-btn-secondary">Limpiar</button>
                         </div>
-                        <div className="w-36">
-                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Dirección</label>
-                            <select value={form.direccion} onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))} className="fin-input">
-                                <option value="TODOS">Todos</option>
-                                <option value="POSITIVOS">Solo suman</option>
-                                <option value="NEGATIVOS">Solo restan</option>
-                            </select>
-                        </div>
-                        <button type="submit" className="px-4 py-2 fin-btn-primary">Aplicar</button>
-                        <button type="button" onClick={clearFilters} className="px-4 py-2 fin-btn-secondary">Limpiar</button>
                     </form>
+
+                    {filterOpen && (
+                        <div className="fin-modal-backdrop" onClick={() => setFilterOpen(false)}>
+                            <div className="fin-modal-sheet max-w-md" onClick={(e) => e.stopPropagation()}>
+                                <div className="fin-modal-head">
+                                    <div>
+                                        <h2 className="text-lg font-bold text-gray-900">Filtros de puntos</h2>
+                                        <p className="mt-1 text-sm text-gray-500">Filtra por tipo y dirección del movimiento.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilterOpen(false)}
+                                        className="inline-flex items-center justify-center w-10 h-10 text-gray-600 border border-gray-200 rounded-xl"
+                                        aria-label="Cerrar filtros"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+
+                                <div className="fin-modal-body space-y-4">
+                                    <div>
+                                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Tipo</label>
+                                        <select value={form.tipo} onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value }))} className="fin-input">
+                                            {(opciones.tipos || []).map((t) => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Dirección</label>
+                                        <select value={form.direccion} onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))} className="fin-input">
+                                            <option value="TODOS">Todos</option>
+                                            <option value="POSITIVOS">Solo suman</option>
+                                            <option value="NEGATIVOS">Solo restan</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="fin-modal-foot flex gap-2">
+                                    <button type="button" onClick={clearFilters} className="flex-1 fin-btn-secondary">Limpiar</button>
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            applyFilters(event);
+                                            setFilterOpen(false);
+                                        }}
+                                        className="flex-1 fin-btn-primary"
+                                    >
+                                        Aplicar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Historial */}
                     {!movimientos.length ? (
@@ -136,9 +201,9 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                             <p className="text-sm text-gray-400">No hay movimientos con ese filtro.</p>
                         </div>
                     ) : (
-                        <div className="mt-6 space-y-2">
-                            {movimientos.map((mov) => (
-                                <div key={mov.id} className="flex items-center justify-between gap-4 p-3 border rounded-xl border-gray-200 bg-white">
+                        <div className="mt-6 space-y-2 fin-enter">
+                            {movimientos.map((mov, index) => (
+                                <div key={mov.id} className="flex items-center justify-between gap-4 p-3 border rounded-xl border-gray-200 bg-white fin-interactive fin-stagger-item" style={{ animationDelay: `${Math.min(index * 30, 180)}ms` }}>
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${mov.puntos >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                             {mov.puntos >= 0 ? '+' : '-'}
@@ -161,13 +226,13 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
 
                     {/* Modal de canje */}
                     {modalCanje && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setModalCanje(false)}>
-                            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl" onClick={(e) => e.stopPropagation()}>
-                                <div className="p-5 border-b">
+                        <div className="fin-modal-backdrop" onClick={() => setModalCanje(false)}>
+                            <div className="fin-modal-sheet max-w-md" onClick={(e) => e.stopPropagation()}>
+                                <div className="fin-modal-head">
                                     <h2 className="text-lg font-bold text-gray-900">Canjear puntos</h2>
                                     <p className="mt-1 text-sm text-gray-500">2 puntos = $1 peso de descuento en tu deuda.</p>
                                 </div>
-                                <div className="p-5 space-y-4">
+                                <div className="fin-modal-body space-y-4">
                                     <div>
                                         <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Aplicar a relación</label>
                                         <select
@@ -209,7 +274,7 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex justify-end gap-3 p-5 border-t">
+                                <div className="fin-modal-foot flex justify-end gap-3">
                                     <button type="button" onClick={() => setModalCanje(false)} className="px-5 py-2 fin-btn-secondary">Cancelar</button>
                                     <button
                                         type="button"
@@ -228,3 +293,5 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
         </DistribuidoraLayout>
     );
 }
+
+

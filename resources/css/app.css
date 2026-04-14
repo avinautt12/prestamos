@@ -8,9 +8,10 @@
     --fin-text-muted: #6B7280;
     --fin-border: #E5E7EB;
     --fin-green: #1FA62D;
-    --fin-green-hover: #178A25;
-    --fin-blue: #2563EB;
-    --fin-blue-soft: #EFF6FF;
+    --fin-green-hover: #1B9229;
+    --fin-green-deep: #166A24;
+    --fin-blue: #1B9229;
+    --fin-blue-soft: #ECF8EE;
     --fin-warn: #F59E0B;
     --fin-ok: #10B981;
     --fin-danger: #EF4444;
@@ -21,6 +22,19 @@
         background: var(--fin-bg);
         color: var(--fin-text);
     }
+
+    [data-fin-a11y='on'] {
+        font-size: 17px;
+        line-height: 1.55;
+    }
+
+    [data-fin-a11y='on'] button,
+    [data-fin-a11y='on'] a,
+    [data-fin-a11y='on'] input,
+    [data-fin-a11y='on'] select,
+    [data-fin-a11y='on'] textarea {
+        min-height: 48px;
+    }
 }
 
 @layer components {
@@ -28,11 +42,52 @@
         @apply max-w-6xl mx-auto;
     }
 
+    .fin-mobile-page {
+        @apply w-full max-w-none mx-auto;
+    }
+
+    .fin-mobile-shell {
+        @apply min-h-screen;
+        background:
+            radial-gradient(circle at top right, #dff2e3 0, transparent 42%),
+            radial-gradient(circle at bottom left, #e8f7ea 0, transparent 36%),
+            #f4f7f5;
+    }
+
+    .fin-mobile-device {
+        @apply relative min-h-screen mx-auto bg-white border-x border-gray-200 shadow-sm;
+        width: min(100%, 430px);
+    }
+
+    .fin-mobile-header {
+        @apply sticky top-0 z-30 bg-white/95 backdrop-blur;
+    }
+
+    .fin-mobile-main {
+        padding-bottom: calc(196px + env(safe-area-inset-bottom));
+    }
+
+    .fin-mobile-nav {
+        @apply fixed bottom-0 z-40;
+        width: min(100%, 430px);
+        left: 50%;
+        transform: translateX(-50%);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .fin-mobile-toasts {
+        @apply fixed z-50 w-full max-w-sm space-y-2 pointer-events-none;
+        top: calc(64px + env(safe-area-inset-top));
+        left: 50%;
+        transform: translateX(-50%);
+        padding-inline: 12px;
+    }
+
     .fin-card {
         background: #FFFFFF;
         border: 1px solid var(--fin-border);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        @apply rounded-xl p-4;
+        @apply p-4 rounded-xl;
     }
 
     .fin-title {
@@ -43,6 +98,15 @@
     .fin-subtitle {
         color: var(--fin-text-muted);
         @apply text-sm;
+    }
+
+    [data-fin-a11y='on'] .fin-title {
+        font-size: 1.35rem;
+        line-height: 1.35;
+    }
+
+    [data-fin-a11y='on'] .fin-subtitle {
+        font-size: 0.98rem;
     }
 
     .fin-stat-value {
@@ -57,7 +121,7 @@
     .fin-btn-primary {
         background: var(--fin-green);
         color: #FFFFFF;
-        @apply inline-flex items-center justify-center gap-2 px-4 py-3 font-medium rounded-lg transition-colors;
+        @apply inline-flex items-center justify-center gap-2 px-4 py-3 font-medium transition-colors rounded-lg;
     }
 
     .fin-btn-primary:hover {
@@ -68,7 +132,7 @@
         color: var(--fin-blue);
         border: 1px solid var(--fin-blue);
         background: #FFFFFF;
-        @apply inline-flex items-center justify-center gap-2 px-4 py-3 font-medium rounded-lg transition-colors;
+        @apply inline-flex items-center justify-center gap-2 px-4 py-3 font-medium transition-colors rounded-lg;
     }
 
     .fin-btn-secondary:hover {
@@ -107,10 +171,10 @@
     }
 
     .fin-info {
-        color: #1E40AF;
+        color: var(--fin-green-deep);
         background: var(--fin-blue-soft);
-        border: 1px solid #BFDBFE;
-        @apply rounded-lg p-4;
+        border: 1px solid #BBE5C1;
+        @apply p-4 rounded-lg;
     }
 
     .tablet-form input,
@@ -126,7 +190,123 @@
     }
 
     .tablet-panel {
-        @apply bg-white rounded-xl border border-gray-200 shadow-sm;
+        @apply bg-white border border-gray-200 shadow-sm rounded-xl;
+    }
+
+    .fin-enter {
+        animation: fin-fade-up 320ms ease-out both;
+    }
+
+    .fin-stagger-item {
+        animation: fin-fade-up 360ms ease-out both;
+    }
+
+    .fin-interactive {
+        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease;
+    }
+
+    .fin-interactive:active {
+        transform: scale(0.99);
+    }
+
+    .fin-modal-backdrop {
+        @apply fixed inset-0 z-50 flex items-end justify-center p-0 bg-black/45;
+    }
+
+    .fin-modal-sheet {
+        @apply w-full bg-white shadow-2xl rounded-t-3xl;
+        max-height: 90vh;
+        animation: fin-sheet-up 260ms ease-out both;
+    }
+
+    .fin-modal-head {
+        @apply sticky top-0 z-10 flex items-start justify-between gap-3 p-4 border-b border-gray-200 bg-gradient-to-br from-green-50 to-green-50/80;
+    }
+
+    .fin-modal-body {
+        @apply p-4 overflow-y-auto;
+    }
+
+    .fin-modal-foot {
+        @apply sticky bottom-0 z-10 p-4 bg-white border-t border-gray-200;
+    }
+
+    @media (min-width: 640px) {
+        .fin-mobile-shell {
+            @apply px-4 py-4;
+        }
+
+        .fin-mobile-device {
+            @apply min-h-[calc(100vh-2rem)] rounded-[2rem] border;
+            overflow: hidden;
+        }
+
+        .fin-mobile-main {
+            padding-bottom: 188px;
+        }
+
+        .fin-mobile-toasts {
+            top: 84px;
+        }
+
+        .fin-modal-backdrop {
+            @apply items-center p-4;
+        }
+
+        .fin-modal-sheet {
+            @apply rounded-3xl;
+            max-width: 56rem;
+        }
+    }
+}
+
+@keyframes fin-fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fin-sheet-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .fin-enter,
+    .fin-stagger-item,
+    .fin-modal-sheet,
+    .fin-interactive {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+@media (max-width: 380px) {
+    .fin-mobile-main {
+        @apply p-3;
+        padding-bottom: calc(188px + env(safe-area-inset-bottom));
+    }
+
+    .fin-mobile-nav .rounded-2xl {
+        border-radius: 0.9rem;
+    }
+
+    .fin-mobile-nav .text-sm {
+        font-size: 0.82rem;
     }
 }
 
