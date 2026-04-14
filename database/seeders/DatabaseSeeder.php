@@ -27,6 +27,9 @@ class DatabaseSeeder extends Seeder
             ProductosFinancierosSeeder::class,
             SucursalConfiguracionesSeeder::class,
 
+            // --- Configuracion global de puntos (singleton, editable por ADMIN) ---
+            PuntosConfSeeder::class,
+
             // --- Usuarios operativos ---
             UsuariosSeeder::class,
 

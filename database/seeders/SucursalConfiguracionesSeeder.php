@@ -50,9 +50,6 @@ class SucursalConfiguracionesSeeder extends Seeder
                 array_merge($config, [
                     'frecuencia_pago_dias' => 14,
                     'plazo_pago_dias' => 15,
-                    'factor_divisor_puntos' => 1200,
-                    'multiplicador_puntos' => 3,
-                    'valor_punto_mxn' => 2.00,
                     'seguro_tabuladores_json' => null,
                     'categorias_config_json' => null,
                     'productos_config_json' => null,

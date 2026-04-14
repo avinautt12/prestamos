@@ -13,6 +13,7 @@ use App\Models\MovimientoPunto;
 use App\Models\PagoDistribuidora;
 use App\Models\Persona;
 use App\Models\ProductoFinanciero;
+use App\Models\PuntosConf;
 use App\Models\RelacionCorte;
 use App\Models\Vale;
 use App\Services\Distribuidora\DistribuidoraContextService;
@@ -555,7 +556,7 @@ class DashboardController extends Controller
             return back()->withErrors(['relacion_corte_id' => 'La relación seleccionada no está pendiente de pago.']);
         }
 
-        $valorPorPunto = (float) ($distribuidora->sucursal?->configuracion?->valor_punto_mxn ?? 2);
+        $valorPorPunto = (float) PuntosConf::actual()->valor_punto_mxn;
         $valorEnPesos = round($puntosACanjear * $valorPorPunto, 2);
         $totalPendiente = (float) $relacion->total_a_pagar;
 
@@ -712,7 +713,7 @@ class DashboardController extends Controller
             'resumen' => [
                 'saldo_actual' => (float) $distribuidora->puntos_actuales,
                 'movimientos' => $movimientos->count(),
-                'valor_estimado' => $movimientos->first()['valor_punto_snapshot'] ?? (float) ($distribuidora->sucursal?->configuracion?->valor_punto_mxn ?? 2),
+                'valor_estimado' => $movimientos->first()['valor_punto_snapshot'] ?? (float) PuntosConf::actual()->valor_punto_mxn,
                 'positivos' => $positivos,
                 'negativos' => $negativos,
             ],
@@ -1361,7 +1362,7 @@ class DashboardController extends Controller
             'credito_disponible' => (float) $distribuidora->credito_disponible,
             'sin_limite' => (bool) $distribuidora->sin_limite,
             'puntos_actuales' => (float) $distribuidora->puntos_actuales,
-            'valor_punto' => (float) ($distribuidora->sucursal?->configuracion?->valor_punto_mxn ?? 2),
+            'valor_punto' => (float) PuntosConf::actual()->valor_punto_mxn,
             'puede_emitir_vales' => (bool) $distribuidora->puede_emitir_vales,
             'activada_en' => optional($distribuidora->activada_en)->toDateTimeString(),
             'categoria' => $distribuidora->categoria ? [

@@ -206,9 +206,6 @@ class ConfiguracionController extends Controller
         $despues = [
             'dia_corte' => $data['dia_corte'] ?? null,
             'hora_corte' => CorteService::HORA_CORTE_FIJA,
-            'factor_divisor_puntos' => (int) $data['factor_divisor_puntos'],
-            'multiplicador_puntos' => (int) $data['multiplicador_puntos'],
-            'valor_punto_mxn' => (float) $data['valor_punto_mxn'],
         ];
 
         DB::transaction(function () use ($sucursalesObjetivo, $usuario, $despues) {
@@ -218,17 +215,11 @@ class ConfiguracionController extends Controller
                 $antes = [
                     'dia_corte' => $configuracion->dia_corte,
                     'hora_corte' => $configuracion->hora_corte,
-                    'factor_divisor_puntos' => (int) $configuracion->factor_divisor_puntos,
-                    'multiplicador_puntos' => (int) $configuracion->multiplicador_puntos,
-                    'valor_punto_mxn' => (float) $configuracion->valor_punto_mxn,
                 ];
 
                 $configuracion->update([
                     'dia_corte' => $despues['dia_corte'],
                     'hora_corte' => $despues['hora_corte'],
-                    'factor_divisor_puntos' => $despues['factor_divisor_puntos'],
-                    'multiplicador_puntos' => $despues['multiplicador_puntos'],
-                    'valor_punto_mxn' => $despues['valor_punto_mxn'],
                     'actualizado_por_usuario_id' => $usuario->id,
                     'actualizado_en' => now(),
                 ]);
@@ -1068,9 +1059,6 @@ class ConfiguracionController extends Controller
                 'porcentaje_comision_apertura' => 10,
                 'porcentaje_interes_quincenal' => 5,
                 'multa_incumplimiento_monto' => 300,
-                'factor_divisor_puntos' => 1200,
-                'multiplicador_puntos' => 3,
-                'valor_punto_mxn' => 2,
                 'categorias_config_json' => [],
                 'productos_config_json' => [],
                 'actualizado_por_usuario_id' => $usuario->id,
