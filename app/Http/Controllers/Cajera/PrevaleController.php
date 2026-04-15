@@ -101,8 +101,7 @@ class PrevaleController extends Controller
                 return back()->withErrors(['error' => 'Crédito insuficiente.']);
             }
 
-            // 1. Descontar crédito
-            $distribuidora->decrement('credito_disponible', $montoPrestamo);
+            // 1. (Crédito ya fue reservado en DashboardController al crear)
 
             // 2. Vale: BORRADOR -> ACTIVO
             $valeActualizado = DB::table('vales')
@@ -200,6 +199,9 @@ class PrevaleController extends Controller
             $vale->notas       = "RECHAZADO POR CAJERA: " . $motivo;
             $vale->cancelado_en = now();
             $vale->save();
+
+            // 1.5 Devolver crédito reservado de la distribuidora
+            $vale->distribuidora()->increment('credito_disponible', (float) $vale->monto);
 
             // 2. Cliente: EN_VERIFICACION -> BLOQUEADO
             $cliente->estado = Cliente::ESTADO_BLOQUEADO;

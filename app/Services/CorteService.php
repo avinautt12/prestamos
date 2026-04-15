@@ -262,28 +262,43 @@ class CorteService
                     PartidaRelacionCorte::create($partida);
                 }
 
-                DB::afterCommit(function () use ($corte, $distribuidora, $relacion) {
+                $puntosGanados = app(\App\Services\ServicioReglasNegocio::class)
+                    ->calcularPuntos($totalAPagar, 1200, 3)['puntos_totales'];
+
+                if ($puntosGanados > 0) {
+                    $distribuidora->increment('puntos_actuales', $puntosGanados);
+                    \App\Models\MovimientoPunto::create([
+                        'distribuidora_id' => $distribuidora->id,
+                        'corte_id' => $corte->id,
+                        'tipo_movimiento' => \App\Models\MovimientoPunto::TIPO_GANADO_PUNTUAL,
+                        'puntos' => $puntosGanados,
+                        'valor_punto_snapshot' => 2.00,
+                        'motivo' => "Puntos generados por Relación {$relacion->numero_relacion}",
+                    ]);
+                }
+
+                DB::afterCommit(function () use ($corte, $distribuidora, $relacion, $puntosGanados) {
                     if ($corte->tipo_corte === Corte::TIPO_PUNTOS) {
                         $this->distribuidoraNotificationService->notificar(
                             $distribuidora,
                             'CORTE_PUNTOS_LISTO',
                             'Tu corte de puntos esta listo',
-                            "Se genero el corte de puntos {$relacion->numero_relacion}. Revisa tus movimientos de puntos.",
+                            "Se genero el corte de puntos {$relacion->numero_relacion}. Revisa tus movimientos.",
                             [
                                 'corte_id' => (int) $corte->id,
                                 'relacion_corte_id' => (int) $relacion->id,
                                 'numero_relacion' => (string) $relacion->numero_relacion,
                             ]
                         );
-
                         return;
                     }
 
+                    $pmsj = $puntosGanados > 0 ? " Ademas, has acumulado {$puntosGanados} puntos." : '';
                     $this->distribuidoraNotificationService->notificar(
                         $distribuidora,
                         'CORTE_LISTO',
-                        'Tu corte esta listo',
-                        "Se genero tu relacion {$relacion->numero_relacion} por un total de $" . number_format((float) $relacion->total_a_pagar, 2) . '.',
+                        'Tu corte de pagos esta listo',
+                        "Se genero tu relacion {$relacion->numero_relacion} por un total de $" . number_format((float) $relacion->total_a_pagar, 2) . ".{$pmsj}",
                         [
                             'corte_id' => (int) $corte->id,
                             'relacion_corte_id' => (int) $relacion->id,
@@ -295,6 +310,23 @@ class CorteService
 
                 $relacionesCreadas++;
             });
+        }
+
+        if ($relacionesCreadas > 0) {
+            $gerentes = \App\Models\Usuario::where('activo', true)
+                ->whereHas('roles', function($q) use ($sucursal) {
+                    $q->where('codigo', 'GERENTE')
+                      ->where('usuario_rol.sucursal_id', $sucursal->id);
+                })
+                ->get();
+            
+            foreach ($gerentes as $gerente) {
+                $gerente->notify(new \App\Notifications\NotificacionOperativa(
+                    titulo: 'Cortes Procesados',
+                    mensaje: "El sistema ha finalizado el corte global y generado {$relacionesCreadas} relaciones de cobro.",
+                    tipo: 'info'
+                ));
+            }
         }
 
         return $relacionesCreadas;

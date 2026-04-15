@@ -50,12 +50,6 @@ export default function Cortes({ sucursal, proximoCorte, cortesMes = [] }) {
         return map;
     }, [cortesMes]);
 
-    const cerrarCorte = (corteId) => {
-        router.post(route('gerente.cortes.cerrar-manual', corteId), {}, {
-            preserveScroll: true,
-        });
-    };
-
     return (
         <AdminLayout title="Cortes">
             <Head title="Cortes" />
@@ -154,32 +148,7 @@ export default function Cortes({ sucursal, proximoCorte, cortesMes = [] }) {
                         )}
                     </div>
 
-                    <div className="fin-card">
-                        <div className="flex items-center gap-2 mb-3 text-gray-900">
-                            <FontAwesomeIcon icon={faClock} className="text-amber-700" />
-                            <h3 className="font-semibold">Cierres manuales</h3>
-                        </div>
 
-                        {cortesMes.filter((corte) => corte.estado === 'PROGRAMADO').length === 0 ? (
-                            <p className="text-sm text-gray-500">No hay cortes programados para cerrar manualmente.</p>
-                        ) : (
-                            <div className="space-y-3">
-                                {cortesMes.filter((corte) => corte.estado === 'PROGRAMADO').map((corte) => (
-                                    <div key={corte.id} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                                        <p className="font-semibold text-gray-900">{formatServerDate(corte.fecha_programada)}</p>
-                                        <p className="text-xs text-gray-500 mt-1">{corte.tipo_corte}</p>
-                                        <button
-                                            type="button"
-                                            onClick={() => cerrarCorte(corte.id)}
-                                            className="fin-btn-secondary mt-3 w-full"
-                                        >
-                                            Cierre manual
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
                 </div>
             </div>
         </AdminLayout>

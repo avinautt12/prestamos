@@ -130,6 +130,22 @@ class UsuarioController extends Controller
             ]);
         });
 
+        if ($rol->codigo !== 'DISTRIBUIDORA' && !empty($data['correo_electronico'])) {
+            $nombreCompleto = trim($data['primer_nombre'] . ' ' . $data['apellido_paterno']);
+            $loginUrl = route('login');
+            try {
+                Mail::to($data['correo_electronico'])->send(new \App\Mail\BienvenidaCorporativaMail(
+                    nombre: $nombreCompleto,
+                    nombreUsuario: $data['nombre_usuario'],
+                    passwordPlano: $data['password'],
+                    rolNombre: $rol->nombre,
+                    loginUrl: $loginUrl
+                ));
+            } catch (\Throwable $e) {
+                logger()->warning('No se pudo enviar bienvenida corporativa: ' . $e->getMessage());
+            }
+        }
+
         return back()->with('success', 'Usuario creado correctamente.');
     }
 
