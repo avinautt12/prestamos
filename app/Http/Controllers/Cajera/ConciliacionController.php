@@ -214,9 +214,9 @@ class ConciliacionController extends Controller
      */
     private function calcularEstadoVentanaCorte(): array
     {
-        // Usar la primera sucursal con configuración activa (para desarrollo).
-        // En producción podría usarse la sucursal del cajero logueado.
-        $sucursal = Sucursal::first();
+        /** @var \App\Models\Usuario|null $usuario */
+        $usuario = auth()->user();
+        $sucursal = $usuario?->sucursales()->first() ?? Sucursal::first();
         $config = $sucursal ? SucursalConfiguracion::where('sucursal_id', $sucursal->id)->first() : null;
         $diaCorte = (int) ($config?->dia_corte ?? 15);
 

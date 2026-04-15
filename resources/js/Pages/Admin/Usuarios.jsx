@@ -20,58 +20,14 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
     const [filtroRolId, setFiltroRolId] = React.useState(filtros?.rol_id ? String(filtros.rol_id) : '');
     const [filtroEstado, setFiltroEstado] = React.useState(filtros?.estado || 'TODOS');
     const [filtroPerPage, setFiltroPerPage] = React.useState(String(filtros?.per_page || 10));
-    const [edicionManualCredenciales, setEdicionManualCredenciales] = React.useState(false);
-    const [usuarioEditadoManual, setUsuarioEditadoManual] = React.useState(false);
-
-    const generarPassword = React.useCallback(() => {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$%';
-        return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    }, []);
-
-    const generarNombreUsuario = React.useCallback((nombre, apellido) => {
-        const normalizar = (value) => String(value || '')
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-zA-Z0-9]/g, '')
-            .toLowerCase();
-
-        const n = normalizar(nombre).slice(0, 8);
-        const a = normalizar(apellido).slice(0, 8);
-        const base = `${n}${a}` || 'usuario';
-        const sufijo = Math.floor(100 + Math.random() * 900);
-        return `${base}${sufijo}`.slice(0, 24);
-    }, []);
-
-    React.useEffect(() => {
-        if (!form.data.password) {
-            form.setData('password', generarPassword());
-        }
-    }, []);
-
-    React.useEffect(() => {
-        if (usuarioEditadoManual) return;
-        const sugerido = generarNombreUsuario(form.data.primer_nombre, form.data.apellido_paterno);
-        form.setData('nombre_usuario', sugerido);
-    }, [form.data.primer_nombre, form.data.apellido_paterno, usuarioEditadoManual, generarNombreUsuario]);
 
     const crearUsuario = (event) => {
         event.preventDefault();
 
-        if (!form.data.nombre_usuario) {
-            form.setData('nombre_usuario', generarNombreUsuario(form.data.primer_nombre, form.data.apellido_paterno));
-        }
-
-        if (!form.data.password) {
-            form.setData('password', generarPassword());
-        }
-
         form.post(route('admin.usuarios.store'), {
             preserveScroll: true,
             onSuccess: () => {
-                setUsuarioEditadoManual(false);
-                setEdicionManualCredenciales(false);
-                form.reset('password', 'nombre_usuario', 'primer_nombre', 'apellido_paterno', 'correo_electronico', 'rol_id', 'sucursal_id');
-                form.setData('password', generarPassword());
+                form.reset();
             },
         });
     };
@@ -135,21 +91,6 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
 
     const rolSeleccionado = roles.find((rol) => String(rol.id) === String(form.data.rol_id));
     const requiereSucursal = rolSeleccionado && rolSeleccionado.codigo !== 'ADMIN';
-
-    const regenerarCredenciales = () => {
-        form.setData('nombre_usuario', generarNombreUsuario(form.data.primer_nombre, form.data.apellido_paterno));
-        form.setData('password', generarPassword());
-        setUsuarioEditadoManual(false);
-    };
-
-    const copiarPassword = async () => {
-        if (!form.data.password || !navigator?.clipboard) return;
-        try {
-            await navigator.clipboard.writeText(form.data.password);
-        } catch {
-            // noop
-        }
-    };
 
     return (
         <AdminLayout title="Usuarios y Roles">
@@ -236,47 +177,21 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
                     </div>
                 </div>
 
-                <div className="p-3 border rounded-xl border-slate-200 bg-slate-50">
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 mt-4 p-4 border rounded-xl border-slate-200 bg-slate-50">
+                    <div className="md:col-span-2 pb-2">
                         <p className="text-sm font-semibold text-slate-700">Credenciales de acceso</p>
-                        <button
-                            type="button"
-                            className="px-3 py-1 text-xs font-semibold border rounded-lg border-slate-300 text-slate-700"
-                            onClick={() => setEdicionManualCredenciales((prev) => !prev)}
-                        >
-                            {edicionManualCredenciales ? 'Usar modo rápido' : 'Editar manualmente'}
-                        </button>
                     </div>
-
-                    {!edicionManualCredenciales && (
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                            <Input label="Usuario sugerido" value={form.data.nombre_usuario} onChange={() => { }} readOnly />
-                            <Input label="Contraseña temporal" value={form.data.password} onChange={() => { }} readOnly />
-                            <div className="flex flex-wrap items-center gap-2 md:col-span-2">
-                                <button type="button" className="fin-btn-secondary" onClick={regenerarCredenciales}>Regenerar credenciales</button>
-                                <button type="button" className="fin-btn-secondary" onClick={copiarPassword}>Copiar contraseña</button>
-                            </div>
-                        </div>
-                    )}
-
-                    {edicionManualCredenciales && (
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                            <Input
-                                label="Usuario"
-                                value={form.data.nombre_usuario}
-                                onChange={(v) => {
-                                    setUsuarioEditadoManual(true);
-                                    form.setData('nombre_usuario', v);
-                                }}
-                            />
-                            <Input
-                                label="Contraseña"
-                                type="password"
-                                value={form.data.password}
-                                onChange={(v) => form.setData('password', v)}
-                            />
-                        </div>
-                    )}
+                    <Input
+                        label="Nombre de Usuario"
+                        value={form.data.nombre_usuario}
+                        onChange={(v) => form.setData('nombre_usuario', v)}
+                    />
+                    <Input
+                        label="Contraseña Temporal"
+                        type="password"
+                        value={form.data.password}
+                        onChange={(v) => form.setData('password', v)}
+                    />
                 </div>
 
                 <div className="flex items-center justify-between pt-2">

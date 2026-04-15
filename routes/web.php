@@ -47,6 +47,7 @@ Route::middleware(['auth'])->group(function () {
 // ============================================================
 Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/calendario', [App\Http\Controllers\Admin\DashboardController::class, 'calendario'])->name('calendario');
     Route::get('/reportes', [App\Http\Controllers\Admin\DashboardController::class, 'reportes'])->name('reportes');
 
     Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');

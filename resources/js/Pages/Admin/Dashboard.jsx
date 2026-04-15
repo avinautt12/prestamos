@@ -13,6 +13,7 @@ import {
     faCircleNodes,
     faGlobe,
     faMoneyBillTrendUp,
+    faCalendarDays,
 } from '@fortawesome/free-solid-svg-icons';
 
 function ExecutiveCard({ label, value, icon, tone }) {

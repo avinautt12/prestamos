@@ -488,9 +488,9 @@ class DashboardController extends Controller
                     'referencia_transferencia'         => $requierePrevale ? null : $referenciaTransferencia,
                 ]);
 
-                if (!$requierePrevale) {
-                    $distribuidora->decrement('credito_disponible', $montoPrincipal);
+                $distribuidora->decrement('credito_disponible', $montoPrincipal);
 
+                if (!$requierePrevale) {
                     EgresoEmpresaSimulado::updateOrCreate(
                         ['vale_id' => $vale->id],
                         [
@@ -567,6 +567,8 @@ class DashboardController extends Controller
             'cancelado'    => true,
             'cancelado_en' => now(),
         ]);
+
+        $distribuidora->increment('credito_disponible', (float) $vale->monto);
 
         return redirect()
             ->route('distribuidora.vales')

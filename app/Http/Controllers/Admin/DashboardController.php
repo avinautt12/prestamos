@@ -28,6 +28,27 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function calendario(): Response
+    {
+        // Se asume configuración global, usando la primera sucursal como base.
+        $sucursal = Sucursal::query()->with('configuracion')->first();
+        $diaCorte = (int) ($sucursal?->configuracion?->dia_corte ?? 15);
+        
+        $ahora = now();
+        $diasMesActual = $ahora->copy()->endOfMonth()->day;
+        $dia1 = min($diaCorte, $diasMesActual);
+        
+        $fechasProgramadas = [
+            $ahora->copy()->day($dia1)->format('Y-m-d'),
+            $ahora->copy()->day($dia1)->addDays(15)->format('Y-m-d')
+        ];
+
+        return Inertia::render('Admin/Calendario', [
+            'fechas_programadas' => $fechasProgramadas,
+            'dia_corte_base' => $diaCorte
+        ]);
+    }
+
     public function reportes(Request $request): Response
     {
         $periodo = $request->string('periodo')->toString();

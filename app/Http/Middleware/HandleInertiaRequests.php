@@ -55,6 +55,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $usuario,
                 'sucursal_id' => $sucursalId,
+                'unread_notifications' => $usuario ? $usuario->unreadNotifications()->take(15)->get() : [],
             ],
             'flash' => [
                 'success' => fn() => $request->session()->get('success'),
