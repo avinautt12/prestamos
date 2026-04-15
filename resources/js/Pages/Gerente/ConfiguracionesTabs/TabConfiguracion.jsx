@@ -22,7 +22,7 @@ export default function TabConfiguracion({
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
-                    <label className="text-sm text-gray-700">Fecha de corte (día del mes)</label>
+                    <label className="text-sm text-gray-700">Primera fecha de corte (día del mes)</label>
                     <input
                         type="number"
                         min="1"
@@ -31,10 +31,26 @@ export default function TabConfiguracion({
                         value={formSucursal.data.dia_corte}
                         onChange={(e) => formSucursal.setData('dia_corte', e.target.value)}
                     />
+                    <p className="mt-1 text-xs text-gray-500">La segunda fecha se calcula automáticamente sumando 15 días.</p>
                     {formSucursal.errors?.dia_corte && (
                         <p className="mt-1 text-xs text-red-600">{formSucursal.errors.dia_corte}</p>
                     )}
                 </div>
+                <div>
+                    <label className="text-sm text-gray-700">Plazo de pago (días)</label>
+                    <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        className="mt-1 fin-input"
+                        value={formSucursal.data.plazo_pago_dias}
+                        onChange={(e) => formSucursal.setData('plazo_pago_dias', e.target.value)}
+                    />
+                    {formSucursal.errors?.plazo_pago_dias && (
+                        <p className="mt-1 text-xs text-red-600">{formSucursal.errors.plazo_pago_dias}</p>
+                    )}
+                </div>
+
                 <div>
                     <label className="text-sm text-gray-700">Hora de corte</label>
                     <div className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">

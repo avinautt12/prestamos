@@ -4,6 +4,7 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 import NotificationCenter from '@/Components/NotificationCenter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
+    faArrowRightArrowLeft,
     faBars,
     faRightFromBracket,
     faXmark,
@@ -103,15 +104,17 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
     if (auth.user?.rol_nombre === 'coordinador') {
         navigation = [
             { name: 'Dashboard', href: route('coordinador.dashboard'), icon: faHouse, active: route().current('coordinador.dashboard') },
-            { name: 'Reportes', href: route('coordinador.reportes'), icon: faChartLine, active: route().current('coordinador.reportes') },
             { name: 'Nueva Solicitud', href: route('coordinador.solicitudes.create'), icon: faFileCirclePlus, active: route().current('coordinador.solicitudes.create') },
+            { name: 'Reportes', href: route('coordinador.reportes'), icon: faChartLine, active: route().current('coordinador.reportes') },
             { name: 'Solicitudes', href: route('coordinador.solicitudes.index'), icon: faFileLines, active: route().current('coordinador.solicitudes.*') },
+            { name: 'Traspasos', href: route('coordinador.traspasos.index'), icon: faArrowRightArrowLeft, active: route().current('coordinador.traspasos.*') },
             { name: 'Clientes', href: route('coordinador.clientes'), icon: faUsers, active: route().current('coordinador.clientes') },
             { name: 'Mis Distribuidoras', href: route('coordinador.mis-distribuidoras'), icon: faPeopleGroup, active: route().current('coordinador.mis-distribuidoras') }
         ];
         shortcuts = [
-            { name: 'Reportes', href: route('coordinador.reportes') },
             { name: 'Captura Rápida', href: route('coordinador.solicitudes.create') },
+            { name: 'Reportes', href: route('coordinador.reportes') },
+            { name: 'Traspasos', href: route('coordinador.traspasos.index') },
             { name: 'Ver Cartera', href: route('coordinador.clientes') },
         ];
     } else if (auth.user?.rol_nombre === 'cajera') {
@@ -192,7 +195,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
                     </nav>
 
                     <div className="px-4 pb-4">
-                        <div className="p-3 border border-emerald-100 rounded-lg bg-emerald-50/60">
+                        <div className="p-3 border rounded-lg border-emerald-100 bg-emerald-50/60">
                             <p className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase">Atajos</p>
                             <div className="space-y-1">
                                 {shortcuts.map((shortcut) => (
@@ -212,7 +215,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
             </aside>
 
             <div className="flex-1 min-w-0">
-                <header className="sticky top-0 z-10 bg-white/90 border-b backdrop-blur" style={{ borderColor: '#D1FAE5' }}>
+                <header className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur" style={{ borderColor: '#D1FAE5' }}>
                     <div className="flex items-center justify-between px-4 py-3">
                         <button
                             onClick={() => setSidebarOpen(!sidebarOpen)}

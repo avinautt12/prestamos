@@ -4,6 +4,7 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 import NotificationCenter from '@/Components/NotificationCenter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
+    faArrowRightArrowLeft,
     faBell,
     faChartPie,
     faFileInvoiceDollar,
@@ -26,6 +27,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
     const navigation = useMemo(() => ([
         { name: 'Dashboard', short: 'Inicio', href: route('distribuidora.dashboard'), icon: faHouse, current: 'distribuidora.dashboard' },
         { name: 'Clientes', short: 'Clientes', href: route('distribuidora.clientes'), icon: faUsers, current: 'distribuidora.clientes' },
+        { name: 'Traspasos', short: 'Traspasos', href: route('distribuidora.traspasos.index'), icon: faArrowRightArrowLeft, current: 'distribuidora.traspasos.index' },
         { name: 'Pre vale', short: 'Pre vale', href: route('distribuidora.vales.create'), icon: faChartPie, current: 'distribuidora.vales.create' },
         { name: 'Vales', short: 'Vales', href: route('distribuidora.vales'), icon: faFileInvoiceDollar, current: 'distribuidora.vales' },
         { name: 'Estado de Cuenta', short: 'Cuenta', href: route('distribuidora.estado-cuenta'), icon: faWallet, current: 'distribuidora.estado-cuenta' },
@@ -163,8 +165,8 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                 </main>
 
                 <nav className="fin-mobile-nav bg-white/95 border-t" style={{ borderColor: '#D1FAE5' }}>
-                    <div className="grid grid-cols-5 gap-1 px-2 py-2">
-                        {navigation.slice(0, 5).map((item) => {
+                    <div className="grid grid-flow-col auto-cols-fr gap-1 px-2 py-2 overflow-x-auto">
+                        {navigation.map((item) => {
                             const isActive = route().current(item.current);
                             return (
                                 <Link

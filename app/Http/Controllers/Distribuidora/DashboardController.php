@@ -9,6 +9,7 @@ use App\Http\Requests\Distribuidora\StorePreValeRequest;
 use App\Models\Cliente;
 use App\Models\CuentaBancaria;
 use App\Models\Distribuidora;
+use App\Models\EgresoEmpresaSimulado;
 use App\Models\MovimientoPunto;
 use App\Models\PagoDistribuidora;
 use App\Models\Persona;
@@ -349,7 +350,6 @@ class DashboardController extends Controller
             return back()->withErrors(['general' => 'Tu cuenta no tiene habilitada la emisión de vales.']);
         }
 
-        // Usar el servicio para obtener y validar el producto
         try {
             $producto = $this->productoService->obtenerProductoActivoValidado($request->producto_id);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -367,11 +367,11 @@ class DashboardController extends Controller
         }
 
         try {
-            $numeroVale = DB::transaction(function () use ($request, $distribuidora, $producto, $montoPrincipal) {
+            $resultado = DB::transaction(function () use ($request, $distribuidora, $producto, $montoPrincipal) {
                 $esClienteExistente = $request->filled('cliente_id');
+                $requierePrevale = true;
 
                 if ($esClienteExistente) {
-                    // Cliente existente: validar que pertenece a esta distribuidora
                     $cliente = Cliente::findOrFail($request->cliente_id);
                     $relacion = DB::table('clientes_distribuidora')
                         ->where('distribuidora_id', $distribuidora->id)
@@ -383,7 +383,8 @@ class DashboardController extends Controller
                         throw new \Exception('El cliente no está vinculado a tu distribuidora.');
                     }
 
-                    // Verificar que no tenga vales abiertos con esta distribuidora
+                    $requierePrevale = !((bool) ($relacion->prevale_aprobado ?? false));
+
                     $valesAbiertos = Vale::where('distribuidora_id', $distribuidora->id)
                         ->where('cliente_id', $cliente->id)
                         ->whereIn('estado', [Vale::ESTADO_BORRADOR, Vale::ESTADO_ACTIVO, Vale::ESTADO_PAGO_PARCIAL, Vale::ESTADO_MOROSO])
@@ -393,7 +394,6 @@ class DashboardController extends Controller
                         throw new \Exception('El cliente tiene deuda abierta con tu distribuidora.');
                     }
                 } else {
-                    // Cliente nuevo: crear Persona + Cliente + relación
                     $persona = Persona::create([
                         'primer_nombre'      => $request->primer_nombre,
                         'segundo_nombre'     => $request->segundo_nombre,
@@ -412,7 +412,6 @@ class DashboardController extends Controller
                         'codigo_postal'      => $request->codigo_postal,
                     ]);
 
-                    // Subir fotos
                     $fotoIneFrente = $request->file('foto_ine_frente')?->store('clientes/ine_frente', 'spaces');
                     $fotoIneReverso = $request->file('foto_ine_reverso')?->store('clientes/ine_reverso', 'spaces');
                     $fotoSelfieIne = $request->file('foto_selfie_ine')?->store('clientes/selfie_ine', 'spaces');
@@ -433,11 +432,13 @@ class DashboardController extends Controller
                         'distribuidora_id' => $distribuidora->id,
                         'cliente_id'       => $cliente->id,
                         'estado_relacion'  => 'ACTIVA',
+                        'prevale_aprobado' => false,
                         'vinculado_en'     => now(),
                     ]);
+
+                    $requierePrevale = true;
                 }
 
-                // Usar el servicio para calcular montos (usa valores del producto del VER momento)
                 $montos = $this->productoService->calcularMontosDelProducto(
                     $montoPrincipal,
                     (float) $producto->porcentaje_comision_empresa,
@@ -451,21 +452,23 @@ class DashboardController extends Controller
                     (float) ($distribuidora->categoria?->porcentaje_comision ?? 0)
                 );
 
-                // Generar numero_vale único
                 do {
                     $numeroVale = 'VALE-' . now()->format('ymdHis') . '-' . random_int(100, 999);
                 } while (Vale::where('numero_vale', $numeroVale)->exists());
 
-                // Crear Vale en estado BORRADOR
-                // Usar snapshots para preservar valores en caso de cambios futuros a producto
-                Vale::create([
+                $fechaTransferencia = now();
+                $referenciaTransferencia = 'INT-' . $numeroVale . '-' . $fechaTransferencia->format('YmdHis');
+
+                $clienteId = $cliente->id;
+                $vale = Vale::create([
                     'numero_vale'                      => $numeroVale,
                     'distribuidora_id'                 => $distribuidora->id,
-                    'cliente_id'                       => $cliente->id,
+                    'cliente_id'                       => $clienteId,
                     'producto_financiero_id'           => $producto->id,
                     'sucursal_id'                      => $distribuidora->sucursal_id,
                     'creado_por_usuario_id'            => auth()->user()->id,
-                    'estado'                           => Vale::ESTADO_BORRADOR,
+                    'aprobado_por_usuario_id'          => $requierePrevale ? null : Auth::id(),
+                    'estado'                           => $requierePrevale ? Vale::ESTADO_BORRADOR : Vale::ESTADO_ACTIVO,
                     'monto'                            => $montos['monto_principal'],
                     'porcentaje_comision_empresa_snap' => (float) $producto->porcentaje_comision_empresa,
                     'monto_comision_empresa'           => $montos['comision_empresa'],
@@ -481,18 +484,60 @@ class DashboardController extends Controller
                     'pagos_realizados'                 => 0,
                     'saldo_actual'                     => $montos['total_deuda'],
                     'fecha_emision'                    => now(),
+                    'fecha_transferencia'              => $requierePrevale ? null : $fechaTransferencia,
+                    'referencia_transferencia'         => $requierePrevale ? null : $referenciaTransferencia,
                 ]);
 
-                return $numeroVale;
+                if (!$requierePrevale) {
+                    $distribuidora->decrement('credito_disponible', $montoPrincipal);
+
+                    EgresoEmpresaSimulado::updateOrCreate(
+                        ['vale_id' => $vale->id],
+                        [
+                            'distribuidora_id' => $distribuidora->id,
+                            'cliente_id' => $clienteId,
+                            'ejecutado_por_usuario_id' => Auth::id(),
+                            'origen' => 'VALE_FERIADO',
+                            'referencia_interna' => $referenciaTransferencia,
+                            'monto' => $montoPrincipal,
+                            'fecha_operacion' => $fechaTransferencia,
+                            'notas' => 'Desembolso interno simulado al emitir el vale directo.',
+                        ]
+                    );
+
+                    DB::afterCommit(function () use ($distribuidora, $vale, $referenciaTransferencia) {
+                        $this->notificationService->notificar(
+                            $distribuidora,
+                            'VALE_FERIADO',
+                            'Tu vale fue emitido',
+                            "El vale {$vale->numero_vale} ya fue emitido y activado.",
+                            [
+                                'vale_id' => (int) $vale->id,
+                                'numero_vale' => (string) $vale->numero_vale,
+                                'referencia_transferencia' => $referenciaTransferencia,
+                            ]
+                        );
+                    });
+                }
+
+                return [
+                    'numero_vale' => $numeroVale,
+                    'requiere_prevale' => $requierePrevale,
+                ];
             });
+
+            $mensaje = $resultado['requiere_prevale']
+                ? "Pre vale {$resultado['numero_vale']} creado exitosamente."
+                : "Vale {$resultado['numero_vale']} emitido exitosamente.";
 
             return redirect()
                 ->route('distribuidora.vales')
-                ->with('success', "Pre vale {$numeroVale} creado exitosamente.");
+                ->with('success', $mensaje);
         } catch (\Exception $e) {
             $mensaje = str_starts_with($e->getMessage(), 'El cliente')
                 ? $e->getMessage()
                 : 'Ocurrió un error al crear el pre vale. Intenta de nuevo.';
+
             return back()->withErrors(['general' => $mensaje]);
         }
     }
@@ -620,12 +665,33 @@ class DashboardController extends Controller
             return back()->withErrors(['general' => 'La relación seleccionada no está pendiente de pago o no pertenece a tu distribuidora.']);
         }
 
+        $montoReportadoAcumulado = (float) PagoDistribuidora::query()
+            ->where('relacion_corte_id', $relacion->id)
+            ->whereIn('estado', [
+                PagoDistribuidora::ESTADO_REPORTADO,
+                PagoDistribuidora::ESTADO_DETECTADO,
+                PagoDistribuidora::ESTADO_CONCILIADO,
+            ])
+            ->sum('monto');
+
+        $montoPendiente = round((float) $relacion->total_a_pagar - $montoReportadoAcumulado, 2);
+
+        if ($montoPendiente <= 0) {
+            return back()->withErrors(['general' => "La relación {$relacion->numero_relacion} ya tiene cubierto el monto esperado."]);
+        }
+
+        $montoSolicitado = round((float) $request->monto, 2);
+
+        if ($montoSolicitado > ($montoPendiente + 0.009)) {
+            return back()->withErrors(['general' => "El monto reportado excede lo pendiente de la relación. Pendiente: $" . number_format($montoPendiente, 2) . "."]);
+        }
+
         try {
             PagoDistribuidora::create([
                 'relacion_corte_id'       => $relacion->id,
                 'distribuidora_id'        => $distribuidora->id,
                 'cuenta_banco_empresa_id' => null,
-                'monto'                   => round((float) $request->monto, 2),
+                'monto'                   => $montoSolicitado,
                 'metodo_pago'             => $request->metodo_pago,
                 'referencia_reportada'    => $request->referencia_reportada,
                 'fecha_pago'              => $request->fecha_pago ?? now(),
@@ -1204,6 +1270,7 @@ class DashboardController extends Controller
                 'c.codigo_cliente',
                 'c.estado as estado_cliente',
                 'cd.estado_relacion',
+                'cd.prevale_aprobado',
                 'cd.bloqueado_por_parentesco',
                 'cd.observaciones_parentesco',
                 'p.primer_nombre',
@@ -1229,6 +1296,10 @@ class DashboardController extends Controller
                     $motivos[] = 'La relación con el cliente no está activa.';
                 }
 
+                if (!(bool) $cliente->prevale_aprobado) {
+                    $motivos[] = 'El cliente todavía no ha pasado prevale con esta distribuidora.';
+                }
+
                 if ($cliente->estado_cliente !== Cliente::ESTADO_ACTIVO) {
                     $motivos[] = 'El cliente no está en estado ACTIVO.';
                 }
@@ -1252,6 +1323,7 @@ class DashboardController extends Controller
                     ),
                     'estado_cliente' => $cliente->estado_cliente,
                     'estado_relacion' => $cliente->estado_relacion,
+                    'prevale_aprobado' => (bool) $cliente->prevale_aprobado,
                     'bloqueado_por_parentesco' => (bool) $cliente->bloqueado_por_parentesco,
                     'vales_abiertos' => (int) $cliente->vales_abiertos,
                     'saldo_pendiente' => (float) $cliente->saldo_pendiente,

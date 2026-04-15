@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import TabletLayout from '@/Layouts/TabletLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-    faArrowLeft, 
-    faCheckCircle, 
-    faTimesCircle, 
-    faUser, 
+import {
+    faArrowLeft,
+    faCheckCircle,
+    faTimesCircle,
+    faUser,
     faIdCard,
     faShop,
     faTriangleExclamation,
@@ -20,7 +20,7 @@ export default function Show({ vale }) {
     const dp = vale.distribuidora?.persona || {}; // Distribuidora Persona
     const distribuidora = vale.distribuidora || {};
     const cliente = vale.cliente || {}; // Datos de cuenta bancaria
-    
+
     // Aseguramos matemática correcta para evitar colores rojos erróneos
     const creditoDisponible = parseFloat(distribuidora.credito_disponible) || 0;
     const montoPréstamo = parseFloat(vale.producto_financiero?.monto_principal || vale.monto_principal) || 0;
@@ -30,18 +30,18 @@ export default function Show({ vale }) {
     const coincidenciaPaterno = cp.apellido_paterno?.toLowerCase() === dp.apellido_paterno?.toLowerCase();
     const coincidenciaMaterno = cp.apellido_materno?.toLowerCase() === dp.apellido_materno?.toLowerCase() && cp.apellido_materno;
     const tieneMismosApellidos = coincidenciaPaterno || coincidenciaMaterno;
-    
+
     const direccionCliente = `${cp.calle || ''} ${cp.numero_exterior || ''}`.trim().toLowerCase();
     const direccionDist = `${dp.calle || ''} ${dp.numero_exterior || ''}`.trim().toLowerCase();
     const mismaDireccion = direccionCliente !== '' && direccionCliente === direccionDist;
-    
+
     const mismoTelefono = (cp.telefono_celular && cp.telefono_celular === dp.telefono_celular);
     const mismoCorreo = (cp.correo_electronico && cp.correo_electronico.toLowerCase() === dp.correo_electronico?.toLowerCase());
 
-    const titularCuenta = cliente.cuenta_titular || "No registrado"; 
-    const posiblePrestanombre = titularCuenta !== "No registrado" && 
-                                (!titularCuenta.toLowerCase().includes(cp.primer_nombre?.toLowerCase()) || 
-                                 !titularCuenta.toLowerCase().includes(cp.apellido_paterno?.toLowerCase()));
+    const titularCuenta = cliente.cuenta_titular || "No registrado";
+    const posiblePrestanombre = titularCuenta !== "No registrado" &&
+        (!titularCuenta.toLowerCase().includes(cp.primer_nombre?.toLowerCase()) ||
+            !titularCuenta.toLowerCase().includes(cp.apellido_paterno?.toLowerCase()));
 
     // Formatear Fecha y Calcular Edad
     const formatFecha = (fecha) => fecha ? fecha.split('T')[0] : 'N/A';
@@ -59,10 +59,10 @@ export default function Show({ vale }) {
     const [showRechazar, setShowRechazar] = useState(false);
 
     const formAprobar = useForm({
-        check_identidad: false, 
-        check_domicilio: false, 
-        check_biometria: false, 
-        check_pld: false,       
+        check_identidad: false,
+        check_domicilio: false,
+        check_biometria: false,
+        check_pld: false,
         check_parentesco: false,
     });
 
@@ -70,12 +70,12 @@ export default function Show({ vale }) {
         motivo_rechazo: '',
     });
 
-    const puedeAprobar = formAprobar.data.check_identidad && formAprobar.data.check_domicilio && 
-                         formAprobar.data.check_biometria && formAprobar.data.check_pld && formAprobar.data.check_parentesco;
+    const puedeAprobar = formAprobar.data.check_identidad && formAprobar.data.check_domicilio &&
+        formAprobar.data.check_biometria && formAprobar.data.check_pld && formAprobar.data.check_parentesco;
 
     const handleAprobar = (e) => {
         e.preventDefault();
-        if(!puedeAprobar) return;
+        if (!puedeAprobar) return;
         formAprobar.post(route('cajera.prevale.aprobar', vale.id));
     };
 
@@ -90,7 +90,7 @@ export default function Show({ vale }) {
 
             <div className="py-6">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
-                    
+
                     {/* --- HEADER Y MONTO --- */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <div className="flex items-center gap-4">
@@ -130,7 +130,7 @@ export default function Show({ vale }) {
 
                     {/* --- TARJETAS: CLIENTE VS DISTRIBUIDORA --- */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        
+
                         {/* TARJETA CLIENTE FINAL */}
                         <div className="bg-white rounded-xl shadow-sm border border-blue-200 overflow-hidden">
                             <div className="bg-blue-50 px-5 py-4 border-b border-blue-200 flex items-center gap-3">
@@ -158,8 +158,8 @@ export default function Show({ vale }) {
                                     <div className="col-span-2">
                                         <p className="text-xs text-gray-400 font-bold mb-1">DIRECCIÓN REGISTRADA</p>
                                         <p className={`font-medium text-gray-900 ${mismaDireccion ? "bg-orange-200 px-1 rounded inline-block" : ""}`}>
-                                            {cp.calle || '#'} {cp.numero_exterior || ''}, Col. {cp.colonia || ''}, C.P. {cp.codigo_postal || ''} <br/>
-                                            {cp.ciudad || ''}, {cp.estado_direccion || ''}
+                                            {cp.calle || '#'} {cp.numero_exterior || ''}, Col. {cp.colonia || ''}, C.P. {cp.codigo_postal || ''} <br />
+                                            {cp.ciudad || ''}, {cp.estado || ''}
                                         </p>
                                     </div>
                                     <div>
@@ -203,8 +203,8 @@ export default function Show({ vale }) {
                                     <div className="col-span-2">
                                         <p className="text-xs text-gray-400 font-bold mb-1">DIRECCIÓN REGISTRADA</p>
                                         <p className={`font-medium text-gray-900 ${mismaDireccion ? "bg-orange-200 px-1 rounded inline-block" : ""}`}>
-                                            {dp.calle || '#'} {dp.numero_exterior || ''}, Col. {dp.colonia || ''}, C.P. {dp.codigo_postal || ''} <br/>
-                                            {dp.ciudad || ''}, {dp.estado_direccion || ''}
+                                            {dp.calle || '#'} {dp.numero_exterior || ''}, Col. {dp.colonia || ''}, C.P. {dp.codigo_postal || ''} <br />
+                                            {dp.ciudad || ''}, {dp.estado || ''}
                                         </p>
                                     </div>
                                     <div>
@@ -288,30 +288,30 @@ export default function Show({ vale }) {
                             <h4 className="font-bold text-white text-center tracking-widest uppercase text-sm">Checklist de Auditoría Obligatorio</h4>
                         </div>
                         <div className="p-6 flex flex-col xl:flex-row justify-between gap-8">
-                            
+
                             <div className="w-full xl:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                                 <label className="flex items-start gap-3 cursor-pointer group p-2 rounded hover:bg-gray-50 transition-colors">
-                                    <input type="checkbox" className="mt-1 rounded text-blue-600 focus:ring-blue-500 w-5 h-5 cursor-pointer" 
+                                    <input type="checkbox" className="mt-1 rounded text-blue-600 focus:ring-blue-500 w-5 h-5 cursor-pointer"
                                         checked={formAprobar.data.check_identidad} onChange={e => formAprobar.setData('check_identidad', e.target.checked)} />
                                     <span className="text-sm text-gray-700 leading-tight">Los datos capturados (Nombre, CURP) coinciden con la foto del INE.</span>
                                 </label>
                                 <label className="flex items-start gap-3 cursor-pointer group p-2 rounded hover:bg-gray-50 transition-colors">
-                                    <input type="checkbox" className="mt-1 rounded text-blue-600 focus:ring-blue-500 w-5 h-5 cursor-pointer" 
+                                    <input type="checkbox" className="mt-1 rounded text-blue-600 focus:ring-blue-500 w-5 h-5 cursor-pointer"
                                         checked={formAprobar.data.check_domicilio} onChange={e => formAprobar.setData('check_domicilio', e.target.checked)} />
                                     <span className="text-sm text-gray-700 leading-tight">La dirección física es válida y no es la misma que la distribuidora.</span>
                                 </label>
                                 <label className="flex items-start gap-3 cursor-pointer group p-2 rounded hover:bg-gray-50 transition-colors">
-                                    <input type="checkbox" className="mt-1 rounded text-blue-600 focus:ring-blue-500 w-5 h-5 cursor-pointer" 
+                                    <input type="checkbox" className="mt-1 rounded text-blue-600 focus:ring-blue-500 w-5 h-5 cursor-pointer"
                                         checked={formAprobar.data.check_biometria} onChange={e => formAprobar.setData('check_biometria', e.target.checked)} />
                                     <span className="text-sm text-gray-700 leading-tight">El rostro en la <b>Selfie</b> coincide con la fotografía del INE.</span>
                                 </label>
                                 <label className="flex items-start gap-3 cursor-pointer group p-2 rounded hover:bg-gray-50 transition-colors">
-                                    <input type="checkbox" className="mt-1 rounded text-blue-600 focus:ring-blue-500 w-5 h-5 cursor-pointer" 
+                                    <input type="checkbox" className="mt-1 rounded text-blue-600 focus:ring-blue-500 w-5 h-5 cursor-pointer"
                                         checked={formAprobar.data.check_pld} onChange={e => formAprobar.setData('check_pld', e.target.checked)} />
                                     <span className="text-sm text-gray-700 leading-tight">Revisión PLD: El <b>Titular de la Cuenta</b> bancaria es válido.</span>
                                 </label>
                                 <label className="flex items-start gap-3 cursor-pointer group col-span-1 sm:col-span-2 p-3 bg-gray-50 border border-gray-200 rounded-lg mt-2">
-                                    <input type="checkbox" className="mt-1 rounded text-blue-600 focus:ring-blue-500 w-5 h-5 cursor-pointer" 
+                                    <input type="checkbox" className="mt-1 rounded text-blue-600 focus:ring-blue-500 w-5 h-5 cursor-pointer"
                                         checked={formAprobar.data.check_parentesco} onChange={e => formAprobar.setData('check_parentesco', e.target.checked)} />
                                     <span className="text-sm text-gray-900 font-bold leading-tight">Declaro bajo mi responsabilidad que NO existe parentesco directo ni fraude.</span>
                                 </label>
@@ -353,21 +353,21 @@ export default function Show({ vale }) {
                         </div>
                         <h3 className="text-xl font-black text-gray-900 mb-2">Rechazar Prevale</h3>
                         <p className="text-sm text-gray-500 mb-5">Ingresa el motivo por el cual este vale no procede. Esta acción bloqueará al cliente.</p>
-                        
+
                         <form onSubmit={handleRechazar}>
                             <div className="mb-5">
                                 <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Motivo de Rechazo *</label>
-                                <textarea 
+                                <textarea
                                     required
                                     rows="4"
                                     value={formRechazar.data.motivo_rechazo}
                                     onChange={e => formRechazar.setData('motivo_rechazo', e.target.value)}
-                                    className="w-full border-gray-300 rounded-xl shadow-sm focus:ring-red-500 focus:border-red-500 bg-gray-50" 
+                                    className="w-full border-gray-300 rounded-xl shadow-sm focus:ring-red-500 focus:border-red-500 bg-gray-50"
                                     placeholder="Ej. Se detectó parentesco directo, Identificación falsa, etc."
                                 />
                                 {formRechazar.errors.motivo_rechazo && <p className="text-red-500 text-xs mt-1 font-semibold">{formRechazar.errors.motivo_rechazo}</p>}
                             </div>
-                            
+
                             <div className="flex justify-end gap-3">
                                 <button type="button" onClick={() => setShowRechazar(false)} className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl font-bold transition-colors">Cancelar</button>
                                 <button type="submit" disabled={formRechazar.processing} className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold shadow-sm transition-colors">Confirmar Rechazo</button>

@@ -206,8 +206,8 @@ class ConciliacionController extends Controller
      *
      * Reglas de Charly:
      * - Día de corte = dia_corte configurado en sucursal_configuraciones
-     * - Ventana 1 (principal): días dia_corte, +1, +2 — Excel con pagos cuya fecha <= dia_corte
-     * - Ventana 2 (tardíos): día dia_corte + 5 — Excel con pagos del dia_corte+1 al dia_corte+5
+     * - Dos cortes por ciclo: corte base y corte base + 15 días
+     * - Cada corte tiene ventana principal de 3 días y ventana tardíos en el día +5
      * - Fuera de ventana: cajera no puede descargar nada
      *
      * Retorna: ['ventana' => 'PRINCIPAL'|'TARDIOS'|'FUERA', 'fecha_corte' => Carbon, 'desde' => Carbon, 'hasta' => Carbon, 'mensaje' => string]
@@ -226,39 +226,62 @@ class ConciliacionController extends Controller
         $diasMes = $hoy->copy()->endOfMonth()->day;
         $diaCorteAjustado = min($diaCorte, $diasMes);
 
-        $fechaCorte = Carbon::create($anio, $mes, $diaCorteAjustado)->startOfDay();
-        $ventanaPrincipalInicio = $fechaCorte->copy();
-        $ventanaPrincipalFin = $fechaCorte->copy()->addDays(2);
-        $ventanaTardiosDia = $fechaCorte->copy()->addDays(5);
+        $primerCorte = Carbon::create($anio, $mes, $diaCorteAjustado)->startOfDay();
+        $segundoCorte = $primerCorte->copy()->addDays(15);
 
-        if ($hoy->between($ventanaPrincipalInicio, $ventanaPrincipalFin)) {
-            return [
+        $ventanas = [
+            [
                 'ventana' => 'PRINCIPAL',
-                'fecha_corte' => $fechaCorte->toDateString(),
+                'fecha_corte' => $primerCorte,
                 'desde' => null,
-                'hasta' => $fechaCorte->toDateString(),
-                'mensaje' => "Ventana principal del corte del {$fechaCorte->format('d/m/Y')}. Se incluyen pagos hasta esa fecha.",
-            ];
-        }
-
-        if ($hoy->equalTo($ventanaTardiosDia)) {
-            return [
+                'hasta' => $primerCorte->copy()->addDays(2),
+                'mensaje' => "Ventana principal del corte del {$primerCorte->format('d/m/Y')}. Se incluyen pagos hasta esa fecha.",
+            ],
+            [
                 'ventana' => 'TARDIOS',
-                'fecha_corte' => $fechaCorte->toDateString(),
-                'desde' => $fechaCorte->copy()->addDay()->toDateString(),
-                'hasta' => $ventanaTardiosDia->toDateString(),
-                'mensaje' => "Ventana de pagos tardíos del corte del {$fechaCorte->format('d/m/Y')}. Se incluyen pagos del {$fechaCorte->copy()->addDay()->format('d/m')} al {$ventanaTardiosDia->format('d/m/Y')}.",
-            ];
+                'fecha_corte' => $primerCorte,
+                'desde' => $primerCorte->copy()->addDay(),
+                'hasta' => $primerCorte->copy()->addDays(5),
+                'mensaje' => "Ventana de pagos tardíos del corte del {$primerCorte->format('d/m/Y')}. Se incluyen pagos del {$primerCorte->copy()->addDay()->format('d/m')} al {$primerCorte->copy()->addDays(5)->format('d/m/Y')}.",
+            ],
+            [
+                'ventana' => 'PRINCIPAL',
+                'fecha_corte' => $segundoCorte,
+                'desde' => null,
+                'hasta' => $segundoCorte->copy()->addDays(2),
+                'mensaje' => "Ventana principal del corte del {$segundoCorte->format('d/m/Y')}. Se incluyen pagos hasta esa fecha.",
+            ],
+            [
+                'ventana' => 'TARDIOS',
+                'fecha_corte' => $segundoCorte,
+                'desde' => $segundoCorte->copy()->addDay(),
+                'hasta' => $segundoCorte->copy()->addDays(5),
+                'mensaje' => "Ventana de pagos tardíos del corte del {$segundoCorte->format('d/m/Y')}. Se incluyen pagos del {$segundoCorte->copy()->addDay()->format('d/m')} al {$segundoCorte->copy()->addDays(5)->format('d/m/Y')}.",
+            ],
+        ];
+
+        foreach ($ventanas as $ventana) {
+            $desde = $ventana['desde'] ? Carbon::parse($ventana['desde'])->startOfDay() : $ventana['fecha_corte']->copy()->startOfDay();
+            $hasta = Carbon::parse($ventana['hasta'])->endOfDay();
+
+            if ($hoy->between($desde, $hasta)) {
+                return [
+                    'ventana' => $ventana['ventana'],
+                    'fecha_corte' => $ventana['fecha_corte']->toDateString(),
+                    'desde' => $ventana['desde'] ? Carbon::parse($ventana['desde'])->toDateString() : null,
+                    'hasta' => Carbon::parse($ventana['hasta'])->toDateString(),
+                    'mensaje' => $ventana['mensaje'],
+                ];
+            }
         }
 
-        // Fuera de ventana: calcular próxima descarga disponible
-        $proximoCorte = $hoy->greaterThan($ventanaTardiosDia)
+        $proximoCorte = $hoy->greaterThan($segundoCorte)
             ? Carbon::create($anio, $mes, $diaCorteAjustado)->addMonthNoOverflow()
-            : $fechaCorte;
+            : $primerCorte;
 
         return [
             'ventana' => 'FUERA',
-            'fecha_corte' => $fechaCorte->toDateString(),
+            'fecha_corte' => $proximoCorte->toDateString(),
             'desde' => null,
             'hasta' => null,
             'mensaje' => "Hoy no hay corte disponible para descarga. Próxima descarga: {$proximoCorte->format('d/m/Y')}.",

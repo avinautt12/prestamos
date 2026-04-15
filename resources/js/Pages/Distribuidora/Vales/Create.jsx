@@ -120,6 +120,12 @@ export default function Create({
         [clientes.todos, form.cliente_id],
     );
 
+    const requierePrevaleFlujo = modoCliente === 'nuevo' ? true : !(clienteExistenteSeleccionado?.prevale_aprobado);
+    const tituloFlujo = requierePrevaleFlujo ? 'Nuevo pre vale' : 'Nuevo vale';
+    const subtituloFlujo = requierePrevaleFlujo
+        ? 'Selecciona el producto, registra o selecciona al cliente y confirma el pre vale.'
+        : 'Selecciona el producto, elige al cliente validado y emite el vale.';
+
     // Auto-calcular al cambiar producto
     useEffect(() => {
         if (!form.producto_id) return;
@@ -196,15 +202,15 @@ export default function Create({
 
     return (
         <DistribuidoraLayout
-            title="Nuevo pre vale"
-            subtitle="Selecciona el producto, registra o selecciona al cliente y confirma el pre vale."
+            title={tituloFlujo}
+            subtitle={subtituloFlujo}
         >
-            <Head title="Nuevo pre vale" />
+            <Head title={tituloFlujo} />
 
             {sinConfig ? (
                 <div className="fin-card bg-white/95 backdrop-blur">
                     <p className="fin-title">No se encontró una distribuidora ligada a tu acceso</p>
-                    <p className="mt-2 fin-subtitle">Cuando exista el registro operativo, aquí podrás crear pre vales.</p>
+                    <p className="mt-2 fin-subtitle">Cuando exista el registro operativo, aquí podrás crear vales o pre vales.</p>
                 </div>
             ) : (
                 <>
@@ -307,6 +313,12 @@ export default function Create({
                                                 <div>
                                                     <p className="text-xs text-gray-500">Estado</p>
                                                     <span className={statusBadgeClass(clienteExistenteSeleccionado.estado_cliente)}>{clienteExistenteSeleccionado.estado_cliente}</span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-500">Prevale</p>
+                                                    <p className="text-sm font-semibold text-gray-700">
+                                                        {clienteExistenteSeleccionado.prevale_aprobado ? 'Aprobado' : 'Pendiente'}
+                                                    </p>
                                                 </div>
                                                 <div>
                                                     <p className="text-xs text-gray-500">Vales abiertos</p>
@@ -424,9 +436,11 @@ export default function Create({
                             {simulacion && puedeContinuar && (
                                 <div className="border-green-200 fin-card bg-green-50">
                                     <p className="text-sm text-green-700">
-                                        {modoCliente === 'existente'
-                                            ? 'Se creará el pre vale en estado borrador para el cliente seleccionado.'
-                                            : 'Se registrará al cliente nuevo y se creará el pre vale en estado borrador.'}
+                                        {requierePrevaleFlujo
+                                            ? (modoCliente === 'existente'
+                                                ? 'Se creará el pre vale en estado borrador para el cliente seleccionado.'
+                                                : 'Se registrará al cliente nuevo y se creará el pre vale en estado borrador.')
+                                            : 'Se emitirá el vale directo porque el cliente ya pasó prevale.'}
                                     </p>
                                     <button
                                         type="button"
@@ -434,7 +448,9 @@ export default function Create({
                                         disabled={enviando || !clienteListo || !hayCamposValidos}
                                         className="w-full mt-3 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {enviando ? 'Creando pre vale...' : 'Confirmar pre vale'}
+                                        {enviando
+                                            ? (requierePrevaleFlujo ? 'Creando pre vale...' : 'Emitiendo vale...')
+                                            : (requierePrevaleFlujo ? 'Confirmar pre vale' : 'Emitir vale')}
                                     </button>
                                     {!clienteListo && (
                                         <p className="mt-2 text-xs text-amber-700">

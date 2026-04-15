@@ -86,19 +86,19 @@ export default function Traspasos({ distribuidora, filtros = {}, solicitudes = [
                 <div className="space-y-4">
                     <div className="fin-card bg-white/95 backdrop-blur">
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                            <div className="p-3 border rounded-xl border-emerald-100 bg-emerald-50">
                                 <p className="text-xs text-emerald-700">Total</p>
                                 <p className="text-lg font-semibold text-emerald-900">{resumen.total}</p>
                             </div>
-                            <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
+                            <div className="p-3 border rounded-xl border-amber-100 bg-amber-50">
                                 <p className="text-xs text-amber-700">Pendientes</p>
                                 <p className="text-lg font-semibold text-amber-900">{resumen.pendientes}</p>
                             </div>
-                            <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
+                            <div className="p-3 border border-blue-100 rounded-xl bg-blue-50">
                                 <p className="text-xs text-blue-700">Aprobadas</p>
                                 <p className="text-lg font-semibold text-blue-900">{resumen.aprobadas}</p>
                             </div>
-                            <div className="rounded-xl border border-violet-100 bg-violet-50 p-3">
+                            <div className="p-3 border rounded-xl border-violet-100 bg-violet-50">
                                 <p className="text-xs text-violet-700">Ejecutadas</p>
                                 <p className="text-lg font-semibold text-violet-900">{resumen.ejecutadas}</p>
                             </div>
@@ -109,9 +109,9 @@ export default function Traspasos({ distribuidora, filtros = {}, solicitudes = [
                         <h2 className="fin-title">Solicitar traspaso</h2>
                         <p className="mt-1 text-sm text-gray-600">Captura el código del cliente para pedir su traslado a tu cartera.</p>
 
-                        <form onSubmit={submitSolicitud} className="mt-4 grid gap-3">
+                        <form onSubmit={submitSolicitud} className="grid gap-3 mt-4">
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-gray-700">Código cliente</label>
+                                <label className="block mb-1 text-sm font-medium text-gray-700">Código cliente</label>
                                 <input
                                     type="text"
                                     value={codigoCliente}
@@ -122,7 +122,7 @@ export default function Traspasos({ distribuidora, filtros = {}, solicitudes = [
                                 />
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-gray-700">Motivo (opcional)</label>
+                                <label className="block mb-1 text-sm font-medium text-gray-700">Motivo (opcional)</label>
                                 <textarea
                                     value={motivoSolicitud}
                                     onChange={(e) => setMotivoSolicitud(e.target.value)}
@@ -154,19 +154,19 @@ export default function Traspasos({ distribuidora, filtros = {}, solicitudes = [
 
                         <div className="mt-4 space-y-3">
                             {solicitudes.length === 0 && (
-                                <div className="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+                                <div className="p-4 text-sm text-gray-500 border border-gray-300 border-dashed rounded-xl">
                                     No hay solicitudes para el filtro seleccionado.
                                 </div>
                             )}
 
                             {solicitudes.map((solicitud) => (
-                                <div key={solicitud.id} className="rounded-2xl border border-gray-200 p-4">
+                                <div key={solicitud.id} className="p-4 border border-gray-200 rounded-2xl">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div>
                                             <p className="text-sm font-semibold text-gray-900">
                                                 {solicitud.cliente.nombre} <span className="text-xs text-gray-500">({solicitud.cliente.codigo})</span>
                                             </p>
-                                            <p className="text-xs text-gray-500 mt-1">
+                                            <p className="mt-1 text-xs text-gray-500">
                                                 Origen: {solicitud.origen.numero || '-'} · Destino: {solicitud.destino.numero || '-'}
                                             </p>
                                         </div>
@@ -183,13 +183,13 @@ export default function Traspasos({ distribuidora, filtros = {}, solicitudes = [
                                     )}
 
                                     {solicitud.motivo_rechazo && (
-                                        <p className="mt-2 rounded-lg border border-rose-100 bg-rose-50 p-2 text-sm text-rose-700">
+                                        <p className="p-2 mt-2 text-sm border rounded-lg border-rose-100 bg-rose-50 text-rose-700">
                                             Rechazo: {solicitud.motivo_rechazo}
                                         </p>
                                     )}
 
                                     {solicitud.es_origen && solicitud.codigo_confirmacion && solicitud.estado === 'APROBADA_CODIGO_EMITIDO' && (
-                                        <p className="mt-2 rounded-lg border border-blue-100 bg-blue-50 p-2 text-sm text-blue-700">
+                                        <p className="p-2 mt-2 text-sm text-blue-700 border border-blue-100 rounded-lg bg-blue-50">
                                             Codigo de confirmacion: <span className="font-semibold">{solicitud.codigo_confirmacion}</span>
                                         </p>
                                     )}
@@ -214,7 +214,7 @@ export default function Traspasos({ distribuidora, filtros = {}, solicitudes = [
                                     )}
 
                                     {solicitud.es_destino && solicitud.estado === 'PENDIENTE_COORDINADOR' && (
-                                        <div className="mt-3 flex justify-end">
+                                        <div className="flex justify-end mt-3">
                                             <button
                                                 type="button"
                                                 onClick={() => cancelar(solicitud.id)}

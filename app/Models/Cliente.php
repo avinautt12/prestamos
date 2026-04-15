@@ -12,7 +12,7 @@ class Cliente extends Model
     protected $table = 'clientes';
 
 
-       const CREATED_AT = 'creado_en';
+    const CREATED_AT = 'creado_en';
     const UPDATED_AT = 'actualizado_en';
 
 
@@ -51,6 +51,7 @@ class Cliente extends Model
         return $this->belongsToMany(Distribuidora::class, 'clientes_distribuidora')
             ->withPivot(
                 'estado_relacion',
+                'prevale_aprobado',
                 'bloqueado_por_parentesco',
                 'observaciones_parentesco',
                 'vinculado_en',
