@@ -36,7 +36,7 @@ window.Echo = new Echo({
     },
 });
 
-if (broadcastEnabled) {
+if (typeof broadcastEnabled !== 'undefined' && broadcastEnabled) {
     window.Pusher = Pusher;
 
     window.Echo = new Echo({
