@@ -306,20 +306,26 @@ class CorteService
         $ahora = now();
         $diasMesActual = $ahora->copy()->endOfMonth()->day;
 
-        $fechaProgramada = $ahora->copy()
+        $primeraFecha = $ahora->copy()
             ->day(min($diaCorte, $diasMesActual))
             ->setTimeFromTimeString($horaNormalizada);
 
-        if ($fechaProgramada->lessThanOrEqualTo($ahora)) {
-            $siguienteMes = $ahora->copy()->addMonthNoOverflow();
-            $diasSiguienteMes = $siguienteMes->copy()->endOfMonth()->day;
-
-            $fechaProgramada = $siguienteMes
-                ->day(min($diaCorte, $diasSiguienteMes))
-                ->setTimeFromTimeString($horaNormalizada);
+        if ($ahora->lessThanOrEqualTo($primeraFecha)) {
+            return $primeraFecha;
         }
 
-        return $fechaProgramada;
+        $segundaFecha = $primeraFecha->copy()->addDays(15);
+
+        if ($ahora->lessThanOrEqualTo($segundaFecha)) {
+            return $segundaFecha;
+        }
+
+        $siguienteMes = $ahora->copy()->addMonthNoOverflow();
+        $diasSiguienteMes = $siguienteMes->copy()->endOfMonth()->day;
+
+        return $siguienteMes
+            ->day(min($diaCorte, $diasSiguienteMes))
+            ->setTimeFromTimeString($horaNormalizada);
     }
 
     private function normalizarHoraCorte(string $horaCorte): string

@@ -44,7 +44,7 @@ class PrevaleController extends Controller
             'cliente.persona',
             'distribuidora.persona',
             'productoFinanciero'
-        ])->findOrFail($id);
+        ])->where('estado', Vale::ESTADO_BORRADOR)->findOrFail($id);
 
         $cliente = $vale->cliente;
         if ($cliente) {
@@ -82,7 +82,7 @@ class PrevaleController extends Controller
         try {
             DB::beginTransaction();
 
-            $vale          = Vale::findOrFail($id);
+            $vale          = Vale::where('id', $id)->where('estado', Vale::ESTADO_BORRADOR)->firstOrFail();
             $distribuidora = $vale->distribuidora;
             $cliente       = $vale->cliente;
             $fechaTransferencia = now();
@@ -105,14 +105,21 @@ class PrevaleController extends Controller
             $distribuidora->decrement('credito_disponible', $montoPrestamo);
 
             // 2. Vale: BORRADOR -> ACTIVO
-            DB::table('vales')->where('id', $id)->update([
-                'estado'                   => Vale::ESTADO_ACTIVO,
-                'aprobado_por_usuario_id'  => Auth::user()->id,
-                'fecha_emision'            => now(),
-                'fecha_transferencia'      => $fechaTransferencia,
-                'referencia_transferencia' => $referenciaTransferencia,
-                'actualizado_en'           => now(),
-            ]);
+            $valeActualizado = DB::table('vales')
+                ->where('id', $id)
+                ->where('estado', Vale::ESTADO_BORRADOR)
+                ->update([
+                    'estado'                   => Vale::ESTADO_ACTIVO,
+                    'aprobado_por_usuario_id'  => Auth::user()->id,
+                    'fecha_emision'            => now(),
+                    'fecha_transferencia'      => $fechaTransferencia,
+                    'referencia_transferencia' => $referenciaTransferencia,
+                    'actualizado_en'           => now(),
+                ]);
+
+            if ($valeActualizado === 0) {
+                throw new \Exception('El vale ya no está disponible para aprobación.');
+            }
 
             // 3. Cliente: EN_VERIFICACION -> ACTIVO
             DB::table('clientes')->where('id', $cliente->id)->update([
@@ -127,8 +134,9 @@ class PrevaleController extends Controller
                     'cliente_id'       => $cliente->id,
                 ],
                 [
-                    'estado_relacion' => 'ACTIVA',
-                    'vinculado_en'    => now(),
+                    'estado_relacion'  => 'ACTIVA',
+                    'prevale_aprobado' => true,
+                    'vinculado_en'     => now(),
                 ]
             );
 
@@ -179,7 +187,7 @@ class PrevaleController extends Controller
         try {
             DB::beginTransaction();
 
-            $vale   = Vale::findOrFail($id);
+            $vale   = Vale::where('id', $id)->where('estado', Vale::ESTADO_BORRADOR)->firstOrFail();
             $cliente = $vale->cliente;
             $motivo  = $request->motivo_rechazo;
 
@@ -209,6 +217,7 @@ class PrevaleController extends Controller
                 ],
                 [
                     'estado_relacion'          => 'BLOQUEADA',
+                    'prevale_aprobado'         => false,
                     'bloqueado_por_parentesco' => $esParentesco,
                     'observaciones_parentesco' => "Bloqueado en revisión de prevale. Motivo: " . $motivo,
                     'vinculado_en'             => now(),

@@ -19,7 +19,7 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
 
         try {
             await navigator.clipboard.writeText(codigo);
-            window.alert(`Codigo copiado: ${codigo}`);
+            window.alert(`Codigo copiado: ${codigo}`); 
         } catch (error) {
             const input = document.createElement('input');
             input.value = codigo;
@@ -27,7 +27,7 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
             input.select();
             document.execCommand('copy');
             document.body.removeChild(input);
-            window.alert(`Codigo copiado: ${codigo}`);
+            window.alert(`Codigo copiado: ${codigo}`); 
         }
     };
 
@@ -261,5 +261,3 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
         </DistribuidoraLayout>
     );
 }
-
-

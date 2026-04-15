@@ -17,7 +17,8 @@ class ActualizarSucursalConfiguracionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'dia_corte' => ['nullable', 'integer', 'between:1,31'],
+            'dia_corte' => ['required', 'integer', 'between:1,31'],
+            'plazo_pago_dias' => ['required', 'integer', 'between:1,31'],
             'hora_corte' => ['prohibited'],
             // Campos globales (se guardan en puntos_conf, no en sucursal_configuraciones).
             'factor_divisor_puntos' => ['required', 'integer', 'min:1', 'max:999999'],
@@ -30,6 +31,7 @@ class ActualizarSucursalConfiguracionRequest extends FormRequest
     {
         $this->merge([
             'dia_corte' => $this->input('dia_corte') === '' ? null : $this->input('dia_corte'),
+            'plazo_pago_dias' => $this->input('plazo_pago_dias') === '' ? null : $this->input('plazo_pago_dias'),
         ]);
     }
 }

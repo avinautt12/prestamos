@@ -89,6 +89,7 @@ class Distribuidora extends Model
         return $this->belongsToMany(Cliente::class, 'clientes_distribuidora')
             ->withPivot(
                 'estado_relacion',
+                'prevale_aprobado',
                 'bloqueado_por_parentesco',
                 'observaciones_parentesco',
                 'vinculado_en',

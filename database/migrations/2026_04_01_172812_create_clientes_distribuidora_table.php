@@ -13,6 +13,7 @@ return new class extends Migration
             $table->unsignedBigInteger('distribuidora_id');
             $table->unsignedBigInteger('cliente_id');
             $table->enum('estado_relacion', ['ACTIVA', 'BLOQUEADA', 'TERMINADA'])->default('ACTIVA');
+            $table->boolean('prevale_aprobado')->default(false);
             $table->boolean('bloqueado_por_parentesco')->default(false);
             $table->text('observaciones_parentesco')->nullable();
             $table->timestamp('vinculado_en')->useCurrent();

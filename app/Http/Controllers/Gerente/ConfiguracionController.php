@@ -214,6 +214,7 @@ class ConfiguracionController extends Controller
 
         $despues = [
             'dia_corte' => $data['dia_corte'] ?? null,
+            'plazo_pago_dias' => (int) $data['plazo_pago_dias'],
             'hora_corte' => CorteService::HORA_CORTE_FIJA,
             // Campos globales (se guardan en puntos_conf):
             'factor_divisor_puntos' => (int) $data['factor_divisor_puntos'],
@@ -237,11 +238,13 @@ class ConfiguracionController extends Controller
 
                 $antes = [
                     'dia_corte' => $configuracion->dia_corte,
+                    'plazo_pago_dias' => $configuracion->plazo_pago_dias,
                     'hora_corte' => $configuracion->hora_corte,
                 ];
 
                 $configuracion->update([
                     'dia_corte' => $despues['dia_corte'],
+                    'plazo_pago_dias' => $despues['plazo_pago_dias'],
                     'hora_corte' => $despues['hora_corte'],
                     'actualizado_por_usuario_id' => $usuario->id,
                     'actualizado_en' => now(),
