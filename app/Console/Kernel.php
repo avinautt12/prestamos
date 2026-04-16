@@ -13,7 +13,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('traspasos:expirar-codigos')->everyTenMinutes()->withoutOverlapping();
-        $schedule->command('app:detectar-vales-morosos')->daily()->at('00:05')->withoutOverlapping();
+        $schedule->command('app:detectar-distribuidoras-morosas')->daily()->at('00:05')->withoutOverlapping();
     }
 
     /**

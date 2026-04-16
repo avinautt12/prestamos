@@ -92,8 +92,8 @@ class PrevaleController extends Controller
                 throw new \Exception('Faltan relaciones del vale.');
             }
 
-            // ✅ Cast explícito para evitar errores de tipo
-            $montoPrestamo     = (float) $vale->monto_principal;
+            // ✅ Cast explícito – usar 'monto' porque 'monto_principal' ya no existe en vales
+            $montoPrestamo     = (float) $vale->monto;
             $creditoDisponible = (float) $distribuidora->credito_disponible;
 
             if ($creditoDisponible < $montoPrestamo) {
@@ -101,7 +101,8 @@ class PrevaleController extends Controller
                 return back()->withErrors(['error' => 'Crédito insuficiente.']);
             }
 
-            // 1. (Crédito ya fue reservado en DashboardController al crear)
+            // 1. Descontar crédito de la distribuidora (no se reservó al crear BORRADOR)
+            $distribuidora->decrement('credito_disponible', $montoPrestamo);
 
             // 2. Vale: BORRADOR -> ACTIVO
             $valeActualizado = DB::table('vales')
@@ -200,8 +201,8 @@ class PrevaleController extends Controller
             $vale->cancelado_en = now();
             $vale->save();
 
-            // 1.5 Devolver crédito reservado de la distribuidora
-            $vale->distribuidora()->increment('credito_disponible', (float) $vale->monto);
+            // Nota: NO se devuelve crédito porque nunca se descontó al crear el BORRADOR.
+            // El crédito solo se descuenta en aprobar(), no al crear el prevale.
 
             // 2. Cliente: EN_VERIFICACION -> BLOQUEADO
             $cliente->estado = Cliente::ESTADO_BLOQUEADO;

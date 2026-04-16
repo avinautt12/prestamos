@@ -240,7 +240,7 @@ class ConciliacionController extends Controller
             [
                 'ventana' => 'TARDIOS',
                 'fecha_corte' => $primerCorte,
-                'desde' => $primerCorte->copy()->addDay(),
+                'desde' => $primerCorte->copy()->addDays(5),
                 'hasta' => $primerCorte->copy()->addDays(5),
                 'mensaje' => "Ventana de pagos tardíos del corte del {$primerCorte->format('d/m/Y')}. Se incluyen pagos del {$primerCorte->copy()->addDay()->format('d/m')} al {$primerCorte->copy()->addDays(5)->format('d/m/Y')}.",
             ],
@@ -254,7 +254,7 @@ class ConciliacionController extends Controller
             [
                 'ventana' => 'TARDIOS',
                 'fecha_corte' => $segundoCorte,
-                'desde' => $segundoCorte->copy()->addDay(),
+                'desde' => $segundoCorte->copy()->addDays(5),
                 'hasta' => $segundoCorte->copy()->addDays(5),
                 'mensaje' => "Ventana de pagos tardíos del corte del {$segundoCorte->format('d/m/Y')}. Se incluyen pagos del {$segundoCorte->copy()->addDay()->format('d/m')} al {$segundoCorte->copy()->addDays(5)->format('d/m/Y')}.",
             ],
@@ -310,8 +310,8 @@ class ConciliacionController extends Controller
             ->where('estado', PagoDistribuidora::ESTADO_REPORTADO);
 
         if ($estado['ventana'] === 'PRINCIPAL') {
-            // Pagos con fecha <= fecha de corte
-            $query->whereDate('fecha_pago', '<=', $estado['hasta']);
+            // Pagos con fecha <= fecha de corte (no hasta el fin de ventana)
+            $query->whereDate('fecha_pago', '<=', $estado['fecha_corte']);
         } else {
             // TARDIOS: pagos del día siguiente al corte hasta corte + 5
             $query->whereDate('fecha_pago', '>=', $estado['desde'])
@@ -617,7 +617,7 @@ class ConciliacionController extends Controller
             'movimiento_bancario_id' => ['required', 'integer', 'exists:movimientos_bancarios,id'],
             'relacion_corte_id' => ['required', 'integer', 'exists:relaciones_corte,id'],
             'estado' => ['required', 'in:CONCILIADA,CON_DIFERENCIA,RECHAZADA'],
-            'observaciones' => ['nullable', 'string', 'max:1000'],
+            'observaciones' => ['nullable', 'string', 'max:500'],
         ]);
 
         $movimiento = MovimientoBancario::query()
@@ -639,19 +639,37 @@ class ConciliacionController extends Controller
 
         try {
             DB::transaction(function () use ($relacion, $movimiento, $estadoConciliacion, $data, $diferencia) {
-                $pago = PagoDistribuidora::create([
-                    'relacion_corte_id' => $relacion->id,
-                    'distribuidora_id' => $relacion->distribuidora_id,
-                    'cuenta_banco_empresa_id' => $movimiento->cuenta_banco_empresa_id,
-                    'monto' => $movimiento->monto,
-                    'metodo_pago' => $this->mapMetodoPago($movimiento->tipo_movimiento),
-                    'referencia_reportada' => $movimiento->referencia,
-                    'fecha_pago' => $this->buildFechaPagoDesdeMovimiento($movimiento),
-                    'estado' => $estadoConciliacion === Conciliacion::ESTADO_RECHAZADA
-                        ? PagoDistribuidora::ESTADO_RECHAZADO
-                        : PagoDistribuidora::ESTADO_CONCILIADO,
-                    'observaciones' => $data['observaciones'] ?: 'Conciliación manual por cajera.',
-                ]);
+                $pago = PagoDistribuidora::query()
+                    ->where('relacion_corte_id', $relacion->id)
+                    ->where('estado', PagoDistribuidora::ESTADO_REPORTADO)
+                    ->first();
+
+                if ($pago) {
+                    $pago->update([
+                        'cuenta_banco_empresa_id' => $movimiento->cuenta_banco_empresa_id,
+                        'monto' => $movimiento->monto,
+                        'metodo_pago' => $this->mapMetodoPago($movimiento->tipo_movimiento),
+                        'fecha_pago' => $this->buildFechaPagoDesdeMovimiento($movimiento),
+                        'estado' => $estadoConciliacion === Conciliacion::ESTADO_RECHAZADA
+                            ? PagoDistribuidora::ESTADO_RECHAZADO
+                            : PagoDistribuidora::ESTADO_CONCILIADO,
+                        'observaciones' => trim($pago->observaciones . ' | ' . ($data['observaciones'] ?? 'Conciliación manual por cajera.')),
+                    ]);
+                } else {
+                    $pago = PagoDistribuidora::create([
+                        'relacion_corte_id' => $relacion->id,
+                        'distribuidora_id' => $relacion->distribuidora_id,
+                        'cuenta_banco_empresa_id' => $movimiento->cuenta_banco_empresa_id,
+                        'monto' => $movimiento->monto,
+                        'metodo_pago' => $this->mapMetodoPago($movimiento->tipo_movimiento),
+                        'referencia_reportada' => $movimiento->referencia,
+                        'fecha_pago' => $this->buildFechaPagoDesdeMovimiento($movimiento),
+                        'estado' => $estadoConciliacion === Conciliacion::ESTADO_RECHAZADA
+                            ? PagoDistribuidora::ESTADO_RECHAZADO
+                            : PagoDistribuidora::ESTADO_CONCILIADO,
+                        'observaciones' => $data['observaciones'] ?: 'Conciliación manual por cajera.',
+                    ]);
+                }
 
                 Conciliacion::create([
                     'pago_distribuidora_id' => $pago->id,
@@ -794,17 +812,33 @@ class ConciliacionController extends Controller
             return false;
         }
 
-        $pago = PagoDistribuidora::create([
-            'relacion_corte_id' => $relacion->id,
-            'distribuidora_id' => $relacion->distribuidora_id,
-            'cuenta_banco_empresa_id' => $movimiento->cuenta_banco_empresa_id,
-            'monto' => $movimiento->monto,
-            'metodo_pago' => $this->mapMetodoPago($movimiento->tipo_movimiento),
-            'referencia_reportada' => $movimiento->referencia,
-            'fecha_pago' => $this->buildFechaPagoDesdeMovimiento($movimiento),
-            'estado' => PagoDistribuidora::ESTADO_CONCILIADO,
-            'observaciones' => 'Conciliación automática exacta (referencia + monto).',
-        ]);
+        $pago = PagoDistribuidora::query()
+            ->where('relacion_corte_id', $relacion->id)
+            ->where('estado', PagoDistribuidora::ESTADO_REPORTADO)
+            ->first();
+
+        if ($pago) {
+            $pago->update([
+                'cuenta_banco_empresa_id' => $movimiento->cuenta_banco_empresa_id,
+                'monto' => $movimiento->monto,
+                'metodo_pago' => $this->mapMetodoPago($movimiento->tipo_movimiento),
+                'fecha_pago' => $this->buildFechaPagoDesdeMovimiento($movimiento),
+                'estado' => PagoDistribuidora::ESTADO_CONCILIADO,
+                'observaciones' => $pago->observaciones . ' | Conciliación automática exacta (referencia + monto).',
+            ]);
+        } else {
+            $pago = PagoDistribuidora::create([
+                'relacion_corte_id' => $relacion->id,
+                'distribuidora_id' => $relacion->distribuidora_id,
+                'cuenta_banco_empresa_id' => $movimiento->cuenta_banco_empresa_id,
+                'monto' => $movimiento->monto,
+                'metodo_pago' => $this->mapMetodoPago($movimiento->tipo_movimiento),
+                'referencia_reportada' => $movimiento->referencia,
+                'fecha_pago' => $this->buildFechaPagoDesdeMovimiento($movimiento),
+                'estado' => PagoDistribuidora::ESTADO_CONCILIADO,
+                'observaciones' => 'Conciliación automática exacta (referencia + monto).',
+            ]);
+        }
 
         Conciliacion::create([
             'pago_distribuidora_id' => $pago->id,
@@ -851,11 +885,12 @@ class ConciliacionController extends Controller
     {
         $estadoAnterior = $relacion->estado;
 
-        $montoConciliado = (float) PagoDistribuidora::query()
+        $pagosConciliados = PagoDistribuidora::query()
             ->where('relacion_corte_id', $relacion->id)
             ->where('estado', PagoDistribuidora::ESTADO_CONCILIADO)
-            ->sum('monto');
+            ->get();
 
+        $montoConciliado = (float) $pagosConciliados->sum('monto');
         $totalEsperado = (float) $relacion->total_a_pagar;
 
         if ($montoConciliado <= 0) {
@@ -873,6 +908,71 @@ class ConciliacionController extends Controller
         if ($estadoAnterior !== RelacionCorte::ESTADO_PAGADA && $relacion->estado === RelacionCorte::ESTADO_PAGADA) {
             $this->restaurarCreditoDistribuidoraPorRelacion($relacion);
         }
+
+        // Apply desglose for any unapplied pago conciliado
+        foreach ($pagosConciliados as $pago) {
+            if (!$pago->desglose_aplicado && !empty($pago->desglose_vales)) {
+                $this->aplicarDesgloseVales($pago);
+            }
+        }
+    }
+
+    private function aplicarDesgloseVales(PagoDistribuidora $pago): void
+    {
+        $usuarioId = $this->authUserPk();
+
+        foreach ($pago->desglose_vales as $item) {
+            $partidaId = $item['partida_id'] ?? null;
+            if (!$partidaId) {
+                continue;
+            }
+
+            $partida = \App\Models\PartidaRelacionCorte::with('vale')->find($partidaId);
+            if (!$partida || !$partida->vale) {
+                continue;
+            }
+
+            $vale = $partida->vale;
+            $montoCapturado = (float) ($item['monto_capturado'] ?? 0);
+            $status = $item['status'] ?? 'NO_PAGO';
+
+            // If the frontend said PAGADO, we cover the full line amount (if it was accurate)
+            $montoAplicar = 0;
+            if ($status === 'PAGADO') {
+                $montoAplicar = (float) $partida->monto_total_linea;
+            } elseif ($status === 'PARCIAL') {
+                $montoAplicar = $montoCapturado;
+            }
+
+            if ($montoAplicar > 0) {
+                // Determine logic of application
+                $vale->saldo_actual = max(0, $vale->saldo_actual - $montoAplicar);
+                $vale->pagos_realizados += $montoAplicar;
+
+                if ($vale->saldo_actual <= 0.009) {
+                    $vale->estado = \App\Models\Vale::ESTADO_PAGADO;
+                } else {
+                    $vale->estado = \App\Models\Vale::ESTADO_PAGO_PARCIAL;
+                }
+
+                $vale->save();
+
+                \App\Models\PagoCliente::create([
+                    'vale_id' => $vale->id,
+                    'cliente_id' => $vale->cliente_id,
+                    'distribuidora_id' => $pago->distribuidora_id,
+                    'cobrado_por_usuario_id' => current_user_id() ?? $usuarioId,
+                    'fecha_pago' => $pago->fecha_pago,
+                    'monto' => $montoAplicar,
+                    'metodo_pago' => \App\Models\PagoCliente::METODO_EFECTIVO,
+                    'es_parcial' => $status === 'PARCIAL',
+                    'afecta_puntos' => false,
+                    'notas' => 'Pago de relación de corte conciliar. ' . ($pago->referencia_reportada ?? ''),
+                ]);
+            }
+        }
+
+        $pago->update(['desglose_aplicado' => true]);
     }
 
     private function restaurarCreditoDistribuidoraPorRelacion(RelacionCorte $relacion): void

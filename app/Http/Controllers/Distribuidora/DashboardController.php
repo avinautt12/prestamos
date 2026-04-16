@@ -699,6 +699,7 @@ class DashboardController extends Controller
                 'fecha_pago'              => $request->fecha_pago ?? now(),
                 'estado'                  => PagoDistribuidora::ESTADO_REPORTADO,
                 'observaciones'           => $request->observaciones ?: 'Reportado por la distribuidora',
+                'desglose_vales'          => $request->input('desglose', []),
             ]);
 
             return back()->with('success', "Pago reportado para la relación {$relacion->numero_relacion}. La cajera lo conciliará al recibir el archivo bancario.");

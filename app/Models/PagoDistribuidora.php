@@ -21,13 +21,17 @@ class PagoDistribuidora extends Model
         'referencia_reportada',
         'fecha_pago',
         'estado',
-        'observaciones'
+        'observaciones',
+        'desglose_vales',
+        'desglose_aplicado'
     ];
 
     protected $casts = [
         'monto' => 'decimal:2',
         'fecha_pago' => 'datetime',
-        'creado_en' => 'datetime'
+        'creado_en' => 'datetime',
+        'desglose_vales' => 'array',
+        'desglose_aplicado' => 'boolean'
     ];
 
     public const METODO_TRANSFERENCIA = 'TRANSFERENCIA';

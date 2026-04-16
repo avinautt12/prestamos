@@ -146,7 +146,6 @@ Route::middleware(['auth', 'role:VERIFICADOR'])->prefix('verificador')->name('ve
 // ============================================================
 Route::middleware(['auth', 'role:CAJERA'])->prefix('cajera')->name('cajera.')->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\Cajera\DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/cobros', [App\Http\Controllers\Cajera\DashboardController::class, 'cobros'])->name('cobros');
     Route::get('/conciliaciones', [ConciliacionController::class, 'index'])->name('conciliaciones');
     Route::get('/conciliaciones/exportar', [ConciliacionController::class, 'exportarHistorial'])->name('conciliaciones.exportar');
     Route::get('/conciliaciones/simular-archivo', [ConciliacionController::class, 'simularArchivoBancario'])->name('conciliaciones.simular-archivo');
@@ -163,7 +162,9 @@ Route::middleware(['auth', 'role:CAJERA'])->prefix('cajera')->name('cajera.')->g
     Route::post('/prevale/{id}/rechazar', [PrevaleController::class, 'rechazar'])->name('prevale.rechazar');
 
     // Rutas de Cobranza
-    Route::get('/cobranza', [App\Http\Controllers\Cajera\DashboardController::class, 'cobranzaIndex'])->name('cobranza.index');
+    Route::get('/cobranza', [App\Http\Controllers\Cajera\CobranzaController::class, 'index'])->name('cobranza.index');
+    Route::post('/cobranza/{distribuidora}/bloquear', [App\Http\Controllers\Cajera\CobranzaController::class, 'bloquear'])->name('cobranza.bloquear');
+    Route::post('/cobranza/{distribuidora}/desbloquear', [App\Http\Controllers\Cajera\CobranzaController::class, 'desbloquear'])->name('cobranza.desbloquear');
 });
 
 // ============================================================

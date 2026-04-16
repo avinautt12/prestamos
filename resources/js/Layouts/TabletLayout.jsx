@@ -121,13 +121,11 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
         navigation = [
             { name: 'Dashboard', href: route('cajera.dashboard'), icon: faHouse, active: route().current('cajera.dashboard') },
             { name: 'Prevales', href: route('cajera.prevale.index'), icon: faFileLines, active: route().current('cajera.prevale.*') },
-            { name: 'Cobros y Pagos', href: route('cajera.cobros'), icon: faClipboardCheck, active: route().current('cajera.cobros') },
             { name: 'Conciliaciones', href: route('cajera.conciliaciones'), icon: faScaleBalanced, active: route().current('cajera.conciliaciones*') },
             { name: 'Cobranza', href: route('cajera.cobranza.index'), icon: faUsers, active: route().current('cajera.cobranza.*') }
         ];
         shortcuts = [
             { name: 'Validar Prevale', href: route('cajera.prevale.index') },
-            { name: 'Registrar Cobro', href: route('cajera.cobros') },
             { name: 'Conciliar archivo', href: route('cajera.conciliaciones') },
         ];
     } else {

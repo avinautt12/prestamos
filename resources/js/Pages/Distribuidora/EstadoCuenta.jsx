@@ -571,9 +571,9 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                             <h2 className="text-lg font-bold text-gray-900">Reportar pago</h2>
                             <p className="mt-1 text-sm text-gray-500">{relacionSeleccionada.numero_relacion}</p>
                         </div>
-                        <div className="fin-modal-body space-y-4">
+                        <div className="fin-modal-body space-y-4 max-h-[70vh] overflow-y-auto">
                             <div>
-                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Monto pagado</label>
+                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Monto pagado al banco</label>
                                 <input
                                     type="number"
                                     step="0.01"
@@ -586,33 +586,101 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                                 />
                                 {pagoFormTouched.monto && pagoErrors.monto && <p className="mt-1 text-xs text-red-600">{pagoErrors.monto}</p>}
                                 {errors?.monto && <p className="mt-1 text-xs text-red-600">{errors.monto}</p>}
+                                <p className="mt-1 text-xs text-amber-600 font-semibold">
+                                    Nota: Es obligatorio cubrir el total ({formatCurrency(relacionSeleccionada.total_a_pagar)}) para evitar penalizaciones.
+                                </p>
                             </div>
-                            <div>
-                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Método de pago</label>
-                                <select
-                                    value={pagoForm.metodo_pago}
-                                    onChange={(e) => setPagoForm((p) => ({ ...p, metodo_pago: e.target.value }))}
-                                    className="fin-input"
-                                >
-                                    <option value="TRANSFERENCIA">Transferencia</option>
-                                    <option value="DEPOSITO">Depósito</option>
-                                    <option value="OTRO">Otro</option>
-                                </select>
+
+                            {/* Desglose de Clientes */}
+                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                                    <h3 className="text-sm font-semibold text-gray-700">Asignar pagos de clientes (Tú control interno)</h3>
+                                </div>
+                                <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                                    {relacionSeleccionada?.partidas?.map((p) => {
+                                        const asig = pagoForm.desglose?.find(d => d.partida_id === p.id) || { status: 'PAGADO', monto_capturado: p.monto_total_linea };
+                                        return (
+                                            <div key={p.id} className="p-3 text-sm">
+                                                <div className="flex items-center justify-between font-medium text-gray-900 mb-2">
+                                                    <span>{p.cliente_nombre || 'Cliente'}</span>
+                                                    <span>{formatCurrency(p.monto_total_linea)}</span>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <select 
+                                                        className="fin-input py-1 px-2 text-xs flex-1"
+                                                        value={asig.status}
+                                                        onChange={(e) => {
+                                                            const newStatus = e.target.value;
+                                                            let newMonto = asig.monto_capturado;
+                                                            if (newStatus === 'PAGADO') newMonto = p.monto_total_linea;
+                                                            if (newStatus === 'NO_PAGO') newMonto = 0;
+                                                            
+                                                            const newDesglose = [...(pagoForm.desglose || [])];
+                                                            const idx = newDesglose.findIndex(d => d.partida_id === p.id);
+                                                            if (idx >= 0) {
+                                                                newDesglose[idx] = { ...newDesglose[idx], status: newStatus, monto_capturado: newMonto };
+                                                            } else {
+                                                                newDesglose.push({ partida_id: p.id, status: newStatus, monto_capturado: newMonto });
+                                                            }
+                                                            setPagoForm(prev => ({ ...prev, desglose: newDesglose }));
+                                                        }}
+                                                    >
+                                                        <option value="PAGADO">Pagado completo</option>
+                                                        <option value="PARCIAL">Pago parcial</option>
+                                                        <option value="NO_PAGO">No pagó</option>
+                                                    </select>
+                                                    
+                                                    {asig.status === 'PARCIAL' && (
+                                                        <input 
+                                                            type="number" 
+                                                            step="0.01" 
+                                                            className="fin-input py-1 px-2 text-xs w-24"
+                                                            value={asig.monto_capturado}
+                                                            onChange={(e) => {
+                                                                const newDesglose = [...(pagoForm.desglose || [])];
+                                                                const idx = newDesglose.findIndex(d => d.partida_id === p.id);
+                                                                if (idx >= 0) newDesglose[idx].monto_capturado = e.target.value;
+                                                                setPagoForm(prev => ({ ...prev, desglose: newDesglose }));
+                                                            }}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                            <div>
-                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Referencia</label>
-                                <input
-                                    type="text"
-                                    maxLength={100}
-                                    value={pagoForm.referencia_reportada}
-                                    onChange={(e) => setPagoForm((p) => ({ ...p, referencia_reportada: e.target.value }))}
-                                    onBlur={() => setPagoFormTouched((t) => ({ ...t, referencia_reportada: true }))}
-                                    className={`fin-input ${pagoFormTouched.referencia_reportada && pagoErrors.referencia_reportada ? 'border-red-400' : ''}`}
-                                    placeholder="Referencia del banco"
-                                />
-                                {pagoFormTouched.referencia_reportada && pagoErrors.referencia_reportada && <p className="mt-1 text-xs text-red-600">{pagoErrors.referencia_reportada}</p>}
-                                {errors?.referencia_reportada && <p className="mt-1 text-xs text-red-600">{errors.referencia_reportada}</p>}
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Método de pago</label>
+                                    <select
+                                        value={pagoForm.metodo_pago}
+                                        onChange={(e) => setPagoForm((p) => ({ ...p, metodo_pago: e.target.value }))}
+                                        className="fin-input"
+                                    >
+                                        <option value="TRANSFERENCIA">Transferencia</option>
+                                        <option value="DEPOSITO">Depósito</option>
+                                        <option value="OTRO">Otro</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Referencia</label>
+                                    <input
+                                        type="text"
+                                        maxLength={100}
+                                        value={pagoForm.referencia_reportada}
+                                        onChange={(e) => setPagoForm((p) => ({ ...p, referencia_reportada: e.target.value }))}
+                                        onBlur={() => setPagoFormTouched((t) => ({ ...t, referencia_reportada: true }))}
+                                        className={`fin-input ${pagoFormTouched.referencia_reportada && pagoErrors.referencia_reportada ? 'border-red-400' : ''}`}
+                                        placeholder="Referencia del banco"
+                                    />
+                                </div>
                             </div>
+                            
+                            {pagoFormTouched.referencia_reportada && pagoErrors.referencia_reportada && <p className="mt-1 text-xs text-red-600">{pagoErrors.referencia_reportada}</p>}
+                            {errors?.referencia_reportada && <p className="mt-1 text-xs text-red-600">{errors.referencia_reportada}</p>}
+                            
                             <div>
                                 <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Observaciones (opcional)</label>
                                 <textarea
@@ -627,10 +695,10 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                                 {pagoFormTouched.observaciones && pagoErrors.observaciones && <p className="mt-1 text-xs text-red-600">{pagoErrors.observaciones}</p>}
                             </div>
                             <div className="p-3 text-xs rounded-lg bg-blue-50 border border-blue-200 text-blue-800">
-                                Tu pago quedará en estado <strong>REPORTADO</strong>. La cajera lo conciliará al recibir el archivo bancario. Puedes reportar múltiples abonos parciales.
+                                Al confirmar, el sistema guardará cómo tus clientes te pagaron hoy. La cajera conciliará el dinero global.
                             </div>
                         </div>
-                        <div className="fin-modal-foot flex justify-end gap-3">
+                        <div className="fin-modal-foot flex justify-end gap-3 mt-4">
                             <button type="button" onClick={() => setModalReportar(false)} className="px-5 py-2 fin-btn-secondary">Cancelar</button>
                             <button
                                 type="button"

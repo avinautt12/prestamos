@@ -62,7 +62,6 @@ class Vale extends Model
         'monto_total_deuda'                 => 'decimal:2',
         'monto_quincenal'                   => 'decimal:2',
         'saldo_actual'                      => 'decimal:2',
-        'monto_principal'                   => 'decimal:2',
         'cancelado'                         => 'boolean',
         'fecha_emision'                     => 'datetime',
         'fecha_transferencia'               => 'datetime',
