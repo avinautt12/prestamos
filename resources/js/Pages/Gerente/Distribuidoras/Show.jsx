@@ -17,6 +17,8 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function Show({ solicitud, categorias, configuracionSucursal }) {
+    const afiliacionesArray = Array.isArray(solicitud.afiliaciones) ? solicitud.afiliaciones : [];
+    const vehiculosArray = Array.isArray(solicitud.vehiculos) ? solicitud.vehiculos : [];
     const limiteSugerido = solicitud.limite_credito_solicitado
         ? Number(solicitud.limite_credito_solicitado)
         : Number(configuracionSucursal?.linea_credito_default || 0) > 0
@@ -88,9 +90,9 @@ export default function Show({ solicitud, categorias, configuracionSucursal }) {
                             <p><span className="text-gray-500">Nombre:</span> {solicitud.persona?.primer_nombre} {solicitud.persona?.apellido_paterno} {solicitud.persona?.apellido_materno}</p>
                             <p><span className="text-gray-500">CURP:</span> {solicitud.persona?.curp || 'N/A'}</p>
                             <p><span className="text-gray-500">RFC:</span> {solicitud.persona?.rfc || 'N/A'}</p>
-                            <p><span className="text-gray-500">Teléfono:</span> {solicitud.persona?.telefono_celular || 'N/A'}</p>
+                            <p><span className="text-gray-500">Teléfono celular:</span> {solicitud.persona?.telefono_celular || 'N/A'}</p>
+                            <p><span className="text-gray-500">Teléfono fijo:</span> {solicitud.persona?.telefono_personal || 'N/A'}</p>
                             <p><span className="text-gray-500">Fecha de nacimiento:</span> {formatBirthDate(solicitud.persona?.fecha_nacimiento)}</p>
-                            <p><span className="text-gray-500">Límite solicitado:</span> ${Number(solicitud.limite_credito_solicitado || 0).toLocaleString('es-MX')}</p>
                         </div>
                     </div>
 
@@ -121,14 +123,14 @@ export default function Show({ solicitud, categorias, configuracionSucursal }) {
                         </div>
                     )}
 
-                    {solicitud.afiliaciones?.length > 0 && (
+                    {afiliacionesArray.length > 0 && (
                         <div className="fin-card">
                             <h2 className="text-lg font-semibold inline-flex items-center gap-2">
                                 <FontAwesomeIcon icon={faBriefcase} className="text-gray-700" />
                                 Referencias Laborales
                             </h2>
                             <div className="mt-3 space-y-2 text-sm">
-                                {solicitud.afiliaciones.map((afiliacion, index) => (
+                                {afiliacionesArray.map((afiliacion, index) => (
                                     <div key={index} className="border border-gray-200 rounded-lg p-2">
                                         <p><span className="text-gray-500">Empresa:</span> {afiliacion.empresa || 'N/A'}</p>
                                         <p><span className="text-gray-500">Antigüedad:</span> {afiliacion.antiguedad || 'N/A'} meses</p>
@@ -139,14 +141,14 @@ export default function Show({ solicitud, categorias, configuracionSucursal }) {
                         </div>
                     )}
 
-                    {solicitud.vehiculos?.length > 0 && (
+                    {vehiculosArray.length > 0 && (
                         <div className="fin-card">
                             <h2 className="text-lg font-semibold inline-flex items-center gap-2">
                                 <FontAwesomeIcon icon={faCarSide} className="text-gray-700" />
                                 Vehículos Declarados
                             </h2>
                             <div className="mt-3 space-y-2 text-sm">
-                                {solicitud.vehiculos.map((vehiculo, index) => (
+                                {vehiculosArray.map((vehiculo, index) => (
                                     <div key={index} className="border border-gray-200 rounded-lg p-2">
                                         <p><span className="text-gray-500">Marca:</span> {vehiculo.marca || 'N/A'}</p>
                                         <p><span className="text-gray-500">Modelo:</span> {vehiculo.modelo || 'N/A'}</p>
@@ -177,7 +179,7 @@ export default function Show({ solicitud, categorias, configuracionSucursal }) {
                     </div>
 
                     <div className="fin-card">
-                        <h2 className="text-lg font-semibold mb-3">Evidencias</h2>
+                        <h2 className="text-lg font-semibold mb-3">Evidencia del Verificador</h2>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {[
                                 { label: 'Fachada', url: solicitud.verificacion?.foto_fachada_url },
@@ -195,6 +197,38 @@ export default function Show({ solicitud, categorias, configuracionSucursal }) {
                                     )}
                                 </div>
                             ))}
+                        </div>
+                    </div>
+
+                    <div className="fin-card">
+                        <h2 className="text-lg font-semibold mb-3">Documentos del Coordinador</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[
+                                { label: 'INE Frente', url: solicitud.ine_frente_url },
+                                { label: 'INE Reverso', url: solicitud.ine_reverso_url },
+                                { label: 'Comprobante de Domicilio', url: solicitud.comprobante_domicilio_url },
+                                { label: 'Reporte de Buró', url: solicitud.reporte_buro_url },
+                            ].map((doc) => {
+                                const esPdf = (doc.url || '').toLowerCase().includes('.pdf');
+                                return (
+                                    <div key={doc.label} className="border border-gray-200 rounded-lg overflow-hidden">
+                                        <div className="bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700">{doc.label}</div>
+                                        {!doc.url && (
+                                            <div className="h-48 flex items-center justify-center text-sm text-gray-400">Sin documento</div>
+                                        )}
+                                        {doc.url && esPdf && (
+                                            <div className="h-48 flex items-center justify-center">
+                                                <a href={doc.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800">Abrir PDF</a>
+                                            </div>
+                                        )}
+                                        {doc.url && !esPdf && (
+                                            <a href={doc.url} target="_blank" rel="noreferrer">
+                                                <img src={doc.url} alt={doc.label} className="w-full h-48 object-cover" />
+                                            </a>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

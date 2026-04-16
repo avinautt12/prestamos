@@ -512,6 +512,7 @@ export default function Show({ solicitud }) {
                             <input
                                 type="file"
                                 accept="image/*"
+                                capture="environment"
                                 onChange={(e) => setFotoFachada(e.target.files?.[0] ?? null)}
                                 className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
                             />
@@ -521,6 +522,7 @@ export default function Show({ solicitud }) {
                             <input
                                 type="file"
                                 accept="image/*"
+                                capture="environment"
                                 onChange={(e) => setFotoIneConPersona(e.target.files?.[0] ?? null)}
                                 className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
                             />
@@ -530,6 +532,7 @@ export default function Show({ solicitud }) {
                             <input
                                 type="file"
                                 accept="image/*"
+                                capture="environment"
                                 onChange={(e) => setFotoComprobante(e.target.files?.[0] ?? null)}
                                 className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
                             />

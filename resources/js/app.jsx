@@ -5,18 +5,33 @@ import { createRoot } from 'react-dom/client';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { useEffect } from 'react';
-import { registerSW } from 'virtual:pwa-register';
+// Registrar el Service Worker en la raíz para que tenga scope sobre toda la app
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then((registration) => {
+                console.info('[PWA] SW registrado con éxito:', registration.scope);
+
+                // Detectar actualización disponible
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    if (!newWorker) return;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            console.info('[PWA] Nueva versión disponible. Actualizando...');
+                            // Forzar activación inmediata
+                            newWorker.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                    });
+                });
+            })
+            .catch((err) => {
+                console.warn('[PWA] Error al registrar SW:', err);
+            });
+    });
+}
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
-registerSW({
-    immediate: true,
-    onOfflineReady() {
-        console.info('La aplicacion esta lista para uso offline basico.');
-    },
-    onNeedRefresh() {
-        console.info('Hay una nueva version disponible. Recarga para actualizar.');
-    },
-});
 
 function RealtimeNotificationsBridge({ auth }) {
 

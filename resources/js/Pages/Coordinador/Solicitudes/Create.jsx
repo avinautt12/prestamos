@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import TabletLayout from '@/Layouts/TabletLayout';
 import { Head, useForm } from '@inertiajs/react';
 import MapaUbicacion from '@/Components/MapaUbicacion';
+import FormInput from '@/Components/FormInput';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faFileCirclePlus, faLocationDot, faTriangleExclamation, faArrowLeft,
@@ -35,20 +36,6 @@ const TabButton = ({ active, index, onClick, children }) => (
     </button>
 );
 
-const FormInput = ({ label, required, error, className = "", ...props }) => (
-    <div className={className}>
-        {label && (
-            <label className="block text-sm font-medium text-gray-700">
-                {label} {required && <span className="text-red-600">*</span>}
-            </label>
-        )}
-        <input
-            className={`w-full px-3 py-2 mt-1 border rounded-md transition-colors ${error ? 'border-red-500 bg-red-50 focus:border-red-600 focus:ring-red-600' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} ${props.disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-            {...props}
-        />
-        {error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}
-    </div>
-);
 
 // ============================================
 // CONFIGURACIÓN DE MAPAS
@@ -438,6 +425,13 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
 // ============================================
 
 function DatosPersonalesTab({ data, setData, errors }) {
+    // Fecha máxima = hace exactamente 18 años (mayor de edad)
+    const maxFecha = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 18); return d.toISOString().split('T')[0]; })();
+    const minFecha = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 100); return d.toISOString().split('T')[0]; })();
+
+    const curpRegex = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$/;
+    const rfcRegex  = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/;
+
     return (
         <div className="p-4 space-y-4">
             <h2 className="text-lg font-semibold">Datos Personales del Interesado</h2>
@@ -446,6 +440,7 @@ function DatosPersonalesTab({ data, setData, errors }) {
                     label="Primer Nombre" required error={errors.primer_nombre}
                     value={data.primer_nombre}
                     onChange={e => setData('primer_nombre', formatName(e.target.value))}
+                    validate={v => !v.trim() ? 'El nombre es requerido' : null}
                 />
                 <FormInput
                     label="Segundo Nombre"
@@ -456,11 +451,13 @@ function DatosPersonalesTab({ data, setData, errors }) {
                     label="Apellido Paterno" required error={errors.apellido_paterno}
                     value={data.apellido_paterno}
                     onChange={e => setData('apellido_paterno', formatName(e.target.value))}
+                    validate={v => !v.trim() ? 'El apellido paterno es requerido' : null}
                 />
                 <FormInput
                     label="Apellido Materno" required error={errors.apellido_materno}
                     value={data.apellido_materno}
                     onChange={e => setData('apellido_materno', formatName(e.target.value))}
+                    validate={v => !v.trim() ? 'El apellido materno es requerido' : null}
                 />
 
                 <div>
@@ -474,14 +471,78 @@ function DatosPersonalesTab({ data, setData, errors }) {
                     {errors.sexo && <p className="mt-1 text-xs font-medium text-red-600">{errors.sexo}</p>}
                 </div>
 
-                <FormInput type="date" label="Fecha Nacimiento" required error={errors.fecha_nacimiento} value={data.fecha_nacimiento} onChange={e => setData('fecha_nacimiento', e.target.value)} />
-                <FormInput label="CURP" required error={errors.curp} maxLength={18} value={data.curp} onChange={e => setData('curp', formatAlphanumeric(e.target.value))} className="uppercase" />
-                <FormInput label="RFC" required error={errors.rfc} maxLength={13} value={data.rfc} onChange={e => setData('rfc', formatAlphanumeric(e.target.value))} className="uppercase" />
-                <FormInput type="tel" label="Teléfono Personal" maxLength={10} error={errors.telefono_personal} value={data.telefono_personal} onChange={e => setData('telefono_personal', formatPhone(e.target.value))} />
-                <FormInput type="tel" label="Teléfono Celular" required maxLength={10} error={errors.telefono_celular} value={data.telefono_celular} onChange={e => setData('telefono_celular', formatPhone(e.target.value))} />
-                <FormInput type="email" label="Correo Electrónico" error={errors.correo_electronico} value={data.correo_electronico} onChange={e => setData('correo_electronico', e.target.value)} className="col-span-2" />
+                <FormInput
+                    type="date"
+                    label="Fecha Nacimiento"
+                    required
+                    error={errors.fecha_nacimiento}
+                    value={data.fecha_nacimiento}
+                    onChange={e => setData('fecha_nacimiento', e.target.value)}
+                    max={maxFecha}
+                    min={minFecha}
+                    validate={v => {
+                        if (!v) return 'La fecha es requerida';
+                        if (v > maxFecha) return 'El solicitante debe ser mayor de 18 años';
+                        if (v < minFecha) return 'Fecha de nacimiento no válida';
+                        return null;
+                    }}
+                />
+
+                <FormInput
+                    label="CURP" required error={errors.curp}
+                    maxLength={18}
+                    value={data.curp}
+                    onChange={e => setData('curp', formatAlphanumeric(e.target.value))}
+                    className="uppercase"
+                    validate={v => {
+                        if (!v) return 'La CURP es requerida';
+                        if (v.length !== 18) return `CURP incompleta (${v.length}/18)`;
+                        if (!curpRegex.test(v)) return 'Formato de CURP inválido';
+                        return null;
+                    }}
+                />
+                <FormInput
+                    label="RFC" required error={errors.rfc}
+                    maxLength={13}
+                    value={data.rfc}
+                    onChange={e => setData('rfc', formatAlphanumeric(e.target.value))}
+                    className="uppercase"
+                    validate={v => {
+                        if (!v) return 'El RFC es requerido';
+                        if (v.length < 12) return `RFC incompleto (${v.length}/12)`;
+                        if (!rfcRegex.test(v)) return 'Formato de RFC inválido';
+                        return null;
+                    }}
+                />
+                <FormInput
+                    type="tel" label="Teléfono Fijo" maxLength={10}
+                    error={errors.telefono_personal}
+                    value={data.telefono_personal}
+                    onChange={e => setData('telefono_personal', formatPhone(e.target.value))}
+                    validate={v => v && v.length !== 10 ? `Debe tener 10 dígitos (${v.length}/10)` : null}
+                />
+                <FormInput
+                    type="tel" label="Teléfono Celular" required maxLength={10}
+                    error={errors.telefono_celular}
+                    value={data.telefono_celular}
+                    onChange={e => setData('telefono_celular', formatPhone(e.target.value))}
+                    validate={v => {
+                        if (!v) return 'El teléfono celular es requerido';
+                        if (v.length !== 10) return `Debe tener 10 dígitos (${v.length}/10)`;
+                        return null;
+                    }}
+                />
+                <FormInput
+                    type="email" label="Correo Electrónico"
+                    error={errors.correo_electronico}
+                    value={data.correo_electronico}
+                    onChange={e => setData('correo_electronico', e.target.value)}
+                    className="col-span-2"
+                    validate={v => v && !/^\S+@\S+\.\S+$/.test(v) ? 'Formato de correo inválido' : null}
+                />
             </div>
         </div>
+
     );
 }
 
@@ -510,11 +571,13 @@ function DatosFamiliaresTab({ data, updateFamiliares, addHijo, removeHijo, updat
                             label="Nombre Completo" required error={errors['familiares.conyuge.nombre']}
                             value={data.familiares.conyuge.nombre}
                             onChange={e => updateFamiliares((prev) => ({ ...prev, conyuge: { ...prev.conyuge, nombre: formatName(e.target.value) } }))}
+                            validate={v => !v.trim() ? 'El nombre del cónyuge es requerido' : null}
                         />
                         <FormInput
                             type="tel" label="Teléfono" maxLength={10} error={errors['familiares.conyuge.telefono']}
                             value={data.familiares.conyuge.telefono}
                             onChange={e => updateFamiliares((prev) => ({ ...prev, conyuge: { ...prev.conyuge, telefono: formatPhone(e.target.value) } }))}
+                            validate={v => v && v.length !== 10 ? `Debe tener 10 dígitos (${v.length}/10)` : null}
                         />
                         <FormInput
                             label="Ocupación" className="col-span-2"
@@ -540,6 +603,7 @@ function DatosFamiliaresTab({ data, updateFamiliares, addHijo, removeHijo, updat
                             type="tel" placeholder="Teléfono" maxLength={10} error={errors['familiares.padres.madre.telefono']}
                             value={data.familiares.padres.madre.telefono}
                             onChange={e => updateFamiliares((prev) => ({ ...prev, padres: { ...prev.padres, madre: { ...prev.padres.madre, telefono: formatPhone(e.target.value) } } }))}
+                            validate={v => v && v.length !== 10 ? `Debe tener 10 dígitos (${v.length}/10)` : null}
                         />
                     </div>
                     <div className="space-y-3">
@@ -553,6 +617,7 @@ function DatosFamiliaresTab({ data, updateFamiliares, addHijo, removeHijo, updat
                             type="tel" placeholder="Teléfono" maxLength={10} error={errors['familiares.padres.padre.telefono']}
                             value={data.familiares.padres.padre.telefono}
                             onChange={e => updateFamiliares((prev) => ({ ...prev, padres: { ...prev.padres, padre: { ...prev.padres.padre, telefono: formatPhone(e.target.value) } } }))}
+                            validate={v => v && v.length !== 10 ? `Debe tener 10 dígitos (${v.length}/10)` : null}
                         />
                     </div>
                 </div>
@@ -721,7 +786,12 @@ function DomicilioTab({ data, setData, errors }) {
                 <div className="hidden md:block"></div>
 
                 <FormInput label="Estado" required error={errors.estado} value={data.estado} onChange={e => setData('estado', e.target.value)} disabled />
-                <FormInput label="Municipio / Ciudad" required error={errors.ciudad} value={data.ciudad} onChange={e => setData('ciudad', e.target.value)} />
+                <FormInput
+                    label="Municipio / Ciudad" required error={errors.ciudad}
+                    value={data.ciudad}
+                    onChange={e => setData('ciudad', e.target.value)}
+                    validate={v => !v.trim() ? 'Ciudad requerida' : null}
+                />
 
                 <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700">Colonia <span className="text-red-600">*</span></label>
@@ -736,8 +806,19 @@ function DomicilioTab({ data, setData, errors }) {
                     {errors.colonia && <p className="mt-1 text-xs text-red-600">{errors.colonia}</p>}
                 </div>
 
-                <FormInput label="Calle" required error={errors.calle} value={data.calle} onChange={e => setData('calle', e.target.value)} className="col-span-2" />
-                <FormInput label="Número Exterior" required error={errors.numero_exterior} value={data.numero_exterior} onChange={e => setData('numero_exterior', e.target.value)} />
+                <FormInput
+                    label="Calle" required error={errors.calle}
+                    value={data.calle}
+                    onChange={e => setData('calle', e.target.value)}
+                    className="col-span-2"
+                    validate={v => !v.trim() ? 'La calle es requerida' : null}
+                />
+                <FormInput
+                    label="Número Exterior" required error={errors.numero_exterior}
+                    value={data.numero_exterior}
+                    onChange={e => setData('numero_exterior', e.target.value)}
+                    validate={v => !v.trim() ? 'El número exterior es requerido' : null}
+                />
                 <FormInput label="Número Interior" value={data.numero_interior} onChange={e => setData('numero_interior', e.target.value)} />
 
                 <div className="col-span-2 pt-2">

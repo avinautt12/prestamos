@@ -194,12 +194,6 @@ export default function Index({ solicitudes, filters, securityPolicy }) {
                                     <p className="font-medium text-gray-900">{solicitud.sucursal?.nombre || 'N/A'}</p>
                                 </div>
 
-                                <div>
-                                    <p className="text-sm text-gray-500">Límite solicitado</p>
-                                    <p className="font-medium text-gray-900">
-                                        ${Number(solicitud.limite_credito_solicitado || 0).toLocaleString('es-MX')}
-                                    </p>
-                                </div>
 
                                 <div>
                                     <p className="text-sm text-gray-500">Verificador</p>

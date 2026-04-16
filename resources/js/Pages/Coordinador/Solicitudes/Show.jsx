@@ -33,7 +33,7 @@ export default function Show({ solicitud, edit_url }) {
     };
 
     const estadoInfo = estadoConfig[solicitud.estado] || { label: solicitud.estado, color: 'bg-gray-100 text-gray-800', icon: faClipboard };
-    const persona = solicitud.persona;
+    const persona = solicitud.persona || {};
 
     const handleEnviarVerificacion = () => {
         if (confirm('¿Estás seguro de enviar esta solicitud a verificación? No podrás modificarla después.')) {
@@ -71,7 +71,7 @@ export default function Show({ solicitud, edit_url }) {
 
     return (
         <TabletLayout title="Detalle de Solicitud">
-            <Head title={`Solicitud - ${persona.primer_nombre} ${persona.apellido_paterno}`} />
+            <Head title={`Solicitud - ${persona.primer_nombre || ''} ${persona.apellido_paterno || ''}`} />
 
             {/* Header con acciones */}
             <div className="flex items-center justify-between mb-4">
@@ -234,7 +234,7 @@ export default function Show({ solicitud, edit_url }) {
                         <p className="font-mono text-sm">{persona.rfc || 'No registrado'}</p>
                     </div>
                     <div>
-                        <span className="text-gray-500">Teléfono personal:</span>
+                        <span className="text-gray-500">Teléfono fijo:</span>
                         <p className="font-medium">{persona.telefono_personal || 'N/A'}</p>
                     </div>
                     <div>

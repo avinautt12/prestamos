@@ -120,7 +120,7 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                             </button>
                         </div>
 
-                        <button type="submit" className="w-full fin-btn-primary">Aplicar búsqueda</button>
+
                     </form>
 
                     {filterOpen && (

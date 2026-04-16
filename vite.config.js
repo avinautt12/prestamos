@@ -29,12 +29,18 @@ export default defineConfig({
             manifest: false,
             registerType: 'autoUpdate',
             injectRegister: false,
+            // Generar el SW en /public (servido como /sw.js, no /build/sw.js)
+            // para que el navegador le dé scope sobre toda la app.
+            outDir: 'public',
+            filename: 'sw.js',
             workbox: {
                 cleanupOutdatedCaches: true,
                 skipWaiting: true,
                 clientsClaim: true,
+                navigateFallback: null,
                 // No cacheamos HTML para evitar tokens CSRF obsoletos en navegación.
                 globPatterns: ['**/*.{js,css,ico,png,svg,webp,woff2}'],
+                globDirectory: 'public/build',
                 runtimeCaching: [
                     {
                         urlPattern: ({ request }) => request.mode === 'navigate',

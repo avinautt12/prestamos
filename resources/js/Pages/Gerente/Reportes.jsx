@@ -31,7 +31,7 @@ export default function Reportes({
     const periodos = [
         { key: 'mes', label: 'Mes actual' },
         { key: 'trimestre', label: 'Trimestre' },
-        { key: 'año', label: 'Año' },
+        { key: 'anio', label: 'Año' },
     ];
 
     const formatMoney = (value) => `$${Number(value ?? 0).toLocaleString('es-MX', { maximumFractionDigits: 2 })}`;

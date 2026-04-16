@@ -235,11 +235,7 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                             </button>
                         </div>
 
-                        <button type="submit" disabled={fechasInvalidas} className="w-full fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed">Aplicar búsqueda</button>
 
-                        {fechasInvalidas && (
-                            <p className="text-xs text-red-600">La fecha "Desde" debe ser anterior o igual a la fecha "Hasta".</p>
-                        )}
                     </form>
 
                     {filterOpen && (

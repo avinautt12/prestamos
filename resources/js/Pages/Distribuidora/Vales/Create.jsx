@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import ClabeInput from '@/Components/ClabeInput';
+import FormInput from '@/Components/FormInput';
 import DocumentScanner from '@/Components/DocumentScanner'; // <-- IMPORTAMOS EL ESCÁNER
 import { formatCurrency, formatNumber, statusBadgeClass } from '../utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -70,11 +71,28 @@ export default function Create({
     const CURP_REGEX = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
     const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const soloDigitos = (s) => /^\d+$/.test(s);
+    const MAX_FECHA_NACIMIENTO = (() => {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() - 18);
+        return d.toISOString().split('T')[0];
+    })();
+    const MIN_FECHA_NACIMIENTO = (() => {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() - 100);
+        return d.toISOString().split('T')[0];
+    })();
+
     const fieldErrors = modoCliente === 'nuevo' ? {
         primer_nombre: !form.primer_nombre.trim() ? 'El primer nombre es obligatorio' : (form.primer_nombre.length > 100 ? 'Máximo 100 caracteres' : null),
         apellido_paterno: !form.apellido_paterno.trim() ? 'El apellido paterno es obligatorio' : (form.apellido_paterno.length > 100 ? 'Máximo 100 caracteres' : null),
         segundo_nombre: form.segundo_nombre.length > 100 ? 'Máximo 100 caracteres' : null,
         apellido_materno: form.apellido_materno.length > 100 ? 'Máximo 100 caracteres' : null,
+        fecha_nacimiento: (() => {
+            if (!form.fecha_nacimiento) return null; // campo opcional, no marcar vacío como error
+            if (form.fecha_nacimiento > MAX_FECHA_NACIMIENTO) return 'El cliente debe ser mayor de 18 años';
+            if (form.fecha_nacimiento < MIN_FECHA_NACIMIENTO) return 'Fecha de nacimiento no válida';
+            return null;
+        })(),
         curp: form.curp && form.curp.length !== 18
             ? 'La CURP debe tener 18 caracteres'
             : (form.curp && !CURP_REGEX.test(form.curp) ? 'Formato de CURP inválido' : null),
@@ -502,53 +520,58 @@ export default function Create({
                                         <div>
                                             <h3 className="mb-3 text-sm font-semibold text-gray-700">Datos personales</h3>
                                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                                <div>
-                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Primer nombre *</label>
-                                                    <input
-                                                        type="text"
-                                                        maxLength={100}
-                                                        value={form.primer_nombre}
-                                                        onChange={(e) => actualizarCampo('primer_nombre', e.target.value)}
-                                                        onBlur={() => setFormTouched((t) => ({ ...t, primer_nombre: true }))}
-                                                        className={`fin-input ${formTouched.primer_nombre && fieldErrors.primer_nombre ? 'border-red-400' : ''}`}
-                                                        placeholder="María"
-                                                    />
-                                                    {formTouched.primer_nombre && fieldErrors.primer_nombre && <p className="mt-1 text-xs text-red-600">{fieldErrors.primer_nombre}</p>}
-                                                </div>
-                                                <div>
-                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Segundo nombre</label>
-                                                    <input type="text" maxLength={100} value={form.segundo_nombre} onChange={(e) => actualizarCampo('segundo_nombre', e.target.value)} className="fin-input" placeholder="Guadalupe" />
-                                                </div>
-                                                <div>
-                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Apellido paterno *</label>
-                                                    <input
-                                                        type="text"
-                                                        maxLength={100}
-                                                        value={form.apellido_paterno}
-                                                        onChange={(e) => actualizarCampo('apellido_paterno', e.target.value)}
-                                                        onBlur={() => setFormTouched((t) => ({ ...t, apellido_paterno: true }))}
-                                                        className={`fin-input ${formTouched.apellido_paterno && fieldErrors.apellido_paterno ? 'border-red-400' : ''}`}
-                                                        placeholder="López"
-                                                    />
-                                                    {formTouched.apellido_paterno && fieldErrors.apellido_paterno && <p className="mt-1 text-xs text-red-600">{fieldErrors.apellido_paterno}</p>}
-                                                </div>
-                                                <div>
-                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Apellido materno</label>
-                                                    <input type="text" maxLength={100} value={form.apellido_materno} onChange={(e) => actualizarCampo('apellido_materno', e.target.value)} className="fin-input" placeholder="García" />
-                                                </div>
-                                                <div>
-                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">CURP</label>
-                                                    <input
-                                                        type="text"
-                                                        value={form.curp}
-                                                        onChange={(e) => actualizarCampo('curp', e.target.value.toUpperCase())}
-                                                        onBlur={() => setFormTouched((t) => ({ ...t, curp: true }))}
-                                                        className={`fin-input ${formTouched.curp && fieldErrors.curp ? 'border-red-400' : ''}`}
-                                                        placeholder="LOPM850101MDFRRL09"
-                                                        maxLength={18}
-                                                    />
-                                                    {formTouched.curp && fieldErrors.curp && <p className="mt-1 text-xs text-red-600">{fieldErrors.curp}</p>}
-                                                </div>
+
+                                                <FormInput
+                                                    label="Primer nombre"
+                                                    required
+                                                    maxLength={100}
+                                                    value={form.primer_nombre}
+                                                    onChange={(e) => actualizarCampo('primer_nombre', e.target.value)}
+                                                    placeholder="María"
+                                                    validate={v => !v.trim() ? 'El primer nombre es obligatorio' : null}
+                                                />
+
+                                                <FormInput
+                                                    label="Segundo nombre"
+                                                    maxLength={100}
+                                                    value={form.segundo_nombre}
+                                                    onChange={(e) => actualizarCampo('segundo_nombre', e.target.value)}
+                                                    placeholder="Guadalupe"
+                                                />
+
+                                                <FormInput
+                                                    label="Apellido paterno"
+                                                    required
+                                                    maxLength={100}
+                                                    value={form.apellido_paterno}
+                                                    onChange={(e) => actualizarCampo('apellido_paterno', e.target.value)}
+                                                    placeholder="López"
+                                                    validate={v => !v.trim() ? 'El apellido paterno es obligatorio' : null}
+                                                />
+
+                                                <FormInput
+                                                    label="Apellido materno"
+                                                    maxLength={100}
+                                                    value={form.apellido_materno}
+                                                    onChange={(e) => actualizarCampo('apellido_materno', e.target.value)}
+                                                    placeholder="García"
+                                                />
+
+                                                <FormInput
+                                                    label="CURP"
+                                                    value={form.curp}
+                                                    onChange={(e) => actualizarCampo('curp', e.target.value.toUpperCase())}
+                                                    placeholder="LOPM850101MDFRRL09"
+                                                    maxLength={18}
+                                                    className="uppercase"
+                                                    validate={v => {
+                                                        if (!v) return null;
+                                                        if (v.length !== 18) return `CURP incompleta (${v.length}/18)`;
+                                                        if (!/^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$/.test(v)) return 'Formato de CURP inválido';
+                                                        return null;
+                                                    }}
+                                                />
+
                                                 <div>
                                                     <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Sexo</label>
                                                     <select value={form.sexo} onChange={(e) => actualizarCampo('sexo', e.target.value)} className="fin-input">
@@ -558,36 +581,51 @@ export default function Create({
                                                         <option value="OTRO">Otro</option>
                                                     </select>
                                                 </div>
+
                                                 <div>
                                                     <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Fecha de nacimiento</label>
-                                                    <input type="date" value={form.fecha_nacimiento} onChange={(e) => actualizarCampo('fecha_nacimiento', e.target.value)} className="fin-input" max={new Date().toISOString().split('T')[0]} />
-                                                </div>
-                                                <div>
-                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Teléfono celular</label>
                                                     <input
-                                                        type="tel"
-                                                        value={form.telefono_celular}
-                                                        onChange={(e) => actualizarCampo('telefono_celular', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                                                        onBlur={() => setFormTouched((t) => ({ ...t, telefono_celular: true }))}
-                                                        className={`fin-input ${formTouched.telefono_celular && fieldErrors.telefono_celular ? 'border-red-400' : ''}`}
-                                                        placeholder="5512345678"
-                                                        maxLength={10}
+                                                        type="date"
+                                                        value={form.fecha_nacimiento}
+                                                        onChange={(e) => actualizarCampo('fecha_nacimiento', e.target.value)}
+                                                        max={MAX_FECHA_NACIMIENTO}
+                                                        min={MIN_FECHA_NACIMIENTO}
+                                                        className={`fin-input ${
+                                                            fieldErrors.fecha_nacimiento
+                                                                ? 'border-red-500 bg-red-50'
+                                                                : form.fecha_nacimiento
+                                                                    ? 'border-green-500 bg-green-50/30'
+                                                                    : ''
+                                                        }`}
                                                     />
-                                                    {formTouched.telefono_celular && fieldErrors.telefono_celular && <p className="mt-1 text-xs text-red-600">{fieldErrors.telefono_celular}</p>}
+                                                    {fieldErrors.fecha_nacimiento && <p className="mt-1 text-xs text-red-600">{fieldErrors.fecha_nacimiento}</p>}
                                                 </div>
-                                                <div className="md:col-span-2">
-                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Correo electrónico</label>
-                                                    <input
-                                                        type="email"
-                                                        maxLength={150}
-                                                        value={form.correo_electronico}
-                                                        onChange={(e) => actualizarCampo('correo_electronico', e.target.value)}
-                                                        onBlur={() => setFormTouched((t) => ({ ...t, correo_electronico: true }))}
-                                                        className={`fin-input ${formTouched.correo_electronico && fieldErrors.correo_electronico ? 'border-red-400' : ''}`}
-                                                        placeholder="maria@correo.com"
-                                                    />
-                                                    {formTouched.correo_electronico && fieldErrors.correo_electronico && <p className="mt-1 text-xs text-red-600">{fieldErrors.correo_electronico}</p>}
-                                                </div>
+
+                                                <FormInput
+                                                    label="Teléfono celular"
+                                                    type="tel"
+                                                    value={form.telefono_celular}
+                                                    onChange={(e) => actualizarCampo('telefono_celular', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                                    placeholder="5512345678"
+                                                    maxLength={10}
+                                                    validate={v => {
+                                                        if (!v) return null;
+                                                        if (v.length !== 10) return `Debe tener 10 dígitos (${v.length}/10)`;
+                                                        return null;
+                                                    }}
+                                                />
+
+                                                <FormInput
+                                                    label="Correo electrónico"
+                                                    type="email"
+                                                    maxLength={150}
+                                                    value={form.correo_electronico}
+                                                    onChange={(e) => actualizarCampo('correo_electronico', e.target.value)}
+                                                    placeholder="maria@correo.com"
+                                                    className="md:col-span-2"
+                                                    validate={v => v && !/^\S+@\S+\.\S+$/.test(v) ? 'Formato de correo inválido' : null}
+                                                />
+
                                             </div>
                                         </div>
                                     )}
@@ -596,6 +634,45 @@ export default function Create({
                                         <div>
                                             <h3 className="mb-3 text-sm font-semibold text-gray-700">Dirección</h3>
                                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                {/* CP primero — de lo general a lo específico */}
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Código postal</label>
+                                                    <input
+                                                        type="text"
+                                                        value={form.codigo_postal}
+                                                        onChange={(e) => {
+                                                            const cp = e.target.value.replace(/\D/g, '').slice(0, 5);
+                                                            actualizarCampo('codigo_postal', cp);
+                                                            // Autocompletar si tiene 5 dígitos
+                                                            if (cp.length === 5) {
+                                                                window.axios?.get(`/api/codigo-postal/${cp}`)
+                                                                    .then((res) => {
+                                                                        if (res.data?.estado) actualizarCampo('estado_direccion', res.data.estado);
+                                                                        if (res.data?.ciudad) actualizarCampo('ciudad', res.data.ciudad);
+                                                                        if (res.data?.colonias?.length === 1) actualizarCampo('colonia', res.data.colonias[0]);
+                                                                    })
+                                                                    .catch(() => {});
+                                                            }
+                                                        }}
+                                                        onBlur={() => setFormTouched((t) => ({ ...t, codigo_postal: true }))}
+                                                        className={`fin-input ${formTouched.codigo_postal && fieldErrors.codigo_postal ? 'border-red-400' : ''}`}
+                                                        placeholder="72000"
+                                                        maxLength={5}
+                                                    />
+                                                    {formTouched.codigo_postal && fieldErrors.codigo_postal && <p className="mt-1 text-xs text-red-600">{fieldErrors.codigo_postal}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Estado</label>
+                                                    <input type="text" value={form.estado_direccion} onChange={(e) => actualizarCampo('estado_direccion', e.target.value)} className="fin-input" placeholder="Puebla" />
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Ciudad / Municipio</label>
+                                                    <input type="text" value={form.ciudad} onChange={(e) => actualizarCampo('ciudad', e.target.value)} className="fin-input" placeholder="Puebla" />
+                                                </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Colonia</label>
+                                                    <input type="text" value={form.colonia} onChange={(e) => actualizarCampo('colonia', e.target.value)} className="fin-input" placeholder="Centro" />
+                                                </div>
                                                 <div className="md:col-span-2">
                                                     <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Calle</label>
                                                     <input type="text" value={form.calle} onChange={(e) => actualizarCampo('calle', e.target.value)} className="fin-input" placeholder="Av. Reforma" />
@@ -603,31 +680,6 @@ export default function Create({
                                                 <div>
                                                     <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Número exterior</label>
                                                     <input type="text" value={form.numero_exterior} onChange={(e) => actualizarCampo('numero_exterior', e.target.value)} className="fin-input" placeholder="123" />
-                                                </div>
-                                                <div>
-                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Colonia</label>
-                                                    <input type="text" value={form.colonia} onChange={(e) => actualizarCampo('colonia', e.target.value)} className="fin-input" placeholder="Centro" />
-                                                </div>
-                                                <div>
-                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Ciudad</label>
-                                                    <input type="text" value={form.ciudad} onChange={(e) => actualizarCampo('ciudad', e.target.value)} className="fin-input" placeholder="Puebla" />
-                                                </div>
-                                                <div>
-                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Estado</label>
-                                                    <input type="text" value={form.estado_direccion} onChange={(e) => actualizarCampo('estado_direccion', e.target.value)} className="fin-input" placeholder="Puebla" />
-                                                </div>
-                                                <div>
-                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Código postal</label>
-                                                    <input
-                                                        type="text"
-                                                        value={form.codigo_postal}
-                                                        onChange={(e) => actualizarCampo('codigo_postal', e.target.value.replace(/\D/g, '').slice(0, 5))}
-                                                        onBlur={() => setFormTouched((t) => ({ ...t, codigo_postal: true }))}
-                                                        className={`fin-input ${formTouched.codigo_postal && fieldErrors.codigo_postal ? 'border-red-400' : ''}`}
-                                                        placeholder="72000"
-                                                        maxLength={5}
-                                                    />
-                                                    {formTouched.codigo_postal && fieldErrors.codigo_postal && <p className="mt-1 text-xs text-red-600">{fieldErrors.codigo_postal}</p>}
                                                 </div>
                                             </div>
                                         </div>

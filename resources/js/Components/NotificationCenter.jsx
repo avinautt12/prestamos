@@ -172,7 +172,9 @@ export default function NotificationCenter() {
         };
     }, []);
 
-    const loadNotifications = async () => {
+    const loadNotifications = async (force = false) => {
+        // No recargar si ya tenemos datos y no es forzado
+        if (!force && notifications.length > 0) return;
         setLoading(true);
         try {
             const response = await window.axios.get(route('notificaciones.index'), {
@@ -202,10 +204,8 @@ export default function NotificationCenter() {
                 return [normalized, ...withoutDup].slice(0, 20);
             });
             setUnreadCount((prev) => prev + 1);
-            window.dispatchEvent(new CustomEvent('notifications:unread-count', {
-                detail: { count: unreadCount + 1 },
-            }));
 
+            // Mostrar toast efímero por 8 segundos (era 4.5)
             setLiveToasts((prev) => {
                 const next = [...prev, normalized].slice(-3);
                 return next;
@@ -217,7 +217,7 @@ export default function NotificationCenter() {
 
             window.setTimeout(() => {
                 setLiveToasts((prev) => prev.filter((item) => item.id !== normalized.id));
-            }, 4500);
+            }, 8000);
         };
 
         window.addEventListener('app-notification', onRealtimeNotification);

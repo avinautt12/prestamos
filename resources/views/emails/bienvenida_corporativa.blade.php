@@ -31,8 +31,9 @@
                 <div style="background-color: #f1f5f9; border-radius: 12px; padding: 24px; margin: 30px 0; border: 1px solid #e2e8f0;">
                     
                     <div style="margin-bottom: 16px;">
-                        <p style="margin: 0; font-size: 13px; color: #64748b; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Usuario</p>
+                        <p style="margin: 0; font-size: 13px; color: #64748b; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Usuario (N&uacute;mero de Distribuidora)</p>
                         <p style="margin: 4px 0 0 0; font-size: 18px; font-weight: 700; color: #0f172a;">{{ $nombreUsuario }}</p>
+                        <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;">Este n&uacute;mero es tu nombre de usuario en el portal. &Uacute;salo exactamente como aparece aqu&iacute; para iniciar sesi&oacute;n.</p>
                     </div>
 
                     <div>

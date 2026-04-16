@@ -18,7 +18,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function DistribuidoraLayout({ children, title = 'Mi Panel', subtitle = null }) {
-    const { auth } = usePage().props;
+    const { auth, flash } = usePage().props;
     const currentUrl = usePage().url;
     const [toasts, setToasts] = useState([]);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -109,6 +109,12 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'instant' });
+
+        // Mostrar toast de flash del servidor (success / message / error)
+        const msg = flash?.success || flash?.message;
+        const err = flash?.error;
+        if (msg) agregarToast('✅ Listo', msg);
+        if (err) agregarToast('⚠️ Atención', err);
     }, [currentUrl]);
 
     const abrirNotificaciones = () => {

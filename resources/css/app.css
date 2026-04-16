@@ -19,7 +19,11 @@
 
 @layer base {
     body {
-        background: var(--fin-bg);
+        /* Gradiente ambiental verde — fuente única de verdad para todos los módulos */
+        background:
+            radial-gradient(ellipse at top left, rgba(209, 250, 229, 0.70) 0%, transparent 55%),
+            radial-gradient(ellipse at bottom right, rgba(209, 250, 229, 0.45) 0%, transparent 50%),
+            #F8FAFC;
         color: var(--fin-text);
     }
 
@@ -48,10 +52,8 @@
 
     .fin-mobile-shell {
         @apply min-h-screen;
-        background:
-            radial-gradient(circle at top right, #dff2e3 0, transparent 42%),
-            radial-gradient(circle at bottom left, #e8f7ea 0, transparent 36%),
-            #f4f7f5;
+        /* Sin fondo propio — el body ya provee el gradiente ambiental */
+        background: transparent;
     }
 
     .fin-mobile-device {
@@ -60,11 +62,13 @@
     }
 
     .fin-mobile-header {
-        @apply sticky top-0 z-30 bg-white/95 backdrop-blur;
+        /* bg-white al 80% — deja pasar el gradiente ambiental del body */
+        @apply sticky top-0 z-30 backdrop-blur;
+        background: rgba(255, 255, 255, 0.80);
     }
 
     .fin-mobile-main {
-        padding-bottom: calc(196px + env(safe-area-inset-bottom));
+        padding-bottom: calc(220px + env(safe-area-inset-bottom));
     }
 
     .fin-mobile-nav {
@@ -242,7 +246,7 @@
         }
 
         .fin-mobile-main {
-            padding-bottom: 188px;
+            padding-bottom: 210px;
         }
 
         .fin-mobile-toasts {
@@ -298,7 +302,7 @@
 @media (max-width: 380px) {
     .fin-mobile-main {
         @apply p-3;
-        padding-bottom: calc(188px + env(safe-area-inset-bottom));
+        padding-bottom: calc(210px + env(safe-area-inset-bottom));
     }
 
     .fin-mobile-nav .rounded-2xl {

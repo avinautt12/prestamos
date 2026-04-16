@@ -19,7 +19,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function TabletLayout({ children, title = 'Prestamo Fácil', showTitle = false }) {
-    const { auth, ziggy } = usePage().props;
+    const { auth, ziggy, flash } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [toasts, setToasts] = useState([]);
 
@@ -84,6 +84,12 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
 
     useEffect(() => {
         setSidebarOpen(false);
+
+        // Mostrar toast de flash del servidor (success/message/error)
+        const msg = flash?.success || flash?.message;
+        const err = flash?.error;
+        if (msg) agregarToast('✅ Listo', msg);
+        if (err) agregarToast('⚠️ Atención', err);
     }, [currentUrl]);
 
     useEffect(() => {
