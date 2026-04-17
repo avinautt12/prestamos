@@ -5,6 +5,7 @@ import NotificationCenter from '@/Components/NotificationCenter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faArrowRightArrowLeft,
+    faBars,
     faBell,
     faChartPie,
     faFileInvoiceDollar,
@@ -23,6 +24,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
     const [toasts, setToasts] = useState([]);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
     const [friendlyMode, setFriendlyMode] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const navigation = useMemo(() => ([
         { name: 'Dashboard', short: 'Inicio', href: route('distribuidora.dashboard'), icon: faHouse, current: 'distribuidora.dashboard' },
@@ -134,11 +136,11 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                     <div className="flex items-center justify-between px-4 py-3">
                         <button
                             type="button"
-                            onClick={toggleFriendlyMode}
-                            className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border ${friendlyMode ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-600'}`}
-                            aria-label="Activar o desactivar modo amigable"
+                            onClick={() => setSidebarOpen(true)}
+                            className="inline-flex items-center justify-center w-10 h-10 bg-white border border-gray-200 rounded-xl text-gray-600 active:bg-gray-50 transition-colors"
+                            aria-label="Abrir menú"
                         >
-                            <FontAwesomeIcon icon={faTextHeight} className="w-4 h-4" />
+                            <FontAwesomeIcon icon={faBars} className="w-5 h-5" />
                         </button>
 
                         <Link href={route('distribuidora.dashboard')} className="flex items-center">
@@ -146,9 +148,14 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                             <span className="ml-2 text-base font-bold text-gray-900">Préstamo Fácil</span>
                         </Link>
 
-                        <Link href={route('logout', {}, false)} method="post" as="button" className="p-2 text-red-600">
-                            <FontAwesomeIcon icon={faRightFromBracket} className="w-5 h-5" />
-                        </Link>
+                        <button
+                            type="button"
+                            onClick={toggleFriendlyMode}
+                            className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border ${friendlyMode ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-600'}`}
+                            aria-label="Activar o desactivar modo amigable"
+                        >
+                            <FontAwesomeIcon icon={faTextHeight} className="w-4 h-4" />
+                        </button>
                     </div>
                 </header>
 
@@ -170,46 +177,91 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                     </div>
                 </main>
 
-                <nav className="fin-mobile-nav bg-white/95 border-t" style={{ borderColor: '#D1FAE5' }}>
-                    <div className="grid grid-flow-col auto-cols-fr gap-1 px-2 py-2 overflow-x-auto">
-                        {navigation.map((item) => {
-                            const isActive = route().current(item.current);
-                            return (
-                                <Link
-                                    key={item.name}
-                                    href={item.href}
-                                    className={`flex flex-col items-center justify-center rounded-xl px-2 py-2 text-xs font-medium ${isActive ? 'bg-green-50 text-green-700' : 'text-gray-500'}`}
-                                >
-                                    <FontAwesomeIcon icon={item.icon} className="w-4 h-4 mb-1" />
-                                    <span>{item.short}</span>
-                                </Link>
-                            );
-                        })}
-                    </div>
+                {/* El Sidebar (Drawer) */}
+                {sidebarOpen && (
+                    <div className="fixed inset-0 z-[60] flex overflow-hidden">
+                        {/* Backdrop */}
+                        <div
+                            className="absolute inset-0 bg-black/45 backdrop-blur-sm transition-opacity"
+                            onClick={() => setSidebarOpen(false)}
+                        />
 
-                    <div className="px-3 pb-3">
-                        <button
-                            type="button"
-                            onClick={abrirNotificaciones}
-                            className="flex items-center justify-between w-full px-3 py-2 text-left border border-emerald-100 rounded-2xl bg-white/95 shadow-sm"
-                        >
-                            <span className="flex items-center gap-2 min-w-0">
-                                <span className="inline-flex items-center justify-center w-8 h-8 text-green-700 bg-green-50 rounded-xl">
-                                    <FontAwesomeIcon icon={faBell} className="w-4 h-4" />
-                                </span>
-                                <span className="min-w-0">
-                                    <span className="block text-sm font-semibold text-gray-900 truncate">Notificaciones</span>
-                                    <span className="block text-[11px] text-gray-500 truncate">Toca para ver alertas</span>
-                                </span>
-                            </span>
-                            {unreadNotifications > 0 && (
-                                <span className="inline-flex items-center justify-center min-w-[26px] h-6 px-2 text-[11px] font-semibold text-white bg-red-600 rounded-full">
-                                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
-                                </span>
-                            )}
-                        </button>
+                        {/* Contenido del Sidebar */}
+                        <div className="relative flex flex-col w-full max-w-[280px] h-full bg-white shadow-2xl fin-enter-left">
+                            <div className="flex items-center justify-between px-5 py-6 border-b border-green-50 bg-gradient-to-br from-green-50 to-white">
+                                <div>
+                                    <p className="text-xs font-bold text-green-700 uppercase tracking-widest">Mi Menú</p>
+                                    <p className="mt-0.5 text-sm font-semibold text-gray-900 truncate max-w-[180px]">
+                                        {auth.user?.persona?.primer_nombre} {auth.user?.persona?.apellido_paterno}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setSidebarOpen(false)}
+                                    className="p-2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <FontAwesomeIcon icon={faXmark} className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto bg-white/50">
+                                {navigation.map((item) => {
+                                    const isActive = route().current(item.current);
+                                    return (
+                                        <Link
+                                            key={item.name}
+                                            href={item.href}
+                                            onClick={() => setSidebarOpen(false)}
+                                            className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all ${isActive
+                                                ? 'bg-green-700 text-white shadow-lg shadow-green-200'
+                                                : 'text-gray-600 hover:bg-green-50 hover:text-green-700'}`}
+                                        >
+                                            <div className={`flex items-center justify-center w-8 h-8 rounded-xl ${isActive ? 'bg-white/20' : 'bg-green-50 text-green-700'}`}>
+                                                <FontAwesomeIcon icon={item.icon} className="w-4 h-4" />
+                                            </div>
+                                            <span>{item.name}</span>
+                                        </Link>
+                                    );
+                                })}
+
+                                <div className="pt-6 mt-6 border-t border-gray-100">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSidebarOpen(false);
+                                            abrirNotificaciones();
+                                        }}
+                                        className="flex items-center justify-between w-full px-4 py-4 text-left border border-emerald-100 rounded-2xl bg-white shadow-sm hover:bg-green-50 transition-colors"
+                                    >
+                                        <span className="flex items-center gap-3">
+                                            <span className="inline-flex items-center justify-center w-8 h-8 text-green-700 bg-green-50 rounded-xl">
+                                                <FontAwesomeIcon icon={faBell} className="w-4 h-4" />
+                                            </span>
+                                            <span className="text-sm font-bold text-gray-900">Notificaciones</span>
+                                        </span>
+                                        {unreadNotifications > 0 && (
+                                            <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 text-[11px] font-bold text-white bg-red-600 rounded-full">
+                                                {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                                            </span>
+                                        )}
+                                    </button>
+                                </div>
+                            </nav>
+
+                            <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                                <Link
+                                    href={route('logout', {}, false)}
+                                    method="post"
+                                    as="button"
+                                    className="flex items-center justify-center w-full gap-2 py-4 text-sm font-bold text-red-600 bg-white border border-red-100 rounded-2xl hover:bg-red-50 transition-colors"
+                                >
+                                    <FontAwesomeIcon icon={faRightFromBracket} />
+                                    Cerrar sesión
+                                </Link>
+                            </div>
+                        </div>
                     </div>
-                </nav>
+                )}
             </div>
 
             <NotificationCenter />

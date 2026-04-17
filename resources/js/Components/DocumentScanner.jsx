@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCamera, faTimes, faCheck, faSync } from '@fortawesome/free-solid-svg-icons';
+import { faCamera, faTimes, faCheck, faSync, faExclamationTriangle, faShieldHalved } from '@fortawesome/free-solid-svg-icons';
 
 export default function DocumentScanner({ onCapture, onCancel, title = "Escanea la INE" }) {
     const videoRef = useRef(null);
@@ -8,30 +8,54 @@ export default function DocumentScanner({ onCapture, onCancel, title = "Escanea 
     const [stream, setStream] = useState(null);
     const [capturedImage, setCapturedImage] = useState(null);
     const [isCameraReady, setIsCameraReady] = useState(false);
+    const [error, setError] = useState(null);
 
-    // Iniciar la cámara al montar el componente
-    useEffect(() => {
-        async function startCamera() {
-            try {
-                const mediaStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment' } // Forza la cámara trasera
-                });
-                setStream(mediaStream);
-                if (videoRef.current) {
-                    videoRef.current.srcObject = mediaStream;
-                    videoRef.current.onloadedmetadata = () => {
-                        videoRef.current.play();
-                        setIsCameraReady(true);
-                    };
+    const startCamera = async () => {
+        setError(null);
+        setIsCameraReady(false);
+
+        if (!window.isSecureContext && window.location.protocol !== 'http:' && window.location.hostname !== 'localhost') {
+            setError("CONEXIÓN NO SEGURA: El acceso a la cámara requiere HTTPS en móviles por seguridad del navegador.");
+            return;
+        }
+
+        try {
+            const constraints = {
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
                 }
-            } catch (err) {
-                console.error("Error al acceder a la cámara: ", err);
-                alert("Por favor, permite el acceso a la cámara para continuar.");
+            };
+
+            const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+            setStream(mediaStream);
+            
+            if (videoRef.current) {
+                videoRef.current.srcObject = mediaStream;
+                // Forzamos el play después de asignar el stream
+                try {
+                    await videoRef.current.play();
+                    setIsCameraReady(true);
+                } catch (playErr) {
+                    console.error("Error al reproducir video:", playErr);
+                }
+            }
+        } catch (err) {
+            console.error("Error al acceder a la cámara: ", err);
+            if (err.name === 'NotAllowedError') {
+                setError("PERMISO DENEGADO: Por favor, permite el acceso a la cámara en los ajustes de tu navegador o celular.");
+            } else if (err.name === 'NotFoundError') {
+                setError("CÁMARA NO ENCONTRADA: No se detectó una cámara trasera disponible.");
+            } else {
+                setError("ERROR DE CÁMARA: No se pudo iniciar el video. Revisa los permisos de tu dispositivo.");
             }
         }
+    };
+
+    useEffect(() => {
         startCamera();
 
-        // Limpiar la cámara al desmontar
         return () => {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
@@ -60,10 +84,10 @@ export default function DocumentScanner({ onCapture, onCancel, title = "Escanea 
         // --- MATEMÁTICAS DE RECORTE (El secreto para quitar el fondo) ---
         // Asumimos que la guía visual (el hueco) ocupa el 80% del ancho de la pantalla
         // y tiene una proporción de tarjeta de crédito (aprox 1.58:1)
-        const guideWidthRatio = 0.85; 
-        
+        const guideWidthRatio = 0.85;
+
         const cropWidth = videoWidth * guideWidthRatio;
-        const cropHeight = cropWidth / 1.58; 
+        const cropHeight = cropWidth / 1.58;
 
         // Calculamos las coordenadas X e Y para centrar el recorte
         const startX = (videoWidth - cropWidth) / 2;
@@ -80,7 +104,7 @@ export default function DocumentScanner({ onCapture, onCancel, title = "Escanea 
         // Convertimos el canvas a una imagen en Base64 (JPG)
         const base64Image = canvas.toDataURL('image/jpeg', 0.9);
         setCapturedImage(base64Image);
-        
+
         // Apagamos la cámara temporalmente
         if (stream) stream.getTracks().forEach(track => track.stop());
 
@@ -98,15 +122,7 @@ export default function DocumentScanner({ onCapture, onCancel, title = "Escanea 
 
     const handleRetake = () => {
         setCapturedImage(null);
-        // Reiniciar cámara
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-            .then(s => {
-                setStream(s);
-                if (videoRef.current) {
-                    videoRef.current.srcObject = s;
-                    videoRef.current.play();
-                }
-            });
+        startCamera();
     };
 
     return (
@@ -122,9 +138,23 @@ export default function DocumentScanner({ onCapture, onCancel, title = "Escanea 
 
             {/* Área de Cámara */}
             <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-gray-900">
-                
+
                 {capturedImage ? (
                     <img src={capturedImage} alt="Captura" className="w-[85%] rounded-xl shadow-2xl object-contain" />
+                ) : error ? (
+                    <div className="flex flex-col items-center p-8 text-center bg-gray-900">
+                        <div className="w-16 h-16 mb-4 flex items-center justify-center rounded-full bg-red-500/20 text-red-500">
+                            <FontAwesomeIcon icon={faExclamationTriangle} size="2x" />
+                        </div>
+                        <p className="text-white font-bold mb-2">{error}</p>
+                        <p className="text-gray-400 text-sm mb-6">Asegúrate de estar usando HTTPS y de haber aceptado la solicitud de permisos del navegador.</p>
+                        <button 
+                            onClick={startCamera}
+                            className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold active:scale-95 transition-transform"
+                        >
+                            Intentar de nuevo
+                        </button>
+                    </div>
                 ) : (
                     <>
                         {/* Video en vivo */}
@@ -154,7 +184,7 @@ export default function DocumentScanner({ onCapture, onCancel, title = "Escanea 
                         </div>
                     </>
                 )}
-                
+
                 {/* Canvas oculto usado solo para el procesamiento matemático */}
                 <canvas ref={canvasRef} className="hidden" />
             </div>
@@ -177,8 +207,8 @@ export default function DocumentScanner({ onCapture, onCancel, title = "Escanea 
                         </button>
                     </>
                 ) : (
-                    <button 
-                        onClick={takePhoto} 
+                    <button
+                        onClick={takePhoto}
                         disabled={!isCameraReady}
                         className="w-20 h-20 rounded-full border-4 border-white/30 flex items-center justify-center focus:outline-none disabled:opacity-50"
                     >
