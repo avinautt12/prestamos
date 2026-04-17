@@ -11,57 +11,53 @@ export default function DocumentScanner({
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const fileInputRef = useRef(null);
-    const [stream, setStream] = useState(null);
+    const streamRef = useRef(null);
     const [capturedImage, setCapturedImage] = useState(null);
     const [isCameraReady, setIsCameraReady] = useState(false);
     const [error, setError] = useState(null);
 
     const stopCurrentStream = useCallback(() => {
-        if (stream) {
-            stream.getTracks().forEach((track) => track.stop());
-            setStream(null);
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
         }
-    }, [stream]);
+    }, []);
 
     const startCamera = useCallback(async () => {
         setError(null);
         setIsCameraReady(false);
 
-        if (!window.isSecureContext && window.location.protocol !== 'http:' && window.location.hostname !== 'localhost') {
+        const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+
+        if (!window.isSecureContext && !isLocalHost) {
             setError('CONEXION NO SEGURA: El acceso a la camara requiere HTTPS en moviles por seguridad del navegador.');
             return;
         }
 
         if (!navigator.mediaDevices?.getUserMedia) {
-            setError('CAMARA NO COMPATIBLE: Este navegador o modo PWA no permite abrir la camara integrada.');
+            setError('CAMARA NO DISPONIBLE: Este navegador o modo PWA no permite abrir la camara integrada.');
             return;
         }
 
         stopCurrentStream();
 
         try {
-            const constraints = {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: captureMode,
                     width: { ideal: 1920 },
                     height: { ideal: 1080 },
                 },
-            };
+            });
 
-            const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-            setStream(mediaStream);
+            streamRef.current = mediaStream;
 
             if (videoRef.current) {
                 videoRef.current.srcObject = mediaStream;
-
-                try {
-                    await videoRef.current.play();
-                    setIsCameraReady(true);
-                } catch (playErr) {
-                    console.error('Error al reproducir video:', playErr);
-                    setError('ERROR DE VIDEO: La camara se abrio pero el video no pudo reproducirse.');
-                }
+                await videoRef.current.play();
             }
+
+            setIsCameraReady(true);
         } catch (err) {
             console.error('Error al acceder a la camara:', err);
 
@@ -125,6 +121,9 @@ export default function DocumentScanner({
             .then((blob) => {
                 const file = new File([blob], 'ine_escaneada.jpg', { type: 'image/jpeg' });
                 onCapture(file, capturedImage);
+            })
+            .catch(() => {
+                setError('ERROR DE IMAGEN: No se pudo preparar la foto para enviarla.');
             });
     };
 
@@ -167,7 +166,7 @@ export default function DocumentScanner({
                         </div>
                         <p className="text-white font-bold mb-2">{error}</p>
                         <p className="text-gray-400 text-sm mb-6">
-                            Asegurate de usar HTTPS. Si el modo PWA no muestra el permiso, puedes abrir la camara nativa del telefono desde aqui.
+                            Asegurate de usar HTTPS. Si el modo PWA no responde bien, puedes abrir la camara nativa del telefono desde aqui.
                         </p>
                         <div className="flex flex-col gap-3 w-full max-w-xs">
                             <button
