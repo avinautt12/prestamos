@@ -830,6 +830,7 @@ export default function Create({
                             currentScanType === 'reverso' ? "Escanea el Reverso del INE" :
                                 "Tómale una Selfie al cliente con su INE"
                     }
+                    captureMode={currentScanType === 'selfie' ? 'user' : 'environment'}
                     onCapture={handleCapture}
                     onCancel={() => setScannerOpen(false)}
                 />
@@ -838,4 +839,3 @@ export default function Create({
         </DistribuidoraLayout>
     );
 }
-

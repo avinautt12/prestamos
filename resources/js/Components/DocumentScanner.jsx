@@ -1,67 +1,85 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCamera, faTimes, faCheck, faSync, faExclamationTriangle, faShieldHalved } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faCheck, faSync, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
-export default function DocumentScanner({ onCapture, onCancel, title = "Escanea la INE" }) {
+export default function DocumentScanner({
+    onCapture,
+    onCancel,
+    title = 'Escanea la INE',
+    captureMode = 'environment',
+}) {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
-    const [stream, setStream] = useState(null);
+    const fileInputRef = useRef(null);
+    const streamRef = useRef(null);
     const [capturedImage, setCapturedImage] = useState(null);
     const [isCameraReady, setIsCameraReady] = useState(false);
     const [error, setError] = useState(null);
 
-    const startCamera = async () => {
+    const stopCurrentStream = useCallback(() => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+        }
+    }, []);
+
+    const startCamera = useCallback(async () => {
         setError(null);
         setIsCameraReady(false);
 
-        if (!window.isSecureContext && window.location.protocol !== 'http:' && window.location.hostname !== 'localhost') {
-            setError("CONEXIÓN NO SEGURA: El acceso a la cámara requiere HTTPS en móviles por seguridad del navegador.");
+        const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+
+        if (!window.isSecureContext && !isLocalHost) {
+            setError('CONEXION NO SEGURA: El acceso a la camara requiere HTTPS en moviles por seguridad del navegador.');
             return;
         }
 
-        try {
-            const constraints = {
-                video: { 
-                    facingMode: 'environment',
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 }
-                }
-            };
+        if (!navigator.mediaDevices?.getUserMedia) {
+            setError('CAMARA NO DISPONIBLE: Este navegador o modo PWA no permite abrir la camara integrada.');
+            return;
+        }
 
-            const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-            setStream(mediaStream);
-            
+        stopCurrentStream();
+
+        try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: captureMode,
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                },
+            });
+
+            streamRef.current = mediaStream;
+
             if (videoRef.current) {
                 videoRef.current.srcObject = mediaStream;
-                // Forzamos el play después de asignar el stream
-                try {
-                    await videoRef.current.play();
-                    setIsCameraReady(true);
-                } catch (playErr) {
-                    console.error("Error al reproducir video:", playErr);
-                }
+                await videoRef.current.play();
             }
+
+            setIsCameraReady(true);
         } catch (err) {
-            console.error("Error al acceder a la cámara: ", err);
-            if (err.name === 'NotAllowedError') {
-                setError("PERMISO DENEGADO: Por favor, permite el acceso a la cámara en los ajustes de tu navegador o celular.");
-            } else if (err.name === 'NotFoundError') {
-                setError("CÁMARA NO ENCONTRADA: No se detectó una cámara trasera disponible.");
+            console.error('Error al acceder a la camara:', err);
+
+            if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
+                setError('PERMISO O BLOQUEO DEL NAVEGADOR: La camara fue bloqueada por permisos, configuracion del navegador o politica del sitio.');
+            } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
+                setError('CAMARA NO ENCONTRADA: No se detecto una camara compatible para este modo de captura.');
+            } else if (err.name === 'NotReadableError' || err.name === 'AbortError') {
+                setError('CAMARA EN USO: Otra aplicacion o pestana esta usando la camara en este momento.');
             } else {
-                setError("ERROR DE CÁMARA: No se pudo iniciar el video. Revisa los permisos de tu dispositivo.");
+                setError('ERROR DE CAMARA: No se pudo iniciar el video. Revisa los permisos y la configuracion del dispositivo.');
             }
         }
-    };
+    }, [captureMode, stopCurrentStream]);
 
     useEffect(() => {
         startCamera();
 
         return () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
+            stopCurrentStream();
         };
-    }, []);
+    }, [startCamera, stopCurrentStream]);
 
     const takePhoto = useCallback(() => {
         if (!videoRef.current || !canvasRef.current) return;
@@ -70,53 +88,42 @@ export default function DocumentScanner({ onCapture, onCancel, title = "Escanea 
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
 
-        // Dimensiones reales del video recibido por la cámara
+        if (!context || !video.videoWidth || !video.videoHeight) return;
+
         const videoWidth = video.videoWidth;
         const videoHeight = video.videoHeight;
 
-        // Configuramos el canvas con la resolución original
         canvas.width = videoWidth;
         canvas.height = videoHeight;
-
-        // Dibujamos todo el fotograma en el canvas temporal
         context.drawImage(video, 0, 0, videoWidth, videoHeight);
 
-        // --- MATEMÁTICAS DE RECORTE (El secreto para quitar el fondo) ---
-        // Asumimos que la guía visual (el hueco) ocupa el 80% del ancho de la pantalla
-        // y tiene una proporción de tarjeta de crédito (aprox 1.58:1)
         const guideWidthRatio = 0.85;
-
         const cropWidth = videoWidth * guideWidthRatio;
         const cropHeight = cropWidth / 1.58;
-
-        // Calculamos las coordenadas X e Y para centrar el recorte
         const startX = (videoWidth - cropWidth) / 2;
         const startY = (videoHeight - cropHeight) / 2;
-
-        // Obtenemos los píxeles exactos del área recortada
         const imageData = context.getImageData(startX, startY, cropWidth, cropHeight);
 
-        // Ajustamos el canvas al tamaño del recorte final y pegamos los píxeles
         canvas.width = cropWidth;
         canvas.height = cropHeight;
         context.putImageData(imageData, 0, 0);
 
-        // Convertimos el canvas a una imagen en Base64 (JPG)
         const base64Image = canvas.toDataURL('image/jpeg', 0.9);
         setCapturedImage(base64Image);
-
-        // Apagamos la cámara temporalmente
-        if (stream) stream.getTracks().forEach(track => track.stop());
-
-    }, [stream]);
+        stopCurrentStream();
+    }, [stopCurrentStream]);
 
     const handleConfirm = () => {
-        // Convierte el base64 a un objeto File para enviarlo a Laravel
+        if (!capturedImage) return;
+
         fetch(capturedImage)
-            .then(res => res.blob())
-            .then(blob => {
-                const file = new File([blob], "ine_escaneada.jpg", { type: "image/jpeg" });
-                onCapture(file, capturedImage); // Enviamos el archivo real y la vista previa
+            .then((res) => res.blob())
+            .then((blob) => {
+                const file = new File([blob], 'ine_escaneada.jpg', { type: 'image/jpeg' });
+                onCapture(file, capturedImage);
+            })
+            .catch(() => {
+                setError('ERROR DE IMAGEN: No se pudo preparar la foto para enviarla.');
             });
     };
 
@@ -125,20 +132,31 @@ export default function DocumentScanner({ onCapture, onCancel, title = "Escanea 
         startCamera();
     };
 
+    const handleNativeCapture = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (event) => {
+        const file = event.target.files?.[0];
+
+        if (!file) return;
+
+        const previewUrl = URL.createObjectURL(file);
+        onCapture(file, previewUrl);
+        event.target.value = '';
+    };
+
     return (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-            {/* Header */}
             <div className="flex items-center justify-between p-4 bg-black/80 text-white z-10">
                 <button onClick={onCancel} className="text-white p-2">
                     <FontAwesomeIcon icon={faTimes} size="lg" />
                 </button>
                 <h3 className="font-bold text-sm tracking-widest uppercase">{title}</h3>
-                <div className="w-8"></div> {/* Espaciador */}
+                <div className="w-8"></div>
             </div>
 
-            {/* Área de Cámara */}
             <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-gray-900">
-
                 {capturedImage ? (
                     <img src={capturedImage} alt="Captura" className="w-[85%] rounded-xl shadow-2xl object-contain" />
                 ) : error ? (
@@ -147,49 +165,63 @@ export default function DocumentScanner({ onCapture, onCancel, title = "Escanea 
                             <FontAwesomeIcon icon={faExclamationTriangle} size="2x" />
                         </div>
                         <p className="text-white font-bold mb-2">{error}</p>
-                        <p className="text-gray-400 text-sm mb-6">Asegúrate de estar usando HTTPS y de haber aceptado la solicitud de permisos del navegador.</p>
-                        <button 
-                            onClick={startCamera}
-                            className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold active:scale-95 transition-transform"
-                        >
-                            Intentar de nuevo
-                        </button>
+                        <p className="text-gray-400 text-sm mb-6">
+                            Asegurate de usar HTTPS. Si el modo PWA no responde bien, puedes abrir la camara nativa del telefono desde aqui.
+                        </p>
+                        <div className="flex flex-col gap-3 w-full max-w-xs">
+                            <button
+                                onClick={startCamera}
+                                className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold active:scale-95 transition-transform"
+                            >
+                                Intentar de nuevo
+                            </button>
+                            <button
+                                onClick={handleNativeCapture}
+                                className="px-6 py-3 bg-white/10 text-white rounded-xl font-bold border border-white/20 active:scale-95 transition-transform"
+                            >
+                                Usar camara del dispositivo
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <>
-                        {/* Video en vivo */}
-                        <video 
-                            ref={videoRef} 
-                            autoPlay 
-                            playsInline 
-                            muted 
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            muted
                             className="absolute inset-0 w-full h-full object-cover"
                         />
-                        
-                        {/* La Máscara (La guía visual para el usuario) */}
-                        <div className="absolute inset-0 z-10 pointer-events-none"
-                             style={{
-                                 // Usamos box-shadow para oscurecer todo excepto el centro
-                                 boxShadow: 'inset 0 0 0 2000px rgba(0,0,0,0.6)'
-                             }}>
+
+                        <div
+                            className="absolute inset-0 z-10 pointer-events-none"
+                            style={{
+                                boxShadow: 'inset 0 0 0 2000px rgba(0,0,0,0.6)',
+                            }}
+                        >
                             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[85%] aspect-[1.58/1] border-2 border-white rounded-xl shadow-[0_0_0_4000px_rgba(0,0,0,0.7)] flex items-center justify-center">
-                                {/* Guías en las esquinas para dar aspecto tecnológico */}
                                 <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-blue-500 rounded-tl-lg"></div>
                                 <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-blue-500 rounded-tr-lg"></div>
                                 <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-blue-500 rounded-bl-lg"></div>
                                 <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-500 rounded-br-lg"></div>
-                                
-                                {!isCameraReady && <p className="text-white/50 text-sm">Iniciando cámara...</p>}
+
+                                {!isCameraReady && <p className="text-white/50 text-sm">Iniciando camara...</p>}
                             </div>
                         </div>
                     </>
                 )}
 
-                {/* Canvas oculto usado solo para el procesamiento matemático */}
                 <canvas ref={canvasRef} className="hidden" />
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture={captureMode}
+                    className="hidden"
+                    onChange={handleFileChange}
+                />
             </div>
 
-            {/* Controles de abajo */}
             <div className="bg-black p-6 pb-10 flex items-center justify-center gap-8">
                 {capturedImage ? (
                     <>
