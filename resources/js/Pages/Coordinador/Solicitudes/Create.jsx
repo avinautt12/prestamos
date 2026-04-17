@@ -20,19 +20,22 @@ const formatAlphanumeric = (val) => val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase
 // ============================================
 // COMPONENTES UI REUTILIZABLES
 // ============================================
-const TabButton = ({ active, index, onClick, children }) => (
+const TabButton = ({ active, index, onClick, hasError, children }) => (
     <button
         type="button"
         onClick={onClick}
         className={`flex items-center justify-center w-full gap-2 px-3 py-3 text-sm font-medium text-center transition-colors rounded-xl ${active
             ? 'text-blue-700 bg-blue-50 border border-blue-200'
-            : 'text-gray-600 bg-white border border-transparent hover:border-gray-200 hover:bg-gray-50'
+            : (hasError 
+                ? 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100' 
+                : 'text-gray-600 bg-white border border-transparent hover:border-gray-200 hover:bg-gray-50')
             }`}
     >
-        <span className={`inline-flex items-center justify-center w-6 h-6 text-xs rounded-full ${active ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}>
+        <span className={`inline-flex items-center justify-center w-6 h-6 text-xs rounded-full ${active ? 'bg-blue-600 text-white' : (hasError ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-200 text-gray-700')}`}>
             {index + 1}
         </span>
         {children}
+        {hasError && <FontAwesomeIcon icon={faTriangleExclamation} className="text-red-500" />}
     </button>
 );
 
@@ -87,6 +90,18 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         vehiculos: 4,
         ine_frente: 5, ine_reverso: 5, comprobante_domicilio: 5, reporte_buro: 5,
     }), []);
+
+    const tabsWithErrors = useMemo(() => {
+        const result = new Set();
+        Object.keys(errors).forEach(key => {
+            const rootKey = key.split('.')[0];
+            const tabNumber = fieldTabMap[key] ?? fieldTabMap[rootKey];
+            if (typeof tabNumber === 'number') {
+                result.add(tabNumber);
+            }
+        });
+        return result;
+    }, [errors, fieldTabMap]);
 
     const comprimirImagen = (file, maxDimension = 1600, quality = 0.82) => new Promise((resolve) => {
         if (!file || !file.type?.startsWith('image/')) return resolve(file);
@@ -214,7 +229,6 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
 
         // Teléfonos
         if (!data.telefono_celular || data.telefono_celular.length !== 10) newErrors.telefono_celular = 'El celular debe tener exactamente 10 dígitos.';
-        if (data.telefono_personal && data.telefono_personal.length !== 10) newErrors.telefono_personal = 'Debe tener exactamente 10 dígitos.';
 
         if (data.correo_electronico && !/^\S+@\S+\.\S+$/.test(data.correo_electronico)) newErrors.correo_electronico = 'Formato de correo inválido.';
 
@@ -282,6 +296,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
             const errorTab = fieldTabMap[firstErrorKey] ?? fieldTabMap[rootKey];
 
             if (typeof errorTab === 'number') setActiveTab(errorTab);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return false;
         }
         return true;
@@ -307,6 +322,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                 const rootKey = firstErrorKey.split('.')[0];
                 const errorTab = fieldTabMap[firstErrorKey] ?? fieldTabMap[rootKey];
                 if (typeof errorTab === 'number') setActiveTab(errorTab);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         });
     };
@@ -361,7 +377,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                 <div className="sticky z-20 mb-4 border border-gray-200 shadow-sm top-3 rounded-2xl bg-white/95 backdrop-blur">
                     <div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-3 lg:grid-cols-6">
                         {tabs.map((tab, index) => (
-                            <TabButton key={index} index={index} active={activeTab === index} onClick={() => setActiveTab(index)}>
+                            <TabButton key={index} index={index} active={activeTab === index} hasError={tabsWithErrors.has(index)} onClick={() => setActiveTab(index)}>
                                 {tab.name}
                             </TabButton>
                         ))}
@@ -378,7 +394,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                     {Object.keys(errors).length > 0 && (
                         <div className="p-3 mx-4 mt-4 text-sm text-red-800 border border-red-200 rounded-xl bg-red-50">
                             <FontAwesomeIcon icon={faTriangleExclamation} className="mr-2" />
-                            Corrige los campos marcados en rojo para poder continuar.
+                            Tienes errores en las pestañas marcadas en rojo. Corrige los campos resaltados para continuar.
                         </div>
                     )}
 
@@ -514,13 +530,7 @@ function DatosPersonalesTab({ data, setData, errors }) {
                         return null;
                     }}
                 />
-                <FormInput
-                    type="tel" label="Teléfono Fijo" maxLength={10}
-                    error={errors.telefono_personal}
-                    value={data.telefono_personal}
-                    onChange={e => setData('telefono_personal', formatPhone(e.target.value))}
-                    validate={v => v && v.length !== 10 ? `Debe tener 10 dígitos (${v.length}/10)` : null}
-                />
+
                 <FormInput
                     type="tel" label="Teléfono Celular" required maxLength={10}
                     error={errors.telefono_celular}

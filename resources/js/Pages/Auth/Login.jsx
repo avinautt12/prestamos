@@ -123,11 +123,22 @@ export default function Login({ status, canResetPassword }) {
                             className="absolute inset-y-0 right-0 inline-flex items-center px-3 text-gray-500 hover:text-gray-700"
                             aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                         >
-                            <FontAwesomeIcon icon={mostrarPassword ? faEyeSlash : faEye} />
+                            <FontAwesomeIcon icon={mostrarPassword ? faEye : faEyeSlash} />
                         </button>
                     </div>
 
                     <InputError message={errors.password} className="mt-2" />
+                </div>
+
+                <div className="block mt-4">
+                    <label className="flex items-center">
+                        <Checkbox
+                            name="remember"
+                            checked={data.remember}
+                            onChange={(e) => setData('remember', e.target.checked)}
+                        />
+                        <span className="ms-2 text-sm text-gray-600">Recuérdame</span>
+                    </label>
                 </div>
 
                 <div className="flex items-center justify-end mt-4">
@@ -141,8 +152,8 @@ export default function Login({ status, canResetPassword }) {
                     )}
 
                     <PrimaryButton
-                        className="bg-green-500 ms-4 hover:bg-green-700 focus:bg-green-600 active:bg-green-700"
-                        disabled={processing}
+                        className="bg-green-500 ms-4 hover:bg-green-700 focus:bg-green-600 active:bg-green-700 disabled:opacity-50"
+                        disabled={processing || data.password.trim() === ''}
                     >
                         {processing ? (
                             <span className="inline-flex items-center gap-2">
