@@ -45,6 +45,45 @@ export default function NotificationCenter() {
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [friendlyMode, setFriendlyMode] = useState(false);
     const audioContextRef = useRef(null);
+    const announcedNotificationsRef = useRef(new Set());
+
+    const persistAnnouncedNotifications = (ids) => {
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return;
+        }
+
+        ids.forEach((id) => {
+            if (id) {
+                announcedNotificationsRef.current.add(String(id));
+            }
+        });
+
+        try {
+            window.sessionStorage.setItem(
+                'notifications.announced.ids',
+                JSON.stringify(Array.from(announcedNotificationsRef.current).slice(-100))
+            );
+        } catch (error) {
+            console.error('No se pudieron persistir notificaciones anunciadas:', error);
+        }
+    };
+
+    const enqueueLiveToast = (notification) => {
+        if (!notification?.id) {
+            return;
+        }
+
+        persistAnnouncedNotifications([notification.id]);
+
+        setLiveToasts((prev) => {
+            const withoutDup = prev.filter((item) => item.id !== notification.id);
+            return [...withoutDup, notification].slice(-3);
+        });
+
+        window.setTimeout(() => {
+            setLiveToasts((prev) => prev.filter((item) => item.id !== notification.id));
+        }, 8000);
+    };
 
     useEffect(() => {
         const saved = window.localStorage.getItem('notifications.sound.enabled');
@@ -55,6 +94,15 @@ export default function NotificationCenter() {
         const savedFriendly = window.localStorage.getItem('ui.friendly_mode');
         if (savedFriendly === 'true') {
             setFriendlyMode(true);
+        }
+
+        try {
+            const savedAnnounced = JSON.parse(window.sessionStorage.getItem('notifications.announced.ids') || '[]');
+            if (Array.isArray(savedAnnounced)) {
+                announcedNotificationsRef.current = new Set(savedAnnounced.map((item) => String(item)));
+            }
+        } catch (error) {
+            announcedNotificationsRef.current = new Set();
         }
 
         const onFriendlyModeChange = (event) => {
@@ -181,8 +229,16 @@ export default function NotificationCenter() {
                 params: { limit: 20 },
             });
 
-            setNotifications(response.data.notifications || []);
+            const incomingNotifications = response.data.notifications || [];
+
+            setNotifications(incomingNotifications);
             setUnreadCount(Number(response.data.unread_count || 0));
+
+            incomingNotifications
+                .filter((notification) => !notification.read_at)
+                .filter((notification) => !announcedNotificationsRef.current.has(String(notification.id)))
+                .slice(0, 3)
+                .forEach((notification) => enqueueLiveToast(notification));
         } catch (error) {
             console.error('No se pudieron cargar notificaciones:', error);
         } finally {
@@ -191,7 +247,13 @@ export default function NotificationCenter() {
     };
 
     useEffect(() => {
-        loadNotifications();
+        if (!auth?.user?.id) {
+            setNotifications([]);
+            setUnreadCount(0);
+            return undefined;
+        }
+
+        loadNotifications(true);
 
         const onRealtimeNotification = (event) => {
             const normalized = normalizeIncomingNotification(event.detail);
@@ -206,18 +268,12 @@ export default function NotificationCenter() {
             setUnreadCount((prev) => prev + 1);
 
             // Mostrar toast efímero por 8 segundos (era 4.5)
-            setLiveToasts((prev) => {
-                const next = [...prev, normalized].slice(-3);
-                return next;
-            });
+            enqueueLiveToast(normalized);
 
             if (soundEnabled) {
                 playNotificationBeep();
             }
 
-            window.setTimeout(() => {
-                setLiveToasts((prev) => prev.filter((item) => item.id !== normalized.id));
-            }, 8000);
         };
 
         window.addEventListener('app-notification', onRealtimeNotification);
@@ -225,7 +281,7 @@ export default function NotificationCenter() {
         return () => {
             window.removeEventListener('app-notification', onRealtimeNotification);
         };
-    }, [soundEnabled]);
+    }, [auth?.user?.id, soundEnabled]);
 
     const markAsRead = async (id) => {
         try {
@@ -420,21 +476,6 @@ export default function NotificationCenter() {
                     </div>
                 )}
 
-                {liveToasts.length > 0 && (
-                    <div className="mt-2 space-y-2">
-                        {liveToasts.map((toast) => (
-                            <button
-                                key={toast.id}
-                                type="button"
-                                onClick={() => handleNotificationClick(toast)}
-                                className="w-[360px] p-3 text-left bg-white border border-gray-200 rounded-xl shadow-xl hover:bg-gray-50"
-                            >
-                                <p className="text-sm font-semibold text-gray-800">{toast.title}</p>
-                                <p className="mt-1 text-sm text-gray-600">{toast.message}</p>
-                            </button>
-                        ))}
-                    </div>
-                )}
             </div>
 
             <div className="fixed inset-x-0 bottom-20 z-[70] px-4 pointer-events-none md:hidden">
@@ -506,16 +547,17 @@ export default function NotificationCenter() {
             </div>
 
             {liveToasts.length > 0 && (
-                <div className="hidden md:block mt-2 space-y-2">
+                <div className="fixed inset-x-0 top-3 z-[85] flex flex-col items-center gap-2 px-4 pointer-events-none md:top-4 md:right-4 md:left-auto md:w-[380px] md:items-end">
                     {liveToasts.map((toast) => (
                         <button
                             key={toast.id}
                             type="button"
                             onClick={() => handleNotificationClick(toast)}
-                            className="w-[360px] p-3 text-left bg-white border border-gray-200 rounded-xl shadow-xl hover:bg-gray-50"
+                            className="pointer-events-auto w-full max-w-[360px] p-3 text-left bg-white border border-gray-200 rounded-xl shadow-xl hover:bg-gray-50"
                         >
                             <p className="text-sm font-semibold text-gray-800">{toast.title}</p>
                             <p className="mt-1 text-sm text-gray-600">{toast.message}</p>
+                            <p className="mt-1 text-xs text-gray-400">{formatWhen(toast.created_at)}</p>
                         </button>
                     ))}
                 </div>

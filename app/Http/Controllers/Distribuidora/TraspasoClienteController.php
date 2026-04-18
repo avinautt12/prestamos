@@ -331,9 +331,9 @@ class TraspasoClienteController extends Controller
         $origen = Distribuidora::query()->find($solicitud->distribuidora_origen_id);
         $destino = Distribuidora::query()->find($solicitud->distribuidora_destino_id);
 
-        $usuarioOrigen = $origen ? Usuario::query()->where('persona_id', $origen->persona_id)->first() : null;
-        $usuarioCoordinadorOrigen = $origen?->coordinador_usuario_id ? Usuario::query()->find($origen->coordinador_usuario_id) : null;
-        $usuarioCoordinadorDestino = $destino?->coordinador_usuario_id ? Usuario::query()->find($destino->coordinador_usuario_id) : null;
+        $usuarioOrigen = $this->resolverUsuarioDistribuidora($origen);
+        $usuarioCoordinadorOrigen = $this->resolverUsuarioCoordinador($origen?->coordinador_usuario_id);
+        $usuarioCoordinadorDestino = $this->resolverUsuarioCoordinador($destino?->coordinador_usuario_id);
 
         if ($usuarioOrigen) {
             $usuarioOrigen->notify(new TraspasoClienteNotification(
@@ -368,8 +368,8 @@ class TraspasoClienteController extends Controller
         $origen = Distribuidora::query()->find($solicitud->distribuidora_origen_id);
         $destino = Distribuidora::query()->find($solicitud->distribuidora_destino_id);
 
-        $usuarioOrigen = $origen ? Usuario::query()->where('persona_id', $origen->persona_id)->first() : null;
-        $usuarioCoordinadorDestino = $destino?->coordinador_usuario_id ? Usuario::query()->find($destino->coordinador_usuario_id) : null;
+        $usuarioOrigen = $this->resolverUsuarioDistribuidora($origen);
+        $usuarioCoordinadorDestino = $this->resolverUsuarioCoordinador($destino?->coordinador_usuario_id);
 
         if ($usuarioOrigen) {
             $usuarioOrigen->notify(new TraspasoClienteNotification(
@@ -392,15 +392,9 @@ class TraspasoClienteController extends Controller
 
     private function notificarPartesTraspasoEjecutado(SolicitudTraspasoCliente $solicitud): void
     {
-        $usuarioDestino = Usuario::query()
-            ->whereHas('persona.distribuidora', function ($q) use ($solicitud) {
-                $q->where('id', $solicitud->distribuidora_destino_id);
-            })
-            ->first();
-
-        $usuarioCoordinador = $solicitud->coordinador_usuario_id
-            ? Usuario::query()->find($solicitud->coordinador_usuario_id)
-            : null;
+        $destino = Distribuidora::query()->find($solicitud->distribuidora_destino_id);
+        $usuarioDestino = $this->resolverUsuarioDistribuidora($destino);
+        $usuarioCoordinador = $this->resolverUsuarioCoordinador($solicitud->coordinador_usuario_id);
 
         if ($usuarioDestino) {
             $usuarioDestino->notify(new TraspasoClienteNotification(
@@ -426,9 +420,9 @@ class TraspasoClienteController extends Controller
         $origen = Distribuidora::query()->find($solicitud->distribuidora_origen_id);
         $destino = Distribuidora::query()->find($solicitud->distribuidora_destino_id);
 
-        $usuarioOrigen = $origen ? Usuario::query()->where('persona_id', $origen->persona_id)->first() : null;
-        $usuarioDestino = $destino ? Usuario::query()->where('persona_id', $destino->persona_id)->first() : null;
-        $usuarioCoordinador = $solicitud->coordinador_usuario_id ? Usuario::query()->find($solicitud->coordinador_usuario_id) : null;
+        $usuarioOrigen = $this->resolverUsuarioDistribuidora($origen);
+        $usuarioDestino = $this->resolverUsuarioDistribuidora($destino);
+        $usuarioCoordinador = $this->resolverUsuarioCoordinador($solicitud->coordinador_usuario_id);
 
         $payload = [
             'solicitud_traspaso_id' => $solicitud->id,
@@ -477,5 +471,38 @@ class TraspasoClienteController extends Controller
         ])));
 
         return $nombre !== '' ? $nombre : 'Sin nombre';
+    }
+
+    private function resolverUsuarioDistribuidora(?Distribuidora $distribuidora): ?Usuario
+    {
+        if (!$distribuidora?->persona_id) {
+            return null;
+        }
+
+        return Usuario::query()
+            ->where('persona_id', $distribuidora->persona_id)
+            ->where('activo', true)
+            ->whereHas('roles', function ($query) {
+                $query->where('codigo', 'DISTRIBUIDORA')
+                    ->wherePivotNull('revocado_en');
+            })
+            ->latest('id')
+            ->first();
+    }
+
+    private function resolverUsuarioCoordinador(?int $usuarioId): ?Usuario
+    {
+        if (!$usuarioId) {
+            return null;
+        }
+
+        return Usuario::query()
+            ->whereKey($usuarioId)
+            ->where('activo', true)
+            ->whereHas('roles', function ($query) {
+                $query->where('codigo', 'COORDINADOR')
+                    ->wherePivotNull('revocado_en');
+            })
+            ->first();
     }
 }
