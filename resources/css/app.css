@@ -218,8 +218,9 @@
     }
 
     .fin-modal-sheet {
-        @apply w-full bg-white shadow-2xl rounded-t-3xl;
+        @apply flex flex-col w-full bg-white shadow-2xl rounded-t-3xl;
         max-height: 90vh;
+        overflow: hidden;
         animation: fin-sheet-up 260ms ease-out both;
     }
 
@@ -228,7 +229,7 @@
     }
 
     .fin-modal-body {
-        @apply p-4 overflow-y-auto;
+        @apply flex-1 p-4 overflow-y-auto;
     }
 
     .fin-modal-foot {
@@ -260,6 +261,10 @@
         .fin-modal-sheet {
             @apply rounded-3xl;
             max-width: 56rem;
+        }
+
+        .fin-mobile-shell .fin-modal-sheet {
+            max-width: 430px;
         }
     }
 }

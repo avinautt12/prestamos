@@ -10,7 +10,6 @@ import {
     faCarSide, faCamera, faFileUpload, faCheckCircle
 } from '@fortawesome/free-solid-svg-icons';
 
-<<<<<<< Updated upstream
 // ============================================
 // FUNCIONES DE FORMATEO (Buenas Prácticas UX)
 // ============================================
@@ -27,8 +26,8 @@ const TabButton = ({ active, index, onClick, hasError, children }) => (
         onClick={onClick}
         className={`flex items-center justify-center w-full gap-2 px-3 py-3 text-sm font-medium text-center transition-colors rounded-xl ${active
             ? 'text-blue-700 bg-blue-50 border border-blue-200'
-            : (hasError 
-                ? 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100' 
+            : (hasError
+                ? 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100'
                 : 'text-gray-600 bg-white border border-transparent hover:border-gray-200 hover:bg-gray-50')
             }`}
     >
@@ -39,25 +38,6 @@ const TabButton = ({ active, index, onClick, hasError, children }) => (
         {hasError && <FontAwesomeIcon icon={faTriangleExclamation} className="text-red-500" />}
     </button>
 );
-=======
-// Componentes de pestañas
-function TabButton({ active, index, onClick, children }) {
-    return (
-        <button
-            onClick={onClick}
-            className={`flex items-center justify-center w-full gap-2 px-3 py-3 text-sm font-medium text-center transition-colors rounded-xl ${active
-                ? 'text-blue-700 bg-blue-50 border border-blue-200'
-                : 'text-gray-600 bg-white border border-transparent hover:border-gray-200 hover:bg-gray-50'
-                }`}
-        >
-            <span className={`inline-flex items-center justify-center w-6 h-6 text-xs rounded-full ${active ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}>
-                {index + 1}
-            </span>
-            {children}
-        </button>
-    );
-}
->>>>>>> Stashed changes
 
 
 // ============================================
@@ -954,8 +934,7 @@ function VehiculosTab({ data, updateVehiculo, addVehiculo, removeVehiculo, error
     );
 }
 
-<<<<<<< Updated upstream
-const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file, isEditing, onFileChange }) => {
+const DocumentCard = ({ id, label, accept, fieldName, error, path, file, isEditing, onFileChange }) => {
     const hasFile = file || (isEditing && path);
     const fileName = file?.name || (isEditing && path ? 'Archivo guardado' : 'Sin documento cargado');
 
@@ -969,7 +948,7 @@ const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file
                 <input id={`${id}_camera`} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onFileChange(fieldName, e.target.files?.[0]); e.target.value = ''; }} />
 
                 <label htmlFor={`${id}_file`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
-                    <FontAwesomeIcon icon={faFileUpload} className="text-lg" /> Subir Imagen
+                    <FontAwesomeIcon icon={faFileUpload} className="text-lg" /> Subir archivo
                 </label>
                 <input id={`${id}_file`} type="file" accept={accept} className="hidden" onChange={(e) => { onFileChange(fieldName, e.target.files?.[0]); e.target.value = ''; }} />
             </div>
@@ -987,128 +966,19 @@ const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file
 
 function FinalizarTab({ data, setData, errors, handleDocumentoChange, isEditing }) {
     const validImageFormats = "image/jpeg, image/png";
-=======
-// ============================================
-// PESTAÑA 5: FINALIZAR
-// ============================================
-// Componente externo reutilizable para cada caja de documento
-function DocumentCard({ id, label, accept, capture, fieldName, error, path, file, handleDocumentoChange, isEditing }) {
-    const hasFile = file || (isEditing && path);
-    const fileName = file?.name || (isEditing && path ? 'Archivo guardado previamente' : 'Captura pendiente.');
-
-    return (
-        <div className={`p-4 rounded-xl border ${error ? 'border-red-300 bg-red-50' : 'border-blue-100 bg-blue-50/30'}`}>
-            <label className="block mb-3 text-sm font-semibold text-gray-800">
-                {label} <span className="text-red-600">*</span>
-            </label>
-            
-            <div className="flex flex-col gap-2">
-                <label className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
-                    <FontAwesomeIcon icon={faCamera} className="text-lg" />
-                    Tomar Foto
-                    <input
-                        type="file"
-                        accept="image/*"
-                        capture={capture}
-                        className="hidden" 
-                        onChange={(e) => handleDocumentoChange(fieldName, e.target.files?.[0], true)}
-                    />
-                </label>
-
-                <label className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
-                    <FontAwesomeIcon icon={faFileUpload} className="text-lg" />
-                    Subir Archivo
-                    <input
-                        type="file"
-                        accept={accept}
-                        className="hidden" 
-                        onChange={(e) => handleDocumentoChange(fieldName, e.target.files?.[0], true)}
-                    />
-                </label>
-            </div>
-
-            <div className="mt-3 text-xs">
-                {hasFile ? (
-                    <span className="flex items-center gap-1 font-medium text-green-700">
-                        <FontAwesomeIcon icon={faCheckCircle} />
-                        Listo: <span className="truncate max-w-[150px] inline-block align-bottom">{fileName}</span>
-                    </span>
-                ) : (
-                    <span className="text-gray-500">{fileName}</span>
-                )}
-            </div>
-            
-            {error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}
-        </div>
-    );
-}
-
-function FinalizarTab({ data, errors, handleDocumentoChange, isEditing }) {
->>>>>>> Stashed changes
+    const validDocumentFormats = "image/jpeg, image/png, application/pdf";
 
     return (
         <div className="p-4 space-y-4">
             <h2 className="text-lg font-semibold">Finalizar Solicitud</h2>
 
             <div className="p-4 bg-white border border-gray-200 rounded-lg">
-                <h3 className="mb-4 text-sm font-semibold text-gray-800">Documentos obligatorios (Solo JPG/PNG)</h3>
+                <h3 className="mb-4 text-sm font-semibold text-gray-800">Documentos obligatorios (INE: JPG/PNG · Comprobante y Buró: JPG/PNG/PDF)</h3>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-<<<<<<< Updated upstream
                     <DocumentCard id="ine_frente" fieldName="ine_frente" label="INE frente" accept={validImageFormats} error={errors.ine_frente} path={data.ine_frente_path} file={data.ine_frente} isEditing={isEditing} onFileChange={handleDocumentoChange} />
                     <DocumentCard id="ine_reverso" fieldName="ine_reverso" label="INE reverso" accept={validImageFormats} error={errors.ine_reverso} path={data.ine_reverso_path} file={data.ine_reverso} isEditing={isEditing} onFileChange={handleDocumentoChange} />
-                    <DocumentCard id="comprobante_domicilio" fieldName="comprobante_domicilio" label="Comprobante de domicilio" accept={validImageFormats} error={errors.comprobante_domicilio} path={data.comprobante_domicilio_path} file={data.comprobante_domicilio} isEditing={isEditing} onFileChange={handleDocumentoChange} />
-                    <DocumentCard id="reporte_buro" fieldName="reporte_buro" label="Reporte de buró" accept={validImageFormats} error={errors.reporte_buro} path={data.reporte_buro_path} file={data.reporte_buro} isEditing={isEditing} onFileChange={handleDocumentoChange} />
-=======
-                    <DocumentCard
-                        id="ine_frente"
-                        fieldName="ine_frente"
-                        label="INE frente"
-                        accept="image/*"
-                        capture="environment"
-                        error={errors.ine_frente}
-                        path={data.ine_frente_path}
-                        file={data.ine_frente}
-                        handleDocumentoChange={handleDocumentoChange}
-                        isEditing={isEditing}
-                    />
-
-                    <DocumentCard
-                        id="ine_reverso"
-                        fieldName="ine_reverso"
-                        label="INE reverso"
-                        accept="image/*"
-                        capture="environment"
-                        error={errors.ine_reverso}
-                        path={data.ine_reverso_path}
-                        file={data.ine_reverso}
-                        handleDocumentoChange={handleDocumentoChange}
-                        isEditing={isEditing}
-                    />
-
-                    <DocumentCard
-                        id="comprobante_domicilio"
-                        fieldName="comprobante_domicilio"
-                        label="Comprobante de domicilio"
-                        accept="image/*,.pdf"
-                        error={errors.comprobante_domicilio}
-                        path={data.comprobante_domicilio_path}
-                        file={data.comprobante_domicilio}
-                        handleDocumentoChange={handleDocumentoChange}
-                        isEditing={isEditing}
-                    />
-
-                    <DocumentCard
-                        id="reporte_buro"
-                        fieldName="reporte_buro"
-                        label="Reporte de buró"
-                        accept="image/*,.pdf"
-                        error={errors.reporte_buro}
-                        path={data.reporte_buro_path}
-                        file={data.reporte_buro}
-                        handleDocumentoChange={handleDocumentoChange}
-                        isEditing={isEditing}
-                    />
->>>>>>> Stashed changes
+                    <DocumentCard id="comprobante_domicilio" fieldName="comprobante_domicilio" label="Comprobante de domicilio" accept={validDocumentFormats} error={errors.comprobante_domicilio} path={data.comprobante_domicilio_path} file={data.comprobante_domicilio} isEditing={isEditing} onFileChange={handleDocumentoChange} />
+                    <DocumentCard id="reporte_buro" fieldName="reporte_buro" label="Reporte de buró" accept={validDocumentFormats} error={errors.reporte_buro} path={data.reporte_buro_path} file={data.reporte_buro} isEditing={isEditing} onFileChange={handleDocumentoChange} />
                 </div>
                 <p className="mt-4 text-xs text-gray-500">Las imágenes se optimizan automáticamente antes del envío.</p>
             </div>
