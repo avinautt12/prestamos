@@ -151,7 +151,7 @@ class TraspasoClienteController extends Controller
             ->where('distribuidora_id', (int) $relacionOrigen->distribuidora_id)
             ->where('cliente_id', $cliente->id)
             ->whereNotIn('estado', [
-                Vale::ESTADO_PAGADO,
+                Vale::ESTADO_LIQUIDADO,
                 Vale::ESTADO_CANCELADO,
                 Vale::ESTADO_REVERSADO,
             ])
@@ -236,7 +236,7 @@ class TraspasoClienteController extends Controller
                     ->where('distribuidora_id', $solicitud->distribuidora_origen_id)
                     ->where('cliente_id', $solicitud->cliente_id)
                     ->whereNotIn('estado', [
-                        Vale::ESTADO_PAGADO,
+                        Vale::ESTADO_LIQUIDADO,
                         Vale::ESTADO_CANCELADO,
                         Vale::ESTADO_REVERSADO,
                     ])

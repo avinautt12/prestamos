@@ -5,7 +5,7 @@ import { faXmark, faMoneyBillWave, faRotateLeft } from '@fortawesome/free-solid-
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from '../utils';
 
-const ESTADOS_PAGABLES = ['ACTIVO', 'PAGO_PARCIAL', 'MOROSO'];
+const ESTADOS_PAGABLES = ['ACTIVO', 'PAGO_PARCIAL', 'PAGADO', 'MOROSO'];
 
 function ValeDetailModal({ vale, open, onClose }) {
     const [cancelando, setCancelando] = useState(false);
@@ -13,8 +13,12 @@ function ValeDetailModal({ vale, open, onClose }) {
     const [revirtiendoId, setRevirtiendoId] = useState(null);
 
     const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-    const puedePagar = Boolean(vale) && ESTADOS_PAGABLES.includes(vale?.estado);
+    const estaEnEstadoPagable = Boolean(vale) && ESTADOS_PAGABLES.includes(vale?.estado);
+    const puedePagar = Boolean(vale?.puede_registrar_pago);
+    const pagoBloqueadoPorPeriodo = estaEnEstadoPagable && !puedePagar;
     const saldoActual = Number(vale?.saldo_actual || 0);
+    const montoQuincenal = Number(vale?.monto_quincenal || 0);
+    const completoDisponible = montoQuincenal > 0 && saldoActual >= montoQuincenal - 0.009;
 
     const pagoForm = useForm({
         monto: '',
@@ -24,10 +28,14 @@ function ValeDetailModal({ vale, open, onClose }) {
 
     useEffect(() => {
         if (!vale) return;
-        setTipoPago('COMPLETO');
+        const tipoInicial = completoDisponible ? 'COMPLETO' : 'LIQUIDAR';
+        const montoInicial = tipoInicial === 'COMPLETO'
+            ? montoQuincenal.toFixed(2)
+            : saldoActual.toFixed(2);
+        setTipoPago(tipoInicial);
         pagoForm.clearErrors();
         pagoForm.setData({
-            monto: Number(vale.saldo_actual || 0).toFixed(2),
+            monto: montoInicial,
             fecha_pago: today,
             notas: '',
         });
@@ -38,6 +46,8 @@ function ValeDetailModal({ vale, open, onClose }) {
         setTipoPago(nuevo);
         pagoForm.clearErrors('monto');
         if (nuevo === 'COMPLETO') {
+            pagoForm.setData('monto', montoQuincenal.toFixed(2));
+        } else if (nuevo === 'LIQUIDAR') {
             pagoForm.setData('monto', saldoActual.toFixed(2));
         } else {
             pagoForm.setData('monto', '');
@@ -46,9 +56,16 @@ function ValeDetailModal({ vale, open, onClose }) {
 
     const montoNum = parseFloat(pagoForm.data.monto) || 0;
     const saldoDespues = Math.max(0, Number((saldoActual - montoNum).toFixed(2)));
-    const estadoPrevisto = saldoDespues <= 0.009
-        ? 'PAGADO'
-        : (vale?.estado === 'MOROSO' ? 'MOROSO' : 'PAGO_PARCIAL');
+    let estadoPrevisto;
+    if (saldoDespues <= 0.009) {
+        estadoPrevisto = 'LIQUIDADO';
+    } else if (vale?.estado === 'MOROSO') {
+        estadoPrevisto = 'MOROSO';
+    } else if (montoQuincenal > 0 && montoNum >= montoQuincenal - 0.009) {
+        estadoPrevisto = 'PAGADO';
+    } else {
+        estadoPrevisto = 'PAGO_PARCIAL';
+    }
     const montoInvalido = !pagoForm.data.monto || montoNum <= 0 || montoNum > saldoActual + 0.009;
 
     const cancelarVale = () => {
@@ -187,6 +204,18 @@ function ValeDetailModal({ vale, open, onClose }) {
                         </div>
                     )}
 
+                    {pagoBloqueadoPorPeriodo && (
+                        <div className="p-4 border rounded-xl border-amber-200 bg-amber-50/60">
+                            <div className="flex items-start gap-2">
+                                <FontAwesomeIcon icon={faMoneyBillWave} className="mt-0.5 text-amber-700" />
+                                <div>
+                                    <p className="text-sm font-semibold text-amber-900">Ya registraste un pago este corte</p>
+                                    <p className="mt-1 text-xs text-amber-800">Solo se permite un pago por vale entre cortes. Podrás registrar el siguiente cuando se ejecute el próximo corte.</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {puedePagar && (
                         <form onSubmit={registrarPago} className="p-4 space-y-3 border rounded-xl border-green-200 bg-green-50/40">
                             <div className="flex items-center gap-2">
@@ -194,20 +223,31 @@ function ValeDetailModal({ vale, open, onClose }) {
                                 <p className="text-sm font-semibold text-gray-900">Registrar pago del cliente</p>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => switchTipoPago('COMPLETO')}
-                                    className={`py-2 text-sm font-semibold rounded-lg border transition ${tipoPago === 'COMPLETO' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                                >
-                                    Pago completo
-                                </button>
+                            <div className={`grid gap-2 ${completoDisponible ? 'grid-cols-3' : 'grid-cols-2'}`}>
                                 <button
                                     type="button"
                                     onClick={() => switchTipoPago('PARCIAL')}
                                     className={`py-2 text-sm font-semibold rounded-lg border transition ${tipoPago === 'PARCIAL' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
                                 >
-                                    Pago parcial
+                                    Parcial
+                                </button>
+                                {completoDisponible && (
+                                    <button
+                                        type="button"
+                                        onClick={() => switchTipoPago('COMPLETO')}
+                                        className={`py-2 text-sm font-semibold rounded-lg border transition ${tipoPago === 'COMPLETO' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                                    >
+                                        Completo
+                                        <span className="block text-[10px] font-normal opacity-80">({formatCurrency(montoQuincenal)})</span>
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => switchTipoPago('LIQUIDAR')}
+                                    className={`py-2 text-sm font-semibold rounded-lg border transition ${tipoPago === 'LIQUIDAR' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                                >
+                                    Liquidar
+                                    <span className="block text-[10px] font-normal opacity-80">({formatCurrency(saldoActual)})</span>
                                 </button>
                             </div>
 
@@ -221,7 +261,7 @@ function ValeDetailModal({ vale, open, onClose }) {
                                         max={saldoActual.toFixed(2)}
                                         value={pagoForm.data.monto}
                                         onChange={(event) => pagoForm.setData('monto', event.target.value)}
-                                        disabled={tipoPago === 'COMPLETO' || pagoForm.processing}
+                                        disabled={tipoPago !== 'PARCIAL' || pagoForm.processing}
                                         className="fin-input"
                                         placeholder="0.00"
                                     />
