@@ -22,7 +22,10 @@ class PagoCliente extends Model
         'metodo_pago',
         'es_parcial',
         'afecta_puntos',
-        'notas'
+        'notas',
+        'revertido_en',
+        'revertido_por_usuario_id',
+        'motivo_reversion',
     ];
 
     protected $casts = [
@@ -30,7 +33,8 @@ class PagoCliente extends Model
         'monto' => 'decimal:2',
         'es_parcial' => 'boolean',
         'afecta_puntos' => 'boolean',
-        'creado_en' => 'datetime'
+        'creado_en' => 'datetime',
+        'revertido_en' => 'datetime',
     ];
 
     public const METODO_EFECTIVO = 'EFECTIVO';
@@ -60,5 +64,15 @@ class PagoCliente extends Model
     public function movimientoPunto(): HasOne
     {
         return $this->hasOne(MovimientoPunto::class, 'pago_cliente_id');
+    }
+
+    public function reversor(): BelongsTo
+    {
+        return $this->belongsTo(Usuario::class, 'revertido_por_usuario_id');
+    }
+
+    public function scopeActivos($query)
+    {
+        return $query->whereNull('revertido_en');
     }
 }

@@ -1,12 +1,55 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faMoneyBillWave, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from '../utils';
 
+const ESTADOS_PAGABLES = ['ACTIVO', 'PAGO_PARCIAL', 'MOROSO'];
+
 function ValeDetailModal({ vale, open, onClose }) {
     const [cancelando, setCancelando] = useState(false);
+    const [tipoPago, setTipoPago] = useState('COMPLETO');
+    const [revirtiendoId, setRevirtiendoId] = useState(null);
+
+    const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+    const puedePagar = Boolean(vale) && ESTADOS_PAGABLES.includes(vale?.estado);
+    const saldoActual = Number(vale?.saldo_actual || 0);
+
+    const pagoForm = useForm({
+        monto: '',
+        fecha_pago: today,
+        notas: '',
+    });
+
+    useEffect(() => {
+        if (!vale) return;
+        setTipoPago('COMPLETO');
+        pagoForm.clearErrors();
+        pagoForm.setData({
+            monto: Number(vale.saldo_actual || 0).toFixed(2),
+            fecha_pago: today,
+            notas: '',
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [vale?.id, vale?.saldo_actual]);
+
+    const switchTipoPago = (nuevo) => {
+        setTipoPago(nuevo);
+        pagoForm.clearErrors('monto');
+        if (nuevo === 'COMPLETO') {
+            pagoForm.setData('monto', saldoActual.toFixed(2));
+        } else {
+            pagoForm.setData('monto', '');
+        }
+    };
+
+    const montoNum = parseFloat(pagoForm.data.monto) || 0;
+    const saldoDespues = Math.max(0, Number((saldoActual - montoNum).toFixed(2)));
+    const estadoPrevisto = saldoDespues <= 0.009
+        ? 'PAGADO'
+        : (vale?.estado === 'MOROSO' ? 'MOROSO' : 'PAGO_PARCIAL');
+    const montoInvalido = !pagoForm.data.monto || montoNum <= 0 || montoNum > saldoActual + 0.009;
 
     const cancelarVale = () => {
         if (!window.confirm('¿Seguro que deseas cancelar este vale? Esta acción no se puede deshacer.')) return;
@@ -16,6 +59,30 @@ function ValeDetailModal({ vale, open, onClose }) {
                 setCancelando(false);
                 onClose();
             },
+        });
+    };
+
+    const registrarPago = (event) => {
+        event?.preventDefault();
+        if (!puedePagar || montoInvalido || pagoForm.processing) return;
+        const mensaje = `¿Registrar pago de ${formatCurrency(montoNum)} al vale ${vale.numero_vale}?`;
+        if (!window.confirm(mensaje)) return;
+        pagoForm.post(route('distribuidora.vales.pagos.store', vale.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setTipoPago('COMPLETO');
+            },
+        });
+    };
+
+    const revertirPago = (pago) => {
+        const mensaje = `¿Deshacer el pago de ${formatCurrency(pago.monto)} del ${formatDate(pago.fecha_pago)}?`;
+        if (!window.confirm(mensaje)) return;
+        const motivo = window.prompt('Motivo de la reversa (opcional):') || '';
+        setRevirtiendoId(pago.id);
+        router.post(route('distribuidora.pagos.revertir', pago.id), { motivo }, {
+            preserveScroll: true,
+            onFinish: () => setRevirtiendoId(null),
         });
     };
 
@@ -42,6 +109,8 @@ function ValeDetailModal({ vale, open, onClose }) {
     if (!open || !vale) {
         return null;
     }
+
+    const pagos = Array.isArray(vale.pagos) ? vale.pagos : [];
 
     return (
         <div className="fin-modal-backdrop" onClick={onClose}>
@@ -84,49 +153,25 @@ function ValeDetailModal({ vale, open, onClose }) {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div className="p-4 border rounded-xl border-gray-200">
-                            <p className="text-sm font-semibold text-gray-900">Condiciones congeladas</p>
-                            <div className="grid grid-cols-2 gap-3 mt-4">
-                                <div>
-                                    <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto total deuda</p>
-                                    <p className="mt-1 font-semibold text-gray-900">{formatCurrency(vale.monto_total_deuda)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto quincenal</p>
-                                    <p className="mt-1 font-semibold text-gray-900">{formatCurrency(vale.monto_quincenal)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Ventana anticipado</p>
-                                    <p className="mt-1 text-sm font-semibold text-gray-900">{formatDate(vale.fecha_inicio_pago_anticipado)} a {formatDate(vale.fecha_fin_pago_anticipado)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Fecha del vale</p>
-                                    <p className="mt-1 text-sm font-semibold text-gray-900">{formatDate(vale.fecha_emision, true)}</p>
-                                </div>
+                    <div className="p-4 border rounded-xl border-gray-200">
+                        <p className="text-sm font-semibold text-gray-900">Condiciones congeladas</p>
+                        <div className="grid grid-cols-2 gap-3 mt-4 md:grid-cols-4">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto total deuda</p>
+                                <p className="mt-1 font-semibold text-gray-900">{formatCurrency(vale.monto_total_deuda)}</p>
                             </div>
-                        </div>
-
-                        <div className="p-4 border rounded-xl border-gray-200">
-                            <p className="text-sm font-semibold text-gray-900">Último pago registrado</p>
-                            {vale.ultimo_pago ? (
-                                <div className="grid grid-cols-1 gap-3 mt-4 sm:grid-cols-3">
-                                    <div>
-                                        <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto</p>
-                                        <p className="mt-1 font-semibold text-gray-900">{formatCurrency(vale.ultimo_pago.monto)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Fecha</p>
-                                        <p className="mt-1 font-semibold text-gray-900">{formatDate(vale.ultimo_pago.fecha_pago, true)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Método</p>
-                                        <p className="mt-1 font-semibold text-gray-900">{vale.ultimo_pago.metodo_pago}</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <p className="mt-4 text-sm text-gray-500">Este vale todavía no tiene pagos asociados en base de datos.</p>
-                            )}
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto quincenal</p>
+                                <p className="mt-1 font-semibold text-gray-900">{formatCurrency(vale.monto_quincenal)}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Ventana anticipado</p>
+                                <p className="mt-1 text-sm font-semibold text-gray-900">{formatDate(vale.fecha_inicio_pago_anticipado)} a {formatDate(vale.fecha_fin_pago_anticipado)}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Fecha del vale</p>
+                                <p className="mt-1 text-sm font-semibold text-gray-900">{formatDate(vale.fecha_emision, true)}</p>
+                            </div>
                         </div>
                     </div>
 
@@ -139,6 +184,138 @@ function ValeDetailModal({ vale, open, onClose }) {
                             {vale.notas && (
                                 <p className="mt-2 text-sm text-gray-600">Notas: {vale.notas}</p>
                             )}
+                        </div>
+                    )}
+
+                    {puedePagar && (
+                        <form onSubmit={registrarPago} className="p-4 space-y-3 border rounded-xl border-green-200 bg-green-50/40">
+                            <div className="flex items-center gap-2">
+                                <FontAwesomeIcon icon={faMoneyBillWave} className="text-green-700" />
+                                <p className="text-sm font-semibold text-gray-900">Registrar pago del cliente</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => switchTipoPago('COMPLETO')}
+                                    className={`py-2 text-sm font-semibold rounded-lg border transition ${tipoPago === 'COMPLETO' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                                >
+                                    Pago completo
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => switchTipoPago('PARCIAL')}
+                                    className={`py-2 text-sm font-semibold rounded-lg border transition ${tipoPago === 'PARCIAL' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                                >
+                                    Pago parcial
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <div>
+                                    <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Monto</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0.01"
+                                        max={saldoActual.toFixed(2)}
+                                        value={pagoForm.data.monto}
+                                        onChange={(event) => pagoForm.setData('monto', event.target.value)}
+                                        disabled={tipoPago === 'COMPLETO' || pagoForm.processing}
+                                        className="fin-input"
+                                        placeholder="0.00"
+                                    />
+                                    {pagoForm.errors.monto && <p className="mt-1 text-xs text-red-600">{pagoForm.errors.monto}</p>}
+                                </div>
+                                <div>
+                                    <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Fecha del pago</label>
+                                    <input
+                                        type="date"
+                                        max={today}
+                                        value={pagoForm.data.fecha_pago}
+                                        onChange={(event) => pagoForm.setData('fecha_pago', event.target.value)}
+                                        disabled={pagoForm.processing}
+                                        className="fin-input"
+                                    />
+                                    {pagoForm.errors.fecha_pago && <p className="mt-1 text-xs text-red-600">{pagoForm.errors.fecha_pago}</p>}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Notas (opcional)</label>
+                                <textarea
+                                    rows={2}
+                                    maxLength={500}
+                                    value={pagoForm.data.notas}
+                                    onChange={(event) => pagoForm.setData('notas', event.target.value)}
+                                    disabled={pagoForm.processing}
+                                    className="fin-input"
+                                    placeholder="Referencia interna, comentario, etc."
+                                />
+                                {pagoForm.errors.notas && <p className="mt-1 text-xs text-red-600">{pagoForm.errors.notas}</p>}
+                            </div>
+
+                            <div className="p-3 text-sm bg-white border border-gray-200 rounded-lg">
+                                <p className="font-semibold text-gray-700">Resumen</p>
+                                <p className="mt-1 text-gray-600">Saldo actual: <span className="font-semibold text-gray-900">{formatCurrency(saldoActual)}</span></p>
+                                <p className="text-gray-600">Después del pago: <span className="font-semibold text-gray-900">{formatCurrency(saldoDespues)}</span></p>
+                                <p className="inline-flex flex-wrap items-center gap-2 text-gray-600">
+                                    Nuevo estado:
+                                    <span className={statusBadgeClass(estadoPrevisto)}>{estadoPrevisto}</span>
+                                </p>
+                            </div>
+
+                            {pagoForm.errors.general && <p className="text-sm text-red-600">{pagoForm.errors.general}</p>}
+
+                            <button
+                                type="submit"
+                                disabled={montoInvalido || pagoForm.processing}
+                                className="w-full px-4 py-3 text-sm font-semibold text-white transition bg-green-700 rounded-lg hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {pagoForm.processing ? 'Registrando...' : 'Registrar pago'}
+                            </button>
+                        </form>
+                    )}
+
+                    {pagos.length > 0 && (
+                        <div className="p-4 border rounded-xl border-gray-200">
+                            <p className="text-sm font-semibold text-gray-900">Histórico de pagos</p>
+                            <div className="mt-3 divide-y divide-gray-100">
+                                {pagos.map((pago) => {
+                                    const revertido = Boolean(pago.revertido_en);
+                                    return (
+                                        <div key={pago.id} className={`flex items-center justify-between gap-3 py-3 ${revertido ? 'opacity-60' : ''}`}>
+                                            <div className="min-w-0">
+                                                <p className={`text-sm font-semibold text-gray-900 ${revertido ? 'line-through' : ''}`}>
+                                                    {formatCurrency(pago.monto)}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {formatDate(pago.fecha_pago, true)} · {pago.metodo_pago}
+                                                    {pago.es_parcial ? ' · parcial' : ' · completo'}
+                                                </p>
+                                                {pago.notas && <p className="text-xs italic text-gray-500">"{pago.notas}"</p>}
+                                            </div>
+                                            <div className="flex-shrink-0">
+                                                {revertido ? (
+                                                    <span className="fin-badge fin-badge-rejected">Revertido</span>
+                                                ) : pago.puede_revertir ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => revertirPago(pago)}
+                                                        disabled={revirtiendoId === pago.id}
+                                                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-red-700 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                                                    >
+                                                        <FontAwesomeIcon icon={faRotateLeft} />
+                                                        {revirtiendoId === pago.id ? 'Deshaciendo...' : 'Deshacer'}
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">Cerrado en corte</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
 
