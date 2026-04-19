@@ -90,19 +90,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         vehiculos: 4,
         ine_frente: 5, ine_reverso: 5, comprobante_domicilio: 5, reporte_buro: 5,
     }), []);
-
-    const tabsWithErrors = useMemo(() => {
-        const result = new Set();
-        Object.keys(errors).forEach(key => {
-            const rootKey = key.split('.')[0];
-            const tabNumber = fieldTabMap[key] ?? fieldTabMap[rootKey];
-            if (typeof tabNumber === 'number') {
-                result.add(tabNumber);
-            }
-        });
-        return result;
-    }, [errors, fieldTabMap]);
-
+    
     const comprimirImagen = (file, maxDimension = 1600, quality = 0.82) => new Promise((resolve) => {
         if (!file || !file.type?.startsWith('image/')) return resolve(file);
         const reader = new FileReader();
@@ -181,6 +169,18 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         ...initialData,
         _method: isEditing ? 'PUT' : 'POST'
     });
+
+    const tabsWithErrors = useMemo(() => {
+        const result = new Set();
+        Object.keys(errors).forEach(key => {
+            const rootKey = key.split('.')[0];
+            const tabNumber = fieldTabMap[key] ?? fieldTabMap[rootKey];
+            if (typeof tabNumber === 'number') {
+                result.add(tabNumber);
+            }
+        });
+        return result;
+    }, [errors, fieldTabMap]);
 
     const handleDocumentoChange = async (field, file) => {
         if (!file) return setData(field, null);
