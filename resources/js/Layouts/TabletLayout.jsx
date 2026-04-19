@@ -112,7 +112,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
             { name: 'Dashboard', href: route('coordinador.dashboard'), icon: faHouse, active: route().current('coordinador.dashboard') },
             { name: 'Nueva Solicitud', href: route('coordinador.solicitudes.create'), icon: faFileCirclePlus, active: route().current('coordinador.solicitudes.create') },
             { name: 'Reportes', href: route('coordinador.reportes'), icon: faChartLine, active: route().current('coordinador.reportes') },
-            { name: 'Solicitudes', href: route('coordinador.solicitudes.index'), icon: faFileLines, active: route().current('coordinador.solicitudes.*') },
+            { name: 'Solicitudes', href: route('coordinador.solicitudes.index'), icon: faFileLines, active: route().current('coordinador.solicitudes.*') && !route().current('coordinador.solicitudes.create') },
             { name: 'Traspasos', href: route('coordinador.traspasos.index'), icon: faArrowRightArrowLeft, active: route().current('coordinador.traspasos.*') },
             { name: 'Clientes', href: route('coordinador.clientes'), icon: faUsers, active: route().current('coordinador.clientes') },
             { name: 'Mis Distribuidoras', href: route('coordinador.mis-distribuidoras'), icon: faPeopleGroup, active: route().current('coordinador.mis-distribuidoras') }
@@ -121,7 +121,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
             { name: 'Captura Rápida', href: route('coordinador.solicitudes.create') },
             { name: 'Reportes', href: route('coordinador.reportes') },
             { name: 'Traspasos', href: route('coordinador.traspasos.index') },
-            { name: 'Ver Cartera', href: route('coordinador.clientes') },
+            { name: 'Ver cartera de clientes', href: route('coordinador.clientes') },
         ];
     } else if (auth.user?.rol_nombre === 'cajera') {
         navigation = [
@@ -175,9 +175,6 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
                             </div>
                             <div className="mt-1 text-sm text-gray-500 capitalize">
                                 {auth.user.rol_nombre}
-                            </div>
-                            <div className="mt-2 text-xs text-gray-500">
-                                {title}
                             </div>
                         </div>
                     </div>

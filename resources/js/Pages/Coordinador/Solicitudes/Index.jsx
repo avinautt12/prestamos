@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import TabletLayout from '@/Layouts/TabletLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { format } from 'date-fns';
@@ -7,6 +7,24 @@ import { es } from 'date-fns/locale';
 export default function Index({ solicitudes, filters }) {
     const [search, setSearch] = useState(filters.search || '');
     const [estado, setEstado] = useState(filters.estado || '');
+    const isFirstRender = useRef(true);
+
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+
+        const timeoutId = setTimeout(() => {
+            router.get(route('coordinador.solicitudes.index'), { search, estado }, {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true
+            });
+        }, 400);
+
+        return () => clearTimeout(timeoutId);
+    }, [search, estado]);
 
     // Estados y sus colores
     const estadoConfig = {
@@ -163,7 +181,7 @@ export default function Index({ solicitudes, filters }) {
                                 <Link
                                     key={solicitud.id}
                                     href={route('coordinador.solicitudes.show', solicitud.id)}
-                                    className={`block p-4 transition border border-gray-200 border-l-4 rounded-xl bg-white hover:shadow-md ${estadoLinea}`}
+                                    className={`group block p-4 transition border border-gray-200 border-l-4 rounded-xl bg-white hover:shadow-md ${estadoLinea}`}
                                 >
                                     <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
                                         <div>
@@ -189,9 +207,13 @@ export default function Index({ solicitudes, filters }) {
                                             <span className="text-gray-500">Enviada:</span>
                                             <p className="text-gray-900">{formatDate(solicitud.enviada_en)}</p>
                                         </div>
-                                        <div>
-                                            <span className="text-gray-500">Acción:</span>
-                                            <p className="font-medium text-blue-700">Abrir detalle</p>
+                                        <div className="flex items-center mt-2 md:justify-end md:mt-0">
+                                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200">
+                                                Ver expediente
+                                                <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                                </svg>
+                                            </div>
                                         </div>
                                     </div>
 

@@ -18,7 +18,7 @@ export default function Reportes({ sucursal, filtro, resumen, topDistribuidoras 
     const periodos = [
         { key: 'mes', label: 'Mes actual' },
         { key: 'trimestre', label: 'Trimestre' },
-        { key: 'anio', label: 'Ano' },
+        { key: 'anio', label: 'Año' },
     ];
 
     const formatNumber = (value) => Number(value ?? 0).toLocaleString('es-MX');
