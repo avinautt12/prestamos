@@ -62,7 +62,7 @@ export default function Traspasos({ filtros = {}, solicitudes = [], sucursal = n
                         </div>
                         <select value={estado} onChange={(e) => cambiarEstado(e.target.value)} className="fin-input max-w-[280px]">
                             {estados.map((item) => (
-                                <option key={item} value={item}>{item}</option>
+                                <option key={item} value={item}>{item.replace(/_/g, ' ')}</option>
                             ))}
                         </select>
                     </div>
@@ -88,7 +88,7 @@ export default function Traspasos({ filtros = {}, solicitudes = [], sucursal = n
                                     </p>
                                 </div>
                                 <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
-                                    {solicitud.estado}
+                                    {solicitud.estado.replace(/_/g, ' ')}
                                 </span>
                             </div>
 
