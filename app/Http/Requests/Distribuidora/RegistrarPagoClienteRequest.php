@@ -61,6 +61,7 @@ class RegistrarPagoClienteRequest extends FormRequest
             $estadosPermitidos = [
                 Vale::ESTADO_ACTIVO,
                 Vale::ESTADO_PAGO_PARCIAL,
+                Vale::ESTADO_PAGADO,
                 Vale::ESTADO_MOROSO,
             ];
 

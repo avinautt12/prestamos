@@ -109,7 +109,7 @@ class ValesSeeder extends Seeder
                 'pagos' => [3, $quincenal],
             ],
             [
-                'estado' => Vale::ESTADO_PAGADO,
+                'estado' => Vale::ESTADO_LIQUIDADO,
                 'pagos_realizados' => $quincenas,
                 'saldo_actual' => 0.00,
                 'fecha_emision' => now()->subDays(180),

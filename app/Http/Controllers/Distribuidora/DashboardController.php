@@ -235,7 +235,7 @@ class DashboardController extends Controller
                 'activos' => (int) ($resumenEstados[Vale::ESTADO_ACTIVO] ?? 0),
                 'parciales' => (int) ($resumenEstados[Vale::ESTADO_PAGO_PARCIAL] ?? 0),
                 'morosos' => (int) ($resumenEstados[Vale::ESTADO_MOROSO] ?? 0),
-                'pagados' => (int) ($resumenEstados[Vale::ESTADO_PAGADO] ?? 0),
+                'pagados' => (int) ($resumenEstados[Vale::ESTADO_LIQUIDADO] ?? 0),
                 'cancelados' => (int) ($resumenEstados[Vale::ESTADO_CANCELADO] ?? 0),
             ],
             'filtros' => $filtros,
@@ -245,8 +245,9 @@ class DashboardController extends Controller
                     Vale::ESTADO_BORRADOR,
                     Vale::ESTADO_ACTIVO,
                     Vale::ESTADO_PAGO_PARCIAL,
-                    Vale::ESTADO_MOROSO,
                     Vale::ESTADO_PAGADO,
+                    Vale::ESTADO_MOROSO,
+                    Vale::ESTADO_LIQUIDADO,
                     Vale::ESTADO_CANCELADO,
                     Vale::ESTADO_RECLAMADO,
                 ],
@@ -739,11 +740,22 @@ class DashboardController extends Controller
                 $estadosPermitidos = [
                     Vale::ESTADO_ACTIVO,
                     Vale::ESTADO_PAGO_PARCIAL,
+                    Vale::ESTADO_PAGADO,
                     Vale::ESTADO_MOROSO,
                 ];
 
                 if (!in_array($vale->estado, $estadosPermitidos, true)) {
                     throw new \RuntimeException('El vale ya no admite pagos en su estado actual.');
+                }
+
+                $fechaUltimoCorte = $this->obtenerFechaUltimoCorteEjecutado($distribuidora);
+                $yaHayPagoEnPeriodo = PagoCliente::where('vale_id', $vale->id)
+                    ->whereNull('revertido_en')
+                    ->when($fechaUltimoCorte, fn($q) => $q->where('creado_en', '>', $fechaUltimoCorte))
+                    ->exists();
+
+                if ($yaHayPagoEnPeriodo) {
+                    throw new \RuntimeException('Este vale ya tiene un pago registrado en el corte actual. Podrás registrar otro cuando se ejecute el próximo corte.');
                 }
 
                 $saldoActual = round((float) $vale->saldo_actual, 2);
@@ -759,12 +771,16 @@ class DashboardController extends Controller
 
                 if ($saldoNuevo <= 0.009) {
                     $saldoNuevo = 0.0;
-                    $nuevoEstado = Vale::ESTADO_PAGADO;
+                    $nuevoEstado = Vale::ESTADO_LIQUIDADO;
                 } elseif ($vale->estado === Vale::ESTADO_MOROSO) {
                     $nuevoEstado = Vale::ESTADO_MOROSO;
+                } elseif ($monto >= $montoQuincenal - 0.009) {
+                    $nuevoEstado = Vale::ESTADO_PAGADO;
                 } else {
                     $nuevoEstado = Vale::ESTADO_PAGO_PARCIAL;
                 }
+
+                $esParcial = $saldoNuevo > 0.009 && $monto < ($montoQuincenal - 0.009);
 
                 PagoCliente::create([
                     'vale_id'                => $vale->id,
@@ -774,7 +790,7 @@ class DashboardController extends Controller
                     'fecha_pago'             => $fechaPago,
                     'monto'                  => $monto,
                     'metodo_pago'            => PagoCliente::METODO_EFECTIVO,
-                    'es_parcial'             => $saldoNuevo > 0.009,
+                    'es_parcial'             => $esParcial,
                     'afecta_puntos'          => true,
                     'notas'                  => $notas,
                 ]);
@@ -861,13 +877,27 @@ class DashboardController extends Controller
                 $montoQuincenal = max(0.01, (float) $vale->monto_quincenal);
                 $pagosRealizadosNuevo = (int) floor($totalPagadoActivo / $montoQuincenal);
 
-                if ($saldoNuevo >= $montoTotal - 0.009) {
-                    $saldoNuevo = round($montoTotal, 2);
-                    $nuevoEstado = ($vale->estado === Vale::ESTADO_MOROSO) ? Vale::ESTADO_MOROSO : Vale::ESTADO_ACTIVO;
+                $fechaUltimoCorte = $this->obtenerFechaUltimoCorteEjecutado($distribuidora);
+
+                if ($saldoNuevo <= 0.009) {
+                    $saldoNuevo = 0.0;
+                    $nuevoEstado = Vale::ESTADO_LIQUIDADO;
                 } elseif ($vale->estado === Vale::ESTADO_MOROSO) {
                     $nuevoEstado = Vale::ESTADO_MOROSO;
                 } else {
-                    $nuevoEstado = Vale::ESTADO_PAGO_PARCIAL;
+                    $ultimoPagoEnPeriodo = PagoCliente::where('vale_id', $vale->id)
+                        ->whereNull('revertido_en')
+                        ->when($fechaUltimoCorte, fn($q) => $q->where('creado_en', '>', $fechaUltimoCorte))
+                        ->orderByDesc('creado_en')
+                        ->first();
+
+                    if (!$ultimoPagoEnPeriodo) {
+                        $nuevoEstado = Vale::ESTADO_ACTIVO;
+                    } elseif ((float) $ultimoPagoEnPeriodo->monto >= $montoQuincenal - 0.009) {
+                        $nuevoEstado = Vale::ESTADO_PAGADO;
+                    } else {
+                        $nuevoEstado = Vale::ESTADO_PAGO_PARCIAL;
+                    }
                 }
 
                 $vale->update([
@@ -1014,7 +1044,7 @@ class DashboardController extends Controller
             ->selectRaw('cliente_id, COUNT(*) as vales_abiertos, COALESCE(SUM(saldo_actual), 0) as saldo_pendiente, MIN(fecha_limite_pago) as siguiente_vencimiento')
             ->where('distribuidora_id', $distribuidora->id)
             ->whereNotIn('estado', [
-                Vale::ESTADO_PAGADO,
+                Vale::ESTADO_LIQUIDADO,
                 Vale::ESTADO_CANCELADO,
                 Vale::ESTADO_REVERSADO,
             ])
@@ -1430,7 +1460,7 @@ class DashboardController extends Controller
             ->selectRaw('cliente_id, COUNT(*) as vales_abiertos, COALESCE(SUM(saldo_actual), 0) as saldo_pendiente')
             ->where('distribuidora_id', $distribuidoraId)
             ->whereNotIn('estado', [
-                Vale::ESTADO_PAGADO,
+                Vale::ESTADO_LIQUIDADO,
                 Vale::ESTADO_CANCELADO,
                 Vale::ESTADO_REVERSADO,
             ])
@@ -1719,6 +1749,7 @@ class DashboardController extends Controller
     {
         $pagos = [];
         $ultimoPago = null;
+        $yaHayPagoEnPeriodo = false;
 
         if ($vale->relationLoaded('pagos')) {
             $pagosOrdenados = $vale->pagos
@@ -1727,11 +1758,15 @@ class DashboardController extends Controller
 
             foreach ($pagosOrdenados as $pago) {
                 $estaActivo = $pago->revertido_en === null;
-                $puedeRevertir = $estaActivo && (
+                $esEnPeriodoActual = $estaActivo && (
                     $fechaUltimoCorte === null
                     || !$pago->creado_en
                     || $pago->creado_en->gt($fechaUltimoCorte)
                 );
+
+                if ($esEnPeriodoActual) {
+                    $yaHayPagoEnPeriodo = true;
+                }
 
                 $pagos[] = [
                     'id'            => (int) $pago->id,
@@ -1742,7 +1777,7 @@ class DashboardController extends Controller
                     'notas'         => $pago->notas,
                     'creado_en'     => optional($pago->creado_en)->toDateTimeString(),
                     'revertido_en'  => optional($pago->revertido_en)->toDateTimeString(),
-                    'puede_revertir' => $puedeRevertir,
+                    'puede_revertir' => $esEnPeriodoActual,
                 ];
 
                 if ($ultimoPago === null && $estaActivo) {
@@ -1750,6 +1785,14 @@ class DashboardController extends Controller
                 }
             }
         }
+
+        $estadosPagables = [
+            Vale::ESTADO_ACTIVO,
+            Vale::ESTADO_PAGO_PARCIAL,
+            Vale::ESTADO_PAGADO,
+            Vale::ESTADO_MOROSO,
+        ];
+        $puedeRegistrarPago = in_array($vale->estado, $estadosPagables, true) && !$yaHayPagoEnPeriodo;
 
         return [
             'id' => $vale->id,
@@ -1782,6 +1825,8 @@ class DashboardController extends Controller
                 'fecha_pago' => optional($ultimoPago->fecha_pago)->toDateTimeString(),
                 'metodo_pago' => $ultimoPago->metodo_pago,
             ] : null,
+            'puede_registrar_pago' => $puedeRegistrarPago,
+            'ya_hay_pago_en_periodo' => $yaHayPagoEnPeriodo,
         ];
     }
 
