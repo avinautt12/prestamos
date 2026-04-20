@@ -30,7 +30,6 @@ class DashboardController extends Controller
 
     public function calendario(): Response
     {
-        // Se asume configuración global, usando la primera sucursal como base.
         $sucursal = Sucursal::query()->with('configuracion')->first();
         $diaCorte = (int) ($sucursal?->configuracion?->dia_corte ?? 15);
         
