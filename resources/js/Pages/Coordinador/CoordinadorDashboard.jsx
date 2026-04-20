@@ -26,52 +26,11 @@ export default function Dashboard({ stats, usuario }) {
             <Head title="Dashboard Coordinador" />
             <div className="fin-page">
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                    {statCards.map((stat, index) => (
-                        <div key={index} className="fin-card">
-                            <div className="flex items-center">
-                                <div className="flex-shrink-0 p-2 rounded-md" style={{ backgroundColor: '#F3F4F6' }}>
-                                    <svg className="w-5 h-5 fin-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
-                                    </svg>
-                                </div>
-                                <div className="ml-3">
-                                    <p className="text-xs" style={{ color: '#6B7280' }}>{stat.title}</p>
-                                    <p className="fin-stat-value">{stat.value}</p>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Quick Actions */}
-                <div className="mb-6">
-                    <h2 className="mb-3 text-lg font-semibold">Acciones Rápidas</h2>
-                    <div className="grid grid-cols-1 gap-3">
-                        {quickActions.map((action, index) => (
-                            <Link
-                                key={index}
-                                href={action.href}
-                                className={`flex items-center justify-between fin-card ${action.variant === 'primary' ? 'fin-btn-primary' : 'fin-btn-secondary'}`}
-                            >
-                                <div className="flex items-center">
-                                    <div className="flex-shrink-0 p-2 rounded-md" style={{ backgroundColor: action.variant === 'primary' ? 'rgba(255,255,255,0.2)' : '#EFF6FF' }}>
-                                        <svg className={`w-5 h-5 ${action.variant === 'primary' ? 'text-white' : ''}`} style={action.variant === 'secondary' ? { color: '#2563EB' } : undefined} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={action.icon} />
-                                        </svg>
-                                    </div>
-                                    <div className="ml-3">
-                                        <h3 className={`font-medium ${action.variant === 'primary' ? 'text-white' : 'text-gray-900'}`}>{action.title}</h3>
-                                        <p className={`text-xs ${action.variant === 'primary' ? 'text-green-100' : 'text-gray-500'}`}>{action.description}</p>
-                                    </div>
-                                </div>
-                                <svg className={`w-5 h-5 ${action.variant === 'primary' ? 'text-white' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={action.icon} />
-                                </svg>
-                            </Link>
-                        ))}
-                    </div>
+                {/* Welcome Message */}
+                <div className="fin-info mb-6">
+                    <p className="text-sm font-medium">
+                        Bienvenido {usuario.persona?.primer_nombre}. Hoy es {new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
                 </div>
 
                 <div className="mb-6 fin-card">
@@ -100,11 +59,56 @@ export default function Dashboard({ stats, usuario }) {
                     </div>
                 </div>
 
-                {/* Welcome Message */}
-                <div className="fin-info">
-                    <p className="text-sm font-medium">
-                        Bienvenido {usuario.persona?.primer_nombre}. Hoy es {new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </p>
+                {/* Stats Grid */}
+                <div className="mb-6">
+                    <h2 className="mb-3 text-lg font-semibold text-gray-900">Métricas Principales</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                        {statCards.map((stat, index) => (
+                            <div key={index} className="fin-card">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0 p-2 rounded-md" style={{ backgroundColor: '#F3F4F6' }}>
+                                        <svg className="w-5 h-5 fin-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                        <p className="text-xs" style={{ color: '#6B7280' }}>{stat.title}</p>
+                                        <p className="fin-stat-value">{stat.value}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+
+                {/* Quick Actions */}
+                <div className="mb-6">
+                    <h2 className="mb-3 text-lg font-semibold">Acciones Rápidas</h2>
+                    <div className="grid grid-cols-1 gap-3">
+                        {quickActions.map((action, index) => (
+                            <Link
+                                key={index}
+                                href={action.href}
+                                className={`flex items-center justify-between fin-card ${action.variant === 'primary' ? 'fin-btn-primary' : 'fin-btn-secondary'}`}
+                            >
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0 p-2 rounded-md" style={{ backgroundColor: action.variant === 'primary' ? 'rgba(255,255,255,0.2)' : '#EFF6FF' }}>
+                                        <svg className={`w-5 h-5 ${action.variant === 'primary' ? 'text-white' : ''}`} style={action.variant === 'secondary' ? { color: '#2563EB' } : undefined} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={action.icon} />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                        <h3 className={`font-medium ${action.variant === 'primary' ? 'text-white' : 'text-gray-900'}`}>{action.title}</h3>
+                                        <p className={`text-xs ${action.variant === 'primary' ? 'text-green-100' : 'text-gray-500'}`}>{action.description}</p>
+                                    </div>
+                                </div>
+                                <svg className={`w-5 h-5 ${action.variant === 'primary' ? 'text-white' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={action.icon} />
+                                </svg>
+                            </Link>
+                        ))}
+                    </div>
                 </div>
             </div>
         </TabletLayout>

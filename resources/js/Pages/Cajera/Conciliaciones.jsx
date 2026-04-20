@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import TabletLayout from '@/Layouts/TabletLayout';
+import FinDatePicker from '@/Components/FinDatePicker';
 import { buildConciliacionesQuery, buildHistorialExportQuery } from './conciliacionesQueryParams';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -535,12 +536,13 @@ export default function Conciliaciones({ resumen, alertas, filtros, movimientosP
                                     placeholder="Buscar movimiento (referencia, folio, pagador)"
                                     className="text-sm border-gray-300 rounded-lg"
                                 />
-                                <input
-                                    type="date"
-                                    value={filtroFechaMov}
-                                    onChange={(e) => setFiltroFechaMov(e.target.value)}
-                                    className="text-sm border-gray-300 rounded-lg"
-                                />
+                                <div>
+                                    <FinDatePicker
+                                        value={filtroFechaMov || ''}
+                                        onChange={(val) => setFiltroFechaMov(val)}
+                                        placeholder="Fecha..."
+                                    />
+                                </div>
                                 <input
                                     type="text"
                                     value={filtroRelaciones}

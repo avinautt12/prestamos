@@ -198,7 +198,7 @@ export default function Reportes({
                 <div className="fin-card">
                     <div className="flex items-center gap-2 mb-3 text-gray-900">
                         <FontAwesomeIcon icon={faClipboardCheck} className="text-emerald-600" />
-                        <h3 className="font-semibold">Pre-solicitudes ({periodoActivo})</h3>
+                        <h3 className="font-semibold">Pre-solicitudes ({periodos.find(p => p.key === periodoActivo)?.label?.toLowerCase() || periodoActivo})</h3>
                     </div>
 
                     <div className="space-y-3">

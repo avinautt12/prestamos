@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from './utils';
+import FinDatePicker from '@/Components/FinDatePicker';
 
 function Paginator({ currentPage, lastPage, total, onChange, label = 'Página' }) {
     if (lastPage <= 1) return null;
@@ -267,24 +268,24 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opc
                                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                         <div>
                                             <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Desde</label>
-                                            <input
-                                                type="date"
-                                                value={form.fecha_desde}
-                                                onChange={(e) => setForm((p) => ({ ...p, fecha_desde: e.target.value }))}
-                                                className={`fin-input ${fechasInvalidas ? 'border-red-400' : ''}`}
-                                                max={form.fecha_hasta || undefined}
-                                            />
+                                            <div>
+                                                <FinDatePicker
+                                                    value={form.fecha_desde || ''}
+                                                    onChange={(val) => setForm((p) => ({ ...p, fecha_desde: val }))}
+                                                    placeholder="Fecha inicial..."
+                                                />
+                                            </div>
                                         </div>
 
                                         <div>
                                             <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Hasta</label>
-                                            <input
-                                                type="date"
-                                                value={form.fecha_hasta}
-                                                onChange={(e) => setForm((p) => ({ ...p, fecha_hasta: e.target.value }))}
-                                                className={`fin-input ${fechasInvalidas ? 'border-red-400' : ''}`}
-                                                min={form.fecha_desde || undefined}
-                                            />
+                                            <div>
+                                                <FinDatePicker
+                                                    value={form.fecha_hasta || ''}
+                                                    onChange={(val) => setForm((p) => ({ ...p, fecha_hasta: val }))}
+                                                    placeholder="Fecha final..."
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

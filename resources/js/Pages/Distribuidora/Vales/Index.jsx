@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark, faMoneyBillWave, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from '../utils';
+import FinDatePicker from '@/Components/FinDatePicker';
 
 const ESTADOS_PAGABLES = ['ACTIVO', 'PAGO_PARCIAL', 'PAGADO', 'MOROSO'];
 
@@ -269,14 +270,13 @@ function ValeDetailModal({ vale, open, onClose }) {
                                 </div>
                                 <div>
                                     <label className="block mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Fecha del pago</label>
-                                    <input
-                                        type="date"
-                                        max={today}
-                                        value={pagoForm.data.fecha_pago}
-                                        onChange={(event) => pagoForm.setData('fecha_pago', event.target.value)}
-                                        disabled={pagoForm.processing}
-                                        className="fin-input"
-                                    />
+                                    <div>
+                                        <FinDatePicker
+                                            value={pagoForm.data.fecha_pago || ''}
+                                            onChange={(val) => pagoForm.setData('fecha_pago', val)}
+                                            placeholder="Seleccionar..."
+                                        />
+                                    </div>
                                     {pagoForm.errors.fecha_pago && <p className="mt-1 text-xs text-red-600">{pagoForm.errors.fecha_pago}</p>}
                                 </div>
                             </div>

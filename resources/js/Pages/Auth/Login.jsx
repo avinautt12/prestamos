@@ -15,9 +15,9 @@ export default function Login({ status, canResetPassword }) {
     const [mostrarPassword, setMostrarPassword] = useState(false);
 
     const { data, setData, post, processing, errors, reset, transform } = useForm({
-        nombre_usuario: '',
+        nombre_usuario: localStorage.getItem('fin_remembered_username') || '',
         password: '',
-        remember: false,
+        remember: localStorage.getItem('fin_remembered_username') !== null,
         recaptcha_token: '',
     });
 
@@ -60,6 +60,13 @@ export default function Login({ status, canResetPassword }) {
             } catch (err) {
                 console.error('reCAPTCHA error:', err);
             }
+        }
+
+        // Guardar nombre de usuario visualmente si se marcó recuérdame (y limpiar si se desmarcó)
+        if (data.remember && data.nombre_usuario) {
+            localStorage.setItem('fin_remembered_username', data.nombre_usuario);
+        } else {
+            localStorage.removeItem('fin_remembered_username');
         }
 
         // transform inyecta el token al payload justo antes del POST,

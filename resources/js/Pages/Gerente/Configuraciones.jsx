@@ -636,51 +636,63 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
             <Head title="Configuraciones Variables" />
 
             <div className="mb-4 fin-card">
-                <h2 className="fin-title">Parámetros variables del negocio</h2>
-                <p className="mt-1 fin-subtitle">
-                    {puedeEditar
-                        ? 'Como Admin, los cambios se aplican automáticamente en todas las sucursales activas.'
-                        : 'Consulta el catálogo de productos vigente para la operación comercial.'}
-                </p>
-                {esAdmin ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
-                        <span>
-                            Ámbito: <span className="font-semibold text-gray-900">Global</span>
-                        </span>
-                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                            Aplica a todas las sucursales activas
-                        </span>
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <h2 className="fin-title flex items-center gap-3">
+                            Parámetros variables del negocio
+                            {soloLecturaProductos && (
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                                    {productos.length} Productos
+                                </span>
+                            )}
+                        </h2>
+                        <p className="mt-1 fin-subtitle">
+                            {puedeEditar
+                                ? 'Como Admin, los cambios se aplican automáticamente en todas las sucursales activas.'
+                                : 'Consulta el catálogo de productos vigente para la operación comercial.'}
+                        </p>
+                        {esAdmin ? (
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                                <span>
+                                    Ámbito: <span className="font-semibold text-gray-900">Global</span>
+                                </span>
+                                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                    Aplica a todas las sucursales activas
+                                </span>
+                            </div>
+                        ) : (
+                            <p className="mt-2 text-sm text-gray-600">
+                                Sucursal activa: <span className="font-semibold">{sucursal?.nombre || 'Sin sucursal asignada'}</span>
+                            </p>
+                        )}
                     </div>
-                ) : (
-                    <p className="mt-2 text-sm text-gray-600">
-                        Sucursal activa: <span className="font-semibold">{sucursal?.nombre || 'Sin sucursal asignada'}</span>
-                    </p>
-                )}
-            </div>
-
-            <div className="mb-4 fin-card">
-                <div className="flex flex-wrap gap-2">
-                    {[
-                        { id: 'sucursal', label: 'Sucursal' },
-                        { id: 'categorias', label: `Categorías (${categorias.length})` },
-                        { id: 'productos', label: `Productos (${productos.length})` },
-                        { id: 'historial', label: `Historial (${historialCambios.length})` },
-                    ]
-                        .filter((tab) => (soloLecturaProductos ? tab.id === 'productos' : true))
-                        .map((tab) => (
-                            <button
-                                key={tab.id}
-                                type="button"
-                                onClick={() => setTabActiva(tab.id)}
-                                className={`px-4 py-2 text-sm rounded-lg border transition ${tabActiva === tab.id
-                                    ? 'bg-emerald-600 text-white border-emerald-600'
-                                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                                    }`}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
                 </div>
+
+                {!soloLecturaProductos && (
+                    <div className="pt-4 mt-4 border-t border-gray-100">
+                        <div className="flex flex-wrap gap-2">
+                            {[
+                                { id: 'sucursal', label: 'Sucursal' },
+                                { id: 'categorias', label: `Categorías (${categorias.length})` },
+                                { id: 'productos', label: `Productos (${productos.length})` },
+                                { id: 'historial', label: `Historial (${historialCambios.length})` },
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    onClick={() => setTabActiva(tab.id)}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                                        tabActiva === tab.id
+                                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {tabActiva === 'sucursal' && !soloLecturaProductos && (
