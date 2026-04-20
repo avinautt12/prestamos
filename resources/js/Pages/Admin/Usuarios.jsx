@@ -32,11 +32,23 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
         });
     };
 
-    const cambiarRol = (usuarioId, rolId, sucursalId) => {
-        router.put(route('admin.usuarios.rol.update', usuarioId), {
-            rol_id: rolId,
-            sucursal_id: sucursalId || null,
+    const cambiarRol = () => {
+        if (!rolCambio.usuarioId || !rolCambio.rolId) return;
+        const role = roles.find((r) => String(r.id) === String(rolCambio.rolId));
+        const sucursalId = role?.codigo === 'ADMIN' ? null : (rolCambio.sucursalId || null);
+        router.put(route('admin.usuarios.rol.update', rolCambio.usuarioId), {
+            rol_id: rolCambio.rolId,
+            sucursal_id: sucursalId,
         }, { preserveScroll: true });
+        setRolCambio({ usuarioId: null, rolId: '', sucursalId: '' });
+    };
+
+    const iniciarCambioRol = (usuarioId, rolActualId) => {
+        setRolCambio({ usuarioId, rolId: rolActualId || '', sucursalId: '' });
+    };
+
+    const cancelarCambioRol = () => {
+        setRolCambio({ usuarioId: null, rolId: '', sucursalId: '' });
     };
 
     const cambiarEstado = (usuarioId, activo) => {
@@ -88,6 +100,8 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
             replace: true,
         });
     };
+
+    const [rolCambio, setRolCambio] = React.useState({ usuarioId: null, rolId: '', sucursalId: '' });
 
     const rolSeleccionado = roles.find((rol) => String(rol.id) === String(form.data.rol_id));
     const requiereSucursal = rolSeleccionado && rolSeleccionado.codigo !== 'ADMIN';
@@ -301,23 +315,46 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
                                                     {estadoActivacion === 'EXPIRADA' ? 'Regenerar enlace' : 'Reenviar activacion'}
                                                 </button>
                                             )}
-                                            <select
-                                                className="border rounded-lg border-slate-300"
-                                                defaultValue=""
-                                                onChange={(e) => {
-                                                    const selectedRoleId = e.target.value;
-                                                    if (!selectedRoleId) return;
-                                                    const role = roles.find((item) => String(item.id) === String(selectedRoleId));
-                                                    const sucursalId = role?.codigo === 'ADMIN' ? null : (rolActual?.pivot?.sucursal_id || null);
-                                                    cambiarRol(usuario.id, selectedRoleId, sucursalId);
-                                                    e.target.value = '';
-                                                }}
-                                            >
-                                                <option value="">Cambiar rol...</option>
-                                                {roles.map((rol) => (
-                                                    <option key={rol.id} value={rol.id}>{rol.nombre}</option>
-                                                ))}
-                                            </select>
+                                            {rolCambio.usuarioId === usuario.id ? (
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <select
+                                                        className="border rounded-lg border-slate-300"
+                                                        value={rolCambio.rolId}
+                                                        onChange={(e) => setRolCambio(prev => ({ ...prev, rolId: e.target.value }))}
+                                                    >
+                                                        <option value="">Selecciona rol</option>
+                                                        {roles.map((rol) => (
+                                                            <option key={rol.id} value={rol.id}>{rol.nombre}</option>
+                                                        ))}
+                                                    </select>
+                                                    {(() => {
+                                                        const nuevoRol = roles.find(r => String(r.id) === String(rolCambio.rolId));
+                                                        const requiereSuc = nuevoRol && nuevoRol.codigo !== 'ADMIN';
+                                                        return requiereSuc ? (
+                                                            <select
+                                                                className="border rounded-lg border-slate-300"
+                                                                value={rolCambio.sucursalId}
+                                                                onChange={(e) => setRolCambio(prev => ({ ...prev, sucursalId: e.target.value }))}
+                                                            >
+                                                                <option value="">Sucursal</option>
+                                                                {sucursales.map((s) => (
+                                                                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                                                                ))}
+                                                            </select>
+                                                        ) : null;
+                                                    })()}
+                                                    <button type="button" className="fin-btn-primary" onClick={cambiarRol}>Guardar</button>
+                                                    <button type="button" className="fin-btn-secondary" onClick={cancelarCambioRol}>Cancelar</button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    className="fin-btn-secondary"
+                                                    onClick={() => iniciarCambioRol(usuario.id, rolActual?.id)}
+                                                >
+                                                    Cambiar rol
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
