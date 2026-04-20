@@ -749,14 +749,18 @@ class DashboardController extends Controller
                 }
 
                 $fechaUltimoCorte = $this->obtenerFechaUltimoCorteEjecutado($distribuidora);
-                $yaHayPagoEnPeriodo = PagoCliente::where('vale_id', $vale->id)
-                    ->whereNull('revertido_en')
-                    ->when($fechaUltimoCorte, fn($q) => $q->where('creado_en', '>', $fechaUltimoCorte))
-                    ->exists();
 
-                if ($yaHayPagoEnPeriodo) {
-                    throw new \RuntimeException('Este vale ya tiene un pago registrado en el corte actual. Podrás registrar otro cuando se ejecute el próximo corte.');
+                $pagosPeriodoQuery = PagoCliente::where('vale_id', $vale->id)
+                    ->whereNull('revertido_en')
+                    ->when($fechaUltimoCorte, fn($q) => $q->where('creado_en', '>', $fechaUltimoCorte));
+
+                $hayPagoCerradorEnPeriodo = (clone $pagosPeriodoQuery)->where('es_parcial', false)->exists();
+
+                if ($hayPagoCerradorEnPeriodo) {
+                    throw new \RuntimeException('Este vale ya tiene la quincena cubierta en el corte actual. Podrás registrar otro pago cuando se ejecute el próximo corte.');
                 }
+
+                $acumuladoPrevioPeriodo = (float) (clone $pagosPeriodoQuery)->sum('monto');
 
                 $saldoActual = round((float) $vale->saldo_actual, 2);
 
@@ -767,20 +771,35 @@ class DashboardController extends Controller
                 $saldoNuevo = round($saldoActual - $monto, 2);
                 $montoTotal = (float) $vale->monto_total_deuda;
                 $montoQuincenal = max(0.01, (float) $vale->monto_quincenal);
+
+                $faltanteQuincena = max(0, round($montoQuincenal - $acumuladoPrevioPeriodo, 2));
+                $esLiquidacion = $saldoNuevo <= 0.009;
+
+                if (!$esLiquidacion && $monto > $faltanteQuincena + 0.009) {
+                    throw new \RuntimeException(
+                        'El monto no puede exceder lo que falta de la quincena actual ($' . number_format($faltanteQuincena, 2) . '). Usa "Liquidar" si quieres pagar todo el saldo.'
+                    );
+                }
+
                 $pagosRealizadosNuevo = (int) floor(($montoTotal - $saldoNuevo) / $montoQuincenal);
+
+                $acumuladoPeriodoTotal = round($acumuladoPrevioPeriodo + $monto, 2);
+                $cierraQuincena = $acumuladoPeriodoTotal >= $montoQuincenal - 0.009;
 
                 if ($saldoNuevo <= 0.009) {
                     $saldoNuevo = 0.0;
                     $nuevoEstado = Vale::ESTADO_LIQUIDADO;
+                    $esParcial = false;
                 } elseif ($vale->estado === Vale::ESTADO_MOROSO) {
                     $nuevoEstado = Vale::ESTADO_MOROSO;
-                } elseif ($monto >= $montoQuincenal - 0.009) {
+                    $esParcial = !$cierraQuincena;
+                } elseif ($cierraQuincena) {
                     $nuevoEstado = Vale::ESTADO_PAGADO;
+                    $esParcial = false;
                 } else {
                     $nuevoEstado = Vale::ESTADO_PAGO_PARCIAL;
+                    $esParcial = true;
                 }
-
-                $esParcial = $saldoNuevo > 0.009 && $monto < ($montoQuincenal - 0.009);
 
                 PagoCliente::create([
                     'vale_id'                => $vale->id,
@@ -808,111 +827,6 @@ class DashboardController extends Controller
         }
 
         return back()->with('success', 'Pago registrado por $' . number_format($monto, 2) . '.');
-    }
-
-    public function revertirPagoCliente(Request $request, int $pagoId): RedirectResponse
-    {
-        $distribuidora = $this->obtenerDistribuidoraActual();
-
-        if (!$distribuidora) {
-            return back()->withErrors(['general' => 'No se encontró una distribuidora ligada a tu acceso.']);
-        }
-
-        $motivo = $request->input('motivo');
-        if (is_string($motivo)) {
-            $motivo = trim($motivo);
-            if ($motivo === '') {
-                $motivo = null;
-            } elseif (mb_strlen($motivo) > 500) {
-                return back()->withErrors(['motivo' => 'El motivo no debe exceder 500 caracteres.']);
-            }
-        } else {
-            $motivo = null;
-        }
-
-        try {
-            DB::transaction(function () use ($pagoId, $distribuidora, $motivo) {
-                $pago = PagoCliente::where('id', $pagoId)
-                    ->where('distribuidora_id', $distribuidora->id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$pago) {
-                    throw new \RuntimeException('El pago no fue encontrado o no pertenece a tu distribuidora.');
-                }
-
-                if ($pago->revertido_en !== null) {
-                    throw new \RuntimeException('Este pago ya fue revertido.');
-                }
-
-                $vale = Vale::where('id', $pago->vale_id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$vale) {
-                    throw new \RuntimeException('El vale asociado al pago ya no existe.');
-                }
-
-                $corteBloqueante = Corte::where('sucursal_id', $vale->sucursal_id)
-                    ->whereIn('estado', [Corte::ESTADO_EJECUTADO, Corte::ESTADO_CERRADO])
-                    ->where('fecha_ejecucion', '>=', $pago->creado_en)
-                    ->exists();
-
-                if ($corteBloqueante) {
-                    throw new \RuntimeException('No puedes deshacer este pago: ya se ejecutó un corte posterior.');
-                }
-
-                $pago->update([
-                    'revertido_en'             => now(),
-                    'revertido_por_usuario_id' => auth()->user()?->id,
-                    'motivo_reversion'         => $motivo,
-                ]);
-
-                $totalPagadoActivo = (float) PagoCliente::where('vale_id', $vale->id)
-                    ->whereNull('revertido_en')
-                    ->sum('monto');
-
-                $montoTotal = (float) $vale->monto_total_deuda;
-                $saldoNuevo = round($montoTotal - $totalPagadoActivo, 2);
-                $montoQuincenal = max(0.01, (float) $vale->monto_quincenal);
-                $pagosRealizadosNuevo = (int) floor($totalPagadoActivo / $montoQuincenal);
-
-                $fechaUltimoCorte = $this->obtenerFechaUltimoCorteEjecutado($distribuidora);
-
-                if ($saldoNuevo <= 0.009) {
-                    $saldoNuevo = 0.0;
-                    $nuevoEstado = Vale::ESTADO_LIQUIDADO;
-                } elseif ($vale->estado === Vale::ESTADO_MOROSO) {
-                    $nuevoEstado = Vale::ESTADO_MOROSO;
-                } else {
-                    $ultimoPagoEnPeriodo = PagoCliente::where('vale_id', $vale->id)
-                        ->whereNull('revertido_en')
-                        ->when($fechaUltimoCorte, fn($q) => $q->where('creado_en', '>', $fechaUltimoCorte))
-                        ->orderByDesc('creado_en')
-                        ->first();
-
-                    if (!$ultimoPagoEnPeriodo) {
-                        $nuevoEstado = Vale::ESTADO_ACTIVO;
-                    } elseif ((float) $ultimoPagoEnPeriodo->monto >= $montoQuincenal - 0.009) {
-                        $nuevoEstado = Vale::ESTADO_PAGADO;
-                    } else {
-                        $nuevoEstado = Vale::ESTADO_PAGO_PARCIAL;
-                    }
-                }
-
-                $vale->update([
-                    'saldo_actual'     => $saldoNuevo,
-                    'pagos_realizados' => $pagosRealizadosNuevo,
-                    'estado'           => $nuevoEstado,
-                ]);
-            });
-        } catch (\RuntimeException $e) {
-            return back()->withErrors(['general' => $e->getMessage()]);
-        } catch (\Exception $e) {
-            return back()->withErrors(['general' => 'Ocurrió un error al deshacer el pago. Intenta de nuevo.']);
-        }
-
-        return back()->with('success', 'Pago revertido.');
     }
 
     private function generarCodigoCliente(): string
@@ -1749,7 +1663,8 @@ class DashboardController extends Controller
     {
         $pagos = [];
         $ultimoPago = null;
-        $yaHayPagoEnPeriodo = false;
+        $acumuladoPeriodo = 0.0;
+        $hayPagoCerradorEnPeriodo = false;
 
         if ($vale->relationLoaded('pagos')) {
             $pagosOrdenados = $vale->pagos
@@ -1765,7 +1680,10 @@ class DashboardController extends Controller
                 );
 
                 if ($esEnPeriodoActual) {
-                    $yaHayPagoEnPeriodo = true;
+                    $acumuladoPeriodo += (float) $pago->monto;
+                    if (!$pago->es_parcial) {
+                        $hayPagoCerradorEnPeriodo = true;
+                    }
                 }
 
                 $pagos[] = [
@@ -1777,7 +1695,6 @@ class DashboardController extends Controller
                     'notas'         => $pago->notas,
                     'creado_en'     => optional($pago->creado_en)->toDateTimeString(),
                     'revertido_en'  => optional($pago->revertido_en)->toDateTimeString(),
-                    'puede_revertir' => $esEnPeriodoActual,
                 ];
 
                 if ($ultimoPago === null && $estaActivo) {
@@ -1792,7 +1709,7 @@ class DashboardController extends Controller
             Vale::ESTADO_PAGADO,
             Vale::ESTADO_MOROSO,
         ];
-        $puedeRegistrarPago = in_array($vale->estado, $estadosPagables, true) && !$yaHayPagoEnPeriodo;
+        $puedeRegistrarPago = in_array($vale->estado, $estadosPagables, true) && !$hayPagoCerradorEnPeriodo;
 
         return [
             'id' => $vale->id,
@@ -1826,7 +1743,7 @@ class DashboardController extends Controller
                 'metodo_pago' => $ultimoPago->metodo_pago,
             ] : null,
             'puede_registrar_pago' => $puedeRegistrarPago,
-            'ya_hay_pago_en_periodo' => $yaHayPagoEnPeriodo,
+            'acumulado_pagos_periodo' => round($acumuladoPeriodo, 2),
         ];
     }
 
