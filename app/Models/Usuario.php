@@ -196,6 +196,17 @@ class Usuario extends Authenticatable
     }
 
     /**
+     * Get the role code as string
+     * 
+     * @return string
+     */
+    public function getRolCodigoAttribute(): string
+    {
+        $rol = $this->obtenerRolPrincipal();
+        return $rol ? $rol->codigo : 'SIN_ROL';
+    }
+
+    /**
      * Check if user has a specific role
      * 
      * @param string $rolCodigo

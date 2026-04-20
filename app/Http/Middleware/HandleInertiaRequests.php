@@ -34,7 +34,7 @@ class HandleInertiaRequests extends Middleware
 
         if ($usuario) {
             $usuario->loadMissing('persona');
-            $usuario->append('rol_nombre');
+            $usuario->append(['rol_nombre', 'rol_codigo']);
 
             $rolPrincipal = $usuario->obtenerRolPrincipal();
 
