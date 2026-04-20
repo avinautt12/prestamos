@@ -950,7 +950,7 @@ class ConciliacionController extends Controller
                 $vale->pagos_realizados += $montoAplicar;
 
                 if ($vale->saldo_actual <= 0.009) {
-                    $vale->estado = \App\Models\Vale::ESTADO_PAGADO;
+                    $vale->estado = \App\Models\Vale::ESTADO_LIQUIDADO;
                 } else {
                     $vale->estado = \App\Models\Vale::ESTADO_PAGO_PARCIAL;
                 }

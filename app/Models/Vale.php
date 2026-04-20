@@ -79,6 +79,7 @@ class Vale extends Model
     public const ESTADO_ACTIVO      = 'ACTIVO';
     public const ESTADO_PAGO_PARCIAL = 'PAGO_PARCIAL';
     public const ESTADO_PAGADO      = 'PAGADO';
+    public const ESTADO_LIQUIDADO   = 'LIQUIDADO';
     public const ESTADO_MOROSO      = 'MOROSO';
     public const ESTADO_RECLAMADO   = 'RECLAMADO';
     public const ESTADO_CANCELADO   = 'CANCELADO';

@@ -110,6 +110,19 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
     }, []);
 
     useEffect(() => {
+        if (!sidebarOpen) {
+            return undefined;
+        }
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [sidebarOpen]);
+
+    useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'instant' });
 
         // Mostrar toast de flash del servidor (success / message / error)
@@ -131,7 +144,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
 
     return (
         <div data-fin-a11y={friendlyMode ? 'on' : 'off'} className="fin-mobile-shell bg-[radial-gradient(circle_at_top_right,_#d1fae5_0%,_#f8fafc_40%,_#eef2ff_100%)]">
-            <div className="fin-mobile-device bg-white/90 backdrop-blur">
+            <div className="fin-mobile-device">
                 <header className="fin-mobile-header border-b" style={{ borderColor: '#D1FAE5' }}>
                     <div className="flex items-center justify-between px-4 py-3">
                         <button
@@ -204,7 +217,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                                 </button>
                             </div>
 
-                            <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto bg-white/50">
+                            <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto overscroll-contain bg-white/50">
                                 {navigation.map((item) => {
                                     const isActive = route().current(item.current);
                                     return (

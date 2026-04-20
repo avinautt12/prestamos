@@ -176,6 +176,8 @@ Route::middleware(['auth', 'role:DISTRIBUIDORA'])->prefix('distribuidora')->name
     Route::get('/vales/crear', [App\Http\Controllers\Distribuidora\DashboardController::class, 'crearVale'])->name('vales.create');
     Route::post('/vales/crear', [App\Http\Controllers\Distribuidora\DashboardController::class, 'guardarPreVale'])->name('vales.store');
     Route::post('/vales/{vale}/cancelar', [App\Http\Controllers\Distribuidora\DashboardController::class, 'cancelarVale'])->name('vales.cancelar');
+    Route::post('/vales/{vale}/pagos', [App\Http\Controllers\Distribuidora\DashboardController::class, 'registrarPagoCliente'])->name('vales.pagos.store');
+    Route::post('/pagos/{pago}/revertir', [App\Http\Controllers\Distribuidora\DashboardController::class, 'revertirPagoCliente'])->name('pagos.revertir');
     Route::get('/puntos', [App\Http\Controllers\Distribuidora\DashboardController::class, 'puntos'])->name('puntos');
     Route::post('/puntos/canjear', [App\Http\Controllers\Distribuidora\DashboardController::class, 'canjearPuntos'])->name('puntos.canjear');
     Route::get('/clientes', [App\Http\Controllers\Distribuidora\DashboardController::class, 'misClientes'])->name('clientes');

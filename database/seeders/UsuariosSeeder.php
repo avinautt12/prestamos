@@ -13,16 +13,13 @@ use Illuminate\Support\Facades\Hash;
 class UsuariosSeeder extends Seeder
 {
     /**
-     * Crea 15 usuarios operativos distribuidos en las 3 sucursales de Torreon:
-     *   - 3 gerentes (1 por sucursal)
-     *   - 3 coordinadores (1 por sucursal)
-     *   - 6 verificadores (2 por sucursal)
-     *   - 3 cajeras (1 por sucursal)
+     * Crea 13 usuarios operativos:
+     *   - 1 ADMIN global
+     *   - Por sucursal (Centro y Norte): 1 gerente, 1 coordinador, 3 verificadores, 1 cajera
      *
-     * Los usuarios de rol DISTRIBUIDORA se crean en DistribuidorasSeeder (Fase 3).
+     * Los usuarios con rol DISTRIBUIDORA se crean en DistribuidorasSeeder.
      *
      * Password común: password123
-     * Correos: {usuario}@prestamofacil.test (dominio reservado, no se resuelve)
      */
     public function run(): void
     {
@@ -93,19 +90,18 @@ class UsuariosSeeder extends Seeder
             );
         }
 
-        $this->command?->info('16 usuarios creados: 1 admin global + 15 operativos (3 sucursales).');
+        $this->command?->info('13 usuarios creados: 1 admin global + 12 operativos (2 sucursales × 6 usuarios).');
         $this->command?->info('Password comun: password123');
         $this->command?->info('Alias: admin / gerente / coordinador / verificador / cajera (los 4 de Centro)');
     }
 
     /**
-     * Definicion explicita de los 15 usuarios. Nombres, CURPs y RFCs
-     * son sinteticos pero con formato valido para pasar validaciones.
+     * 13 usuarios: 1 admin + 6 por sucursal × 2 sucursales.
      */
     private function definicionUsuarios(): array
     {
         return [
-            // ---------- ADMIN (global, sin sucursal) ----------
+            // ---------- ADMIN (global) ----------
             [
                 'nombre_usuario'   => 'admin',
                 'rol'              => 'ADMIN',
@@ -121,7 +117,8 @@ class UsuariosSeeder extends Seeder
                 'correo'           => 'admin@prestamofacil.test',
             ],
 
-            // ---------- GERENTES ----------
+            // ==================== SUCURSAL CENTRO ====================
+            // ---------- GERENTE ----------
             [
                 'nombre_usuario'   => 'gerente',
                 'rol'              => 'GERENTE',
@@ -136,36 +133,7 @@ class UsuariosSeeder extends Seeder
                 'telefono'         => '8711100001',
                 'correo'           => 'gerente@prestamofacil.test',
             ],
-            [
-                'nombre_usuario'   => 'gerente.trc_nte',
-                'rol'              => 'GERENTE',
-                'sucursal'         => 'SUC-TRC-NTE',
-                'primer_nombre'    => 'Patricia',
-                'apellido_paterno' => 'Gonzalez',
-                'apellido_materno' => 'Fuentes',
-                'sexo'             => 'F',
-                'fecha_nacimiento' => '1982-07-22',
-                'curp'             => 'GOFP820722MCLNNT02',
-                'rfc'              => 'GOFP820722B52',
-                'telefono'         => '8711100002',
-                'correo'           => 'gerente.trc_nte@prestamofacil.test',
-            ],
-            [
-                'nombre_usuario'   => 'gerente.trc_sur',
-                'rol'              => 'GERENTE',
-                'sucursal'         => 'SUC-TRC-SUR',
-                'primer_nombre'    => 'Hector',
-                'apellido_paterno' => 'Ramirez',
-                'apellido_materno' => 'Torres',
-                'sexo'             => 'M',
-                'fecha_nacimiento' => '1975-11-30',
-                'curp'             => 'RATH751130HCLMRC03',
-                'rfc'              => 'RATH751130C73',
-                'telefono'         => '8711100003',
-                'correo'           => 'gerente.trc_sur@prestamofacil.test',
-            ],
-
-            // ---------- COORDINADORES ----------
+            // ---------- COORDINADOR ----------
             [
                 'nombre_usuario'   => 'coordinador',
                 'rol'              => 'COORDINADOR',
@@ -180,36 +148,7 @@ class UsuariosSeeder extends Seeder
                 'telefono'         => '8711200001',
                 'correo'           => 'coordinador@prestamofacil.test',
             ],
-            [
-                'nombre_usuario'   => 'coord.trc_nte',
-                'rol'              => 'COORDINADOR',
-                'sucursal'         => 'SUC-TRC-NTE',
-                'primer_nombre'    => 'Laura',
-                'apellido_paterno' => 'Vazquez',
-                'apellido_materno' => 'Morales',
-                'sexo'             => 'F',
-                'fecha_nacimiento' => '1988-09-05',
-                'curp'             => 'VAML880905MCLZRR05',
-                'rfc'              => 'VAML880905E35',
-                'telefono'         => '8711200002',
-                'correo'           => 'coord.trc_nte@prestamofacil.test',
-            ],
-            [
-                'nombre_usuario'   => 'coord.trc_sur',
-                'rol'              => 'COORDINADOR',
-                'sucursal'         => 'SUC-TRC-SUR',
-                'primer_nombre'    => 'Jorge',
-                'apellido_paterno' => 'Castillo',
-                'apellido_materno' => 'Nunez',
-                'sexo'             => 'M',
-                'fecha_nacimiento' => '1980-12-18',
-                'curp'             => 'CANJ801218HCLSXR06',
-                'rfc'              => 'CANJ801218F56',
-                'telefono'         => '8711200003',
-                'correo'           => 'coord.trc_sur@prestamofacil.test',
-            ],
-
-            // ---------- VERIFICADORES ----------
+            // ---------- VERIFICADORES (3) ----------
             [
                 'nombre_usuario'   => 'verificador',
                 'rol'              => 'VERIFICADOR',
@@ -239,63 +178,20 @@ class UsuariosSeeder extends Seeder
                 'correo'           => 'verif2.trc_centro@prestamofacil.test',
             ],
             [
-                'nombre_usuario'   => 'verif1.trc_nte',
+                'nombre_usuario'   => 'verif3.trc_centro',
                 'rol'              => 'VERIFICADOR',
-                'sucursal'         => 'SUC-TRC-NTE',
-                'primer_nombre'    => 'Sergio',
-                'apellido_paterno' => 'Ortega',
-                'apellido_materno' => 'Garcia',
+                'sucursal'         => 'SUC-TRC-CENTRO',
+                'primer_nombre'    => 'Oscar',
+                'apellido_paterno' => 'Hinojosa',
+                'apellido_materno' => 'Villanueva',
                 'sexo'             => 'M',
-                'fecha_nacimiento' => '1987-04-03',
-                'curp'             => 'OEGS870403HCLRRC09',
-                'rfc'              => 'OEGS870403I19',
+                'fecha_nacimiento' => '1991-11-09',
+                'curp'             => 'HIVO911109HCLHLL16',
+                'rfc'              => 'HIVO911109Q16',
                 'telefono'         => '8711300003',
-                'correo'           => 'verif1.trc_nte@prestamofacil.test',
+                'correo'           => 'verif3.trc_centro@prestamofacil.test',
             ],
-            [
-                'nombre_usuario'   => 'verif2.trc_nte',
-                'rol'              => 'VERIFICADOR',
-                'sucursal'         => 'SUC-TRC-NTE',
-                'primer_nombre'    => 'Brenda',
-                'apellido_paterno' => 'Reyes',
-                'apellido_materno' => 'Jimenez',
-                'sexo'             => 'F',
-                'fecha_nacimiento' => '1993-08-21',
-                'curp'             => 'REJB930821MCLYMR10',
-                'rfc'              => 'REJB930821J30',
-                'telefono'         => '8711300004',
-                'correo'           => 'verif2.trc_nte@prestamofacil.test',
-            ],
-            [
-                'nombre_usuario'   => 'verif1.trc_sur',
-                'rol'              => 'VERIFICADOR',
-                'sucursal'         => 'SUC-TRC-SUR',
-                'primer_nombre'    => 'Fernando',
-                'apellido_paterno' => 'Aguilar',
-                'apellido_materno' => 'Vargas',
-                'sexo'             => 'M',
-                'fecha_nacimiento' => '1989-10-11',
-                'curp'             => 'AUVF891011HCLGRR11',
-                'rfc'              => 'AUVF891011K51',
-                'telefono'         => '8711300005',
-                'correo'           => 'verif1.trc_sur@prestamofacil.test',
-            ],
-            [
-                'nombre_usuario'   => 'verif2.trc_sur',
-                'rol'              => 'VERIFICADOR',
-                'sucursal'         => 'SUC-TRC-SUR',
-                'primer_nombre'    => 'Daniela',
-                'apellido_paterno' => 'Navarro',
-                'apellido_materno' => 'Pena',
-                'sexo'             => 'F',
-                'fecha_nacimiento' => '1994-01-07',
-                'curp'             => 'NAPD940107MCLVXN12',
-                'rfc'              => 'NAPD940107L72',
-                'telefono'         => '8711300006',
-                'correo'           => 'verif2.trc_sur@prestamofacil.test',
-            ],
-
-            // ---------- CAJERAS ----------
+            // ---------- CAJERA ----------
             [
                 'nombre_usuario'   => 'cajera',
                 'rol'              => 'CAJERA',
@@ -310,6 +206,82 @@ class UsuariosSeeder extends Seeder
                 'telefono'         => '8711400001',
                 'correo'           => 'cajera@prestamofacil.test',
             ],
+
+            // ==================== SUCURSAL NORTE ====================
+            // ---------- GERENTE ----------
+            [
+                'nombre_usuario'   => 'gerente.trc_nte',
+                'rol'              => 'GERENTE',
+                'sucursal'         => 'SUC-TRC-NTE',
+                'primer_nombre'    => 'Patricia',
+                'apellido_paterno' => 'Gonzalez',
+                'apellido_materno' => 'Fuentes',
+                'sexo'             => 'F',
+                'fecha_nacimiento' => '1982-07-22',
+                'curp'             => 'GOFP820722MCLNNT02',
+                'rfc'              => 'GOFP820722B52',
+                'telefono'         => '8711100002',
+                'correo'           => 'gerente.trc_nte@prestamofacil.test',
+            ],
+            // ---------- COORDINADOR ----------
+            [
+                'nombre_usuario'   => 'coord.trc_nte',
+                'rol'              => 'COORDINADOR',
+                'sucursal'         => 'SUC-TRC-NTE',
+                'primer_nombre'    => 'Laura',
+                'apellido_paterno' => 'Vazquez',
+                'apellido_materno' => 'Morales',
+                'sexo'             => 'F',
+                'fecha_nacimiento' => '1988-09-05',
+                'curp'             => 'VAML880905MCLZRR05',
+                'rfc'              => 'VAML880905E35',
+                'telefono'         => '8711200002',
+                'correo'           => 'coord.trc_nte@prestamofacil.test',
+            ],
+            // ---------- VERIFICADORES (3) ----------
+            [
+                'nombre_usuario'   => 'verif1.trc_nte',
+                'rol'              => 'VERIFICADOR',
+                'sucursal'         => 'SUC-TRC-NTE',
+                'primer_nombre'    => 'Sergio',
+                'apellido_paterno' => 'Ortega',
+                'apellido_materno' => 'Garcia',
+                'sexo'             => 'M',
+                'fecha_nacimiento' => '1987-04-03',
+                'curp'             => 'OEGS870403HCLRRC09',
+                'rfc'              => 'OEGS870403I19',
+                'telefono'         => '8711300004',
+                'correo'           => 'verif1.trc_nte@prestamofacil.test',
+            ],
+            [
+                'nombre_usuario'   => 'verif2.trc_nte',
+                'rol'              => 'VERIFICADOR',
+                'sucursal'         => 'SUC-TRC-NTE',
+                'primer_nombre'    => 'Brenda',
+                'apellido_paterno' => 'Reyes',
+                'apellido_materno' => 'Jimenez',
+                'sexo'             => 'F',
+                'fecha_nacimiento' => '1993-08-21',
+                'curp'             => 'REJB930821MCLYMR10',
+                'rfc'              => 'REJB930821J30',
+                'telefono'         => '8711300005',
+                'correo'           => 'verif2.trc_nte@prestamofacil.test',
+            ],
+            [
+                'nombre_usuario'   => 'verif3.trc_nte',
+                'rol'              => 'VERIFICADOR',
+                'sucursal'         => 'SUC-TRC-NTE',
+                'primer_nombre'    => 'Raul',
+                'apellido_paterno' => 'Delgado',
+                'apellido_materno' => 'Escobedo',
+                'sexo'             => 'M',
+                'fecha_nacimiento' => '1989-12-02',
+                'curp'             => 'DEER891202HCLLSC17',
+                'rfc'              => 'DEER891202R17',
+                'telefono'         => '8711300006',
+                'correo'           => 'verif3.trc_nte@prestamofacil.test',
+            ],
+            // ---------- CAJERA ----------
             [
                 'nombre_usuario'   => 'cajera.trc_nte',
                 'rol'              => 'CAJERA',
@@ -323,20 +295,6 @@ class UsuariosSeeder extends Seeder
                 'rfc'              => 'CORV910319N14',
                 'telefono'         => '8711400002',
                 'correo'           => 'cajera.trc_nte@prestamofacil.test',
-            ],
-            [
-                'nombre_usuario'   => 'cajera.trc_sur',
-                'rol'              => 'CAJERA',
-                'sucursal'         => 'SUC-TRC-SUR',
-                'primer_nombre'    => 'Monica',
-                'apellido_paterno' => 'Silva',
-                'apellido_materno' => 'Herrera',
-                'sexo'             => 'F',
-                'fecha_nacimiento' => '1984-07-08',
-                'curp'             => 'SIHM840708MCLLRN15',
-                'rfc'              => 'SIHM840708P35',
-                'telefono'         => '8711400003',
-                'correo'           => 'cajera.trc_sur@prestamofacil.test',
             ],
         ];
     }

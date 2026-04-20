@@ -118,7 +118,7 @@ class CortesSeeder extends Seeder
         $cortePadre = $cortesCreados[Corte::ESTADO_EJECUTADO];
 
         $vales = Vale::where('distribuidora_id', $distActiva->id)
-            ->whereIn('estado', [Vale::ESTADO_ACTIVO, Vale::ESTADO_PAGO_PARCIAL, Vale::ESTADO_PAGADO, Vale::ESTADO_MOROSO])
+            ->whereIn('estado', [Vale::ESTADO_ACTIVO, Vale::ESTADO_PAGO_PARCIAL, Vale::ESTADO_LIQUIDADO, Vale::ESTADO_MOROSO])
             ->orderBy('id')
             ->get();
 

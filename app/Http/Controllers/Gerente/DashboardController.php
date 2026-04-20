@@ -209,7 +209,7 @@ class DashboardController extends Controller
                 Vale::ESTADO_ACTIVO,
                 Vale::ESTADO_PAGO_PARCIAL,
                 Vale::ESTADO_MOROSO,
-                Vale::ESTADO_PAGADO,
+                Vale::ESTADO_LIQUIDADO,
             ])
             ->join('productos_financieros', 'vales.producto_financiero_id', '=', 'productos_financieros.id')
             ->sum('productos_financieros.monto_principal') ?? 0);

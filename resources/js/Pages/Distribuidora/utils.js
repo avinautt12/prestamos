@@ -34,7 +34,7 @@ export function formatDate(value, withTime = false) {
 export function statusBadgeClass(status) {
     const normalized = (status || '').toUpperCase();
 
-    if (['ACTIVA', 'ACTIVO', 'PAGADA', 'CONCILIADO', 'CONCILIADA', 'VERIFICADA', 'GANADO_PUNTUAL', 'GANADO_ANTICIPADO', 'HABILITADA'].includes(normalized)) {
+    if (['ACTIVA', 'ACTIVO', 'PAGADA', 'PAGADO', 'LIQUIDADO', 'CONCILIADO', 'CONCILIADA', 'VERIFICADA', 'GANADO_PUNTUAL', 'GANADO_ANTICIPADO', 'HABILITADA'].includes(normalized)) {
         return 'fin-badge fin-badge-approved';
     }
 

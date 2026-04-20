@@ -26,8 +26,8 @@ const TabButton = ({ active, index, onClick, hasError, children }) => (
         onClick={onClick}
         className={`flex items-center justify-center w-full gap-2 px-3 py-3 text-sm font-medium text-center transition-colors rounded-xl ${active
             ? 'text-blue-700 bg-blue-50 border border-blue-200'
-            : (hasError 
-                ? 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100' 
+            : (hasError
+                ? 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100'
                 : 'text-gray-600 bg-white border border-transparent hover:border-gray-200 hover:bg-gray-50')
             }`}
     >
@@ -90,19 +90,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         vehiculos: 4,
         ine_frente: 5, ine_reverso: 5, comprobante_domicilio: 5, reporte_buro: 5,
     }), []);
-
-    const tabsWithErrors = useMemo(() => {
-        const result = new Set();
-        Object.keys(errors).forEach(key => {
-            const rootKey = key.split('.')[0];
-            const tabNumber = fieldTabMap[key] ?? fieldTabMap[rootKey];
-            if (typeof tabNumber === 'number') {
-                result.add(tabNumber);
-            }
-        });
-        return result;
-    }, [errors, fieldTabMap]);
-
+    
     const comprimirImagen = (file, maxDimension = 1600, quality = 0.82) => new Promise((resolve) => {
         if (!file || !file.type?.startsWith('image/')) return resolve(file);
         const reader = new FileReader();
@@ -181,6 +169,18 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         ...initialData,
         _method: isEditing ? 'PUT' : 'POST'
     });
+
+    const tabsWithErrors = useMemo(() => {
+        const result = new Set();
+        Object.keys(errors).forEach(key => {
+            const rootKey = key.split('.')[0];
+            const tabNumber = fieldTabMap[key] ?? fieldTabMap[rootKey];
+            if (typeof tabNumber === 'number') {
+                result.add(tabNumber);
+            }
+        });
+        return result;
+    }, [errors, fieldTabMap]);
 
     const handleDocumentoChange = async (field, file) => {
         if (!file) return setData(field, null);
@@ -934,7 +934,7 @@ function VehiculosTab({ data, updateVehiculo, addVehiculo, removeVehiculo, error
     );
 }
 
-const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file, isEditing, onFileChange }) => {
+const DocumentCard = ({ id, label, accept, fieldName, error, path, file, isEditing, onFileChange }) => {
     const hasFile = file || (isEditing && path);
     const fileName = file?.name || (isEditing && path ? 'Archivo guardado' : 'Sin documento cargado');
 
@@ -948,7 +948,7 @@ const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file
                 <input id={`${id}_camera`} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onFileChange(fieldName, e.target.files?.[0]); e.target.value = ''; }} />
 
                 <label htmlFor={`${id}_file`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
-                    <FontAwesomeIcon icon={faFileUpload} className="text-lg" /> Subir Imagen
+                    <FontAwesomeIcon icon={faFileUpload} className="text-lg" /> Subir archivo
                 </label>
                 <input id={`${id}_file`} type="file" accept={accept} className="hidden" onChange={(e) => { onFileChange(fieldName, e.target.files?.[0]); e.target.value = ''; }} />
             </div>
@@ -966,18 +966,19 @@ const DocumentCard = ({ id, label, accept, capture, fieldName, error, path, file
 
 function FinalizarTab({ data, setData, errors, handleDocumentoChange, isEditing }) {
     const validImageFormats = "image/jpeg, image/png";
+    const validDocumentFormats = "image/jpeg, image/png, application/pdf";
 
     return (
         <div className="p-4 space-y-4">
             <h2 className="text-lg font-semibold">Finalizar Solicitud</h2>
 
             <div className="p-4 bg-white border border-gray-200 rounded-lg">
-                <h3 className="mb-4 text-sm font-semibold text-gray-800">Documentos obligatorios (Solo JPG/PNG)</h3>
+                <h3 className="mb-4 text-sm font-semibold text-gray-800">Documentos obligatorios (INE: JPG/PNG · Comprobante y Buró: JPG/PNG/PDF)</h3>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <DocumentCard id="ine_frente" fieldName="ine_frente" label="INE frente" accept={validImageFormats} error={errors.ine_frente} path={data.ine_frente_path} file={data.ine_frente} isEditing={isEditing} onFileChange={handleDocumentoChange} />
                     <DocumentCard id="ine_reverso" fieldName="ine_reverso" label="INE reverso" accept={validImageFormats} error={errors.ine_reverso} path={data.ine_reverso_path} file={data.ine_reverso} isEditing={isEditing} onFileChange={handleDocumentoChange} />
-                    <DocumentCard id="comprobante_domicilio" fieldName="comprobante_domicilio" label="Comprobante de domicilio" accept={validImageFormats} error={errors.comprobante_domicilio} path={data.comprobante_domicilio_path} file={data.comprobante_domicilio} isEditing={isEditing} onFileChange={handleDocumentoChange} />
-                    <DocumentCard id="reporte_buro" fieldName="reporte_buro" label="Reporte de buró" accept={validImageFormats} error={errors.reporte_buro} path={data.reporte_buro_path} file={data.reporte_buro} isEditing={isEditing} onFileChange={handleDocumentoChange} />
+                    <DocumentCard id="comprobante_domicilio" fieldName="comprobante_domicilio" label="Comprobante de domicilio" accept={validDocumentFormats} error={errors.comprobante_domicilio} path={data.comprobante_domicilio_path} file={data.comprobante_domicilio} isEditing={isEditing} onFileChange={handleDocumentoChange} />
+                    <DocumentCard id="reporte_buro" fieldName="reporte_buro" label="Reporte de buró" accept={validDocumentFormats} error={errors.reporte_buro} path={data.reporte_buro_path} file={data.reporte_buro} isEditing={isEditing} onFileChange={handleDocumentoChange} />
                 </div>
                 <p className="mt-4 text-xs text-gray-500">Las imágenes se optimizan automáticamente antes del envío.</p>
             </div>
