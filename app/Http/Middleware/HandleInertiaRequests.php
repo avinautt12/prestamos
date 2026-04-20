@@ -45,8 +45,6 @@ class HandleInertiaRequests extends Middleware
                     ->orderByDesc('usuario_rol.es_principal')
                     ->orderByDesc('usuario_rol.asignado_en')
                     ->value('usuario_rol.sucursal_id');
-
-                $usuario->rol_nombre = $rolPrincipal->nombre;
             }
         }
 

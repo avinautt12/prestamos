@@ -193,7 +193,7 @@ Route::middleware(['auth', 'role:DISTRIBUIDORA'])->prefix('distribuidora')->name
 Route::middleware(['auth'])->get('/dashboard', function () {
     /** @var Usuario $user */
     $user = Auth::user();
-    $rol = $user->getRolNombreAttribute();
+    $rol = $user->rol_principal ? strtolower($user->rol_principal->codigo) : 'sin-rol';
 
     switch ($rol) {
         case 'admin':
