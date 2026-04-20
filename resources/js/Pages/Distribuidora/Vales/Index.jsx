@@ -70,7 +70,8 @@ function ValeDetailModal({ vale, open, onClose }) {
     } else {
         estadoPrevisto = 'PAGO_PARCIAL';
     }
-    const montoInvalido = !pagoForm.data.monto || montoNum <= 0 || montoNum > saldoActual + 0.009;
+    const montoMaxPermitido = tipoPago === 'LIQUIDAR' ? saldoActual : montoCompleto;
+    const montoInvalido = !pagoForm.data.monto || montoNum <= 0 || montoNum > montoMaxPermitido + 0.009;
 
     const cancelarVale = () => {
         if (!window.confirm('¿Seguro que deseas cancelar este vale? Esta acción no se puede deshacer.')) return;
