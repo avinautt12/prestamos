@@ -28,15 +28,6 @@ class SucursalesSeeder extends Seeder
                 'creado_en' => now(),
                 'actualizado_en' => now(),
             ],
-            [
-                'codigo' => 'SUC-TRC-SUR',
-                'nombre' => 'Sucursal Torreon Sur',
-                'direccion_texto' => 'Periferico Raul Lopez Sanchez 3200, Col. La Rosita, Torreon, Coahuila, Mexico',
-                'telefono' => '8711000002',
-                'activo' => true,
-                'creado_en' => now(),
-                'actualizado_en' => now(),
-            ],
         ];
 
         foreach ($sucursales as $sucursal) {
@@ -46,6 +37,6 @@ class SucursalesSeeder extends Seeder
             );
         }
 
-        $this->command?->info('3 sucursales de Torreon creadas: Centro, Norte y Sur');
+        $this->command?->info('2 sucursales de Torreon creadas: Centro y Norte.');
     }
 }

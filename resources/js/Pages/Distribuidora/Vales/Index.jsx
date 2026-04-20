@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faMoneyBillWave, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faMoneyBillWave } from '@fortawesome/free-solid-svg-icons';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from '../utils';
 import FinDatePicker from '@/Components/FinDatePicker';
@@ -11,7 +11,6 @@ const ESTADOS_PAGABLES = ['ACTIVO', 'PAGO_PARCIAL', 'PAGADO', 'MOROSO'];
 function ValeDetailModal({ vale, open, onClose }) {
     const [cancelando, setCancelando] = useState(false);
     const [tipoPago, setTipoPago] = useState('COMPLETO');
-    const [revirtiendoId, setRevirtiendoId] = useState(null);
 
     const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
     const estaEnEstadoPagable = Boolean(vale) && ESTADOS_PAGABLES.includes(vale?.estado);
@@ -19,7 +18,10 @@ function ValeDetailModal({ vale, open, onClose }) {
     const pagoBloqueadoPorPeriodo = estaEnEstadoPagable && !puedePagar;
     const saldoActual = Number(vale?.saldo_actual || 0);
     const montoQuincenal = Number(vale?.monto_quincenal || 0);
-    const completoDisponible = montoQuincenal > 0 && saldoActual >= montoQuincenal - 0.009;
+    const acumuladoPeriodo = Number(vale?.acumulado_pagos_periodo || 0);
+    const faltanteQuincena = Math.max(0, Number((montoQuincenal - acumuladoPeriodo).toFixed(2)));
+    const montoCompleto = Math.min(faltanteQuincena, saldoActual);
+    const completoDisponible = montoCompleto > 0.009;
 
     const pagoForm = useForm({
         monto: '',
@@ -31,7 +33,7 @@ function ValeDetailModal({ vale, open, onClose }) {
         if (!vale) return;
         const tipoInicial = completoDisponible ? 'COMPLETO' : 'LIQUIDAR';
         const montoInicial = tipoInicial === 'COMPLETO'
-            ? montoQuincenal.toFixed(2)
+            ? montoCompleto.toFixed(2)
             : saldoActual.toFixed(2);
         setTipoPago(tipoInicial);
         pagoForm.clearErrors();
@@ -41,13 +43,13 @@ function ValeDetailModal({ vale, open, onClose }) {
             notas: '',
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [vale?.id, vale?.saldo_actual]);
+    }, [vale?.id, vale?.saldo_actual, vale?.acumulado_pagos_periodo]);
 
     const switchTipoPago = (nuevo) => {
         setTipoPago(nuevo);
         pagoForm.clearErrors('monto');
         if (nuevo === 'COMPLETO') {
-            pagoForm.setData('monto', montoQuincenal.toFixed(2));
+            pagoForm.setData('monto', montoCompleto.toFixed(2));
         } else if (nuevo === 'LIQUIDAR') {
             pagoForm.setData('monto', saldoActual.toFixed(2));
         } else {
@@ -57,12 +59,14 @@ function ValeDetailModal({ vale, open, onClose }) {
 
     const montoNum = parseFloat(pagoForm.data.monto) || 0;
     const saldoDespues = Math.max(0, Number((saldoActual - montoNum).toFixed(2)));
+    const acumuladoDespues = Number((acumuladoPeriodo + montoNum).toFixed(2));
+    const cierraQuincena = montoQuincenal > 0 && acumuladoDespues >= montoQuincenal - 0.009;
     let estadoPrevisto;
     if (saldoDespues <= 0.009) {
         estadoPrevisto = 'LIQUIDADO';
     } else if (vale?.estado === 'MOROSO') {
         estadoPrevisto = 'MOROSO';
-    } else if (montoQuincenal > 0 && montoNum >= montoQuincenal - 0.009) {
+    } else if (cierraQuincena) {
         estadoPrevisto = 'PAGADO';
     } else {
         estadoPrevisto = 'PAGO_PARCIAL';
@@ -90,17 +94,6 @@ function ValeDetailModal({ vale, open, onClose }) {
             onSuccess: () => {
                 setTipoPago('COMPLETO');
             },
-        });
-    };
-
-    const revertirPago = (pago) => {
-        const mensaje = `¿Deshacer el pago de ${formatCurrency(pago.monto)} del ${formatDate(pago.fecha_pago)}?`;
-        if (!window.confirm(mensaje)) return;
-        const motivo = window.prompt('Motivo de la reversa (opcional):') || '';
-        setRevirtiendoId(pago.id);
-        router.post(route('distribuidora.pagos.revertir', pago.id), { motivo }, {
-            preserveScroll: true,
-            onFinish: () => setRevirtiendoId(null),
         });
     };
 
@@ -238,8 +231,8 @@ function ValeDetailModal({ vale, open, onClose }) {
                                         onClick={() => switchTipoPago('COMPLETO')}
                                         className={`py-2 text-sm font-semibold rounded-lg border transition ${tipoPago === 'COMPLETO' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
                                     >
-                                        Completo
-                                        <span className="block text-[10px] font-normal opacity-80">({formatCurrency(montoQuincenal)})</span>
+                                        {acumuladoPeriodo > 0.009 ? 'Completar quincena' : 'Completo'}
+                                        <span className="block text-[10px] font-normal opacity-80">({formatCurrency(montoCompleto)})</span>
                                     </button>
                                 )}
                                 <button
@@ -259,13 +252,16 @@ function ValeDetailModal({ vale, open, onClose }) {
                                         type="number"
                                         step="0.01"
                                         min="0.01"
-                                        max={saldoActual.toFixed(2)}
+                                        max={(tipoPago === 'LIQUIDAR' ? saldoActual : montoCompleto).toFixed(2)}
                                         value={pagoForm.data.monto}
                                         onChange={(event) => pagoForm.setData('monto', event.target.value)}
                                         disabled={tipoPago !== 'PARCIAL' || pagoForm.processing}
                                         className="fin-input"
                                         placeholder="0.00"
                                     />
+                                    {tipoPago === 'PARCIAL' && montoCompleto > 0 && (
+                                        <p className="mt-1 text-xs text-gray-500">Máximo para esta quincena: {formatCurrency(montoCompleto)}</p>
+                                    )}
                                     {pagoForm.errors.monto && <p className="mt-1 text-xs text-red-600">{pagoForm.errors.monto}</p>}
                                 </div>
                                 <div>
@@ -297,6 +293,9 @@ function ValeDetailModal({ vale, open, onClose }) {
 
                             <div className="p-3 text-sm bg-white border border-gray-200 rounded-lg">
                                 <p className="font-semibold text-gray-700">Resumen</p>
+                                {acumuladoPeriodo > 0.009 && (
+                                    <p className="mt-1 text-gray-600">Abonado este corte: <span className="font-semibold text-gray-900">{formatCurrency(acumuladoPeriodo)}</span> de {formatCurrency(montoQuincenal)}</p>
+                                )}
                                 <p className="mt-1 text-gray-600">Saldo actual: <span className="font-semibold text-gray-900">{formatCurrency(saldoActual)}</span></p>
                                 <p className="text-gray-600">Después del pago: <span className="font-semibold text-gray-900">{formatCurrency(saldoDespues)}</span></p>
                                 <p className="inline-flex flex-wrap items-center gap-2 text-gray-600">
@@ -321,40 +320,18 @@ function ValeDetailModal({ vale, open, onClose }) {
                         <div className="p-4 border rounded-xl border-gray-200">
                             <p className="text-sm font-semibold text-gray-900">Histórico de pagos</p>
                             <div className="mt-3 divide-y divide-gray-100">
-                                {pagos.map((pago) => {
-                                    const revertido = Boolean(pago.revertido_en);
-                                    return (
-                                        <div key={pago.id} className={`flex items-center justify-between gap-3 py-3 ${revertido ? 'opacity-60' : ''}`}>
-                                            <div className="min-w-0">
-                                                <p className={`text-sm font-semibold text-gray-900 ${revertido ? 'line-through' : ''}`}>
-                                                    {formatCurrency(pago.monto)}
-                                                </p>
-                                                <p className="text-xs text-gray-500">
-                                                    {formatDate(pago.fecha_pago, true)} · {pago.metodo_pago}
-                                                    {pago.es_parcial ? ' · parcial' : ' · completo'}
-                                                </p>
-                                                {pago.notas && <p className="text-xs italic text-gray-500">"{pago.notas}"</p>}
-                                            </div>
-                                            <div className="flex-shrink-0">
-                                                {revertido ? (
-                                                    <span className="fin-badge fin-badge-rejected">Revertido</span>
-                                                ) : pago.puede_revertir ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => revertirPago(pago)}
-                                                        disabled={revirtiendoId === pago.id}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-red-700 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
-                                                    >
-                                                        <FontAwesomeIcon icon={faRotateLeft} />
-                                                        {revirtiendoId === pago.id ? 'Deshaciendo...' : 'Deshacer'}
-                                                    </button>
-                                                ) : (
-                                                    <span className="text-xs text-gray-400">Cerrado en corte</span>
-                                                )}
-                                            </div>
+                                {pagos.map((pago) => (
+                                    <div key={pago.id} className="flex items-start justify-between gap-3 py-3">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-gray-900">{formatCurrency(pago.monto)}</p>
+                                            <p className="text-xs text-gray-500">
+                                                {formatDate(pago.fecha_pago, true)} · {pago.metodo_pago}
+                                                {pago.es_parcial ? ' · parcial' : ' · completo'}
+                                            </p>
+                                            {pago.notas && <p className="text-xs italic text-gray-500">"{pago.notas}"</p>}
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
