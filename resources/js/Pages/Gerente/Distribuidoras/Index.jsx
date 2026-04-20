@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import FinDatePicker from '@/Components/FinDatePicker';
 import {
     faListCheck,
     faMagnifyingGlass,
@@ -57,12 +58,12 @@ export default function Index({ solicitudes, filters, securityPolicy }) {
         runFilter({ verificador: event.target.value });
     };
 
-    const handleDesde = (event) => {
-        runFilter({ fecha_desde: event.target.value });
+    const handleDesde = (value) => {
+        runFilter({ fecha_desde: value });
     };
 
-    const handleHasta = (event) => {
-        runFilter({ fecha_hasta: event.target.value });
+    const handleHasta = (value) => {
+        runFilter({ fecha_hasta: value });
     };
 
     return (
@@ -110,21 +111,19 @@ export default function Index({ solicitudes, filters, securityPolicy }) {
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Desde</label>
-                        <input
-                            type="date"
-                            defaultValue={filters.fecha_desde || ''}
+                        <FinDatePicker
+                            value={filters.fecha_desde || ''}
                             onChange={handleDesde}
-                            className="fin-input mt-1"
+                            placeholder="Desde..."
                         />
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Hasta</label>
-                        <input
-                            type="date"
-                            defaultValue={filters.fecha_hasta || ''}
+                        <FinDatePicker
+                            value={filters.fecha_hasta || ''}
                             onChange={handleHasta}
-                            className="fin-input mt-1"
+                            placeholder="Hasta..."
                         />
                     </div>
                 </div>

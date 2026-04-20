@@ -2,6 +2,7 @@ import React from 'react';
 import { Head, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import FinDatePicker from '@/Components/FinDatePicker';
 import {
     faMagnifyingGlass,
     faCircleInfo,
@@ -66,21 +67,19 @@ export default function Rechazadas({ solicitudes, filters }) {
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Desde</label>
-                        <input
-                            type="date"
-                            defaultValue={filters.fecha_desde || ''}
-                            onChange={(event) => runFilter({ fecha_desde: event.target.value })}
-                            className="mt-1 fin-input"
+                        <FinDatePicker
+                            value={filters.fecha_desde || ''}
+                            onChange={(value) => runFilter({ fecha_desde: value })}
+                            placeholder="Desde..."
                         />
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Hasta</label>
-                        <input
-                            type="date"
-                            defaultValue={filters.fecha_hasta || ''}
-                            onChange={(event) => runFilter({ fecha_hasta: event.target.value })}
-                            className="mt-1 fin-input"
+                        <FinDatePicker
+                            value={filters.fecha_hasta || ''}
+                            onChange={(value) => runFilter({ fecha_hasta: value })}
+                            placeholder="Hasta..."
                         />
                     </div>
                 </div>
