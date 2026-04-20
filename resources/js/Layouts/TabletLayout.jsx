@@ -27,9 +27,9 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
 
     // Ruta base dependiendo del rol
     let homeRoute = '/';
-    if (auth.user?.rol_nombre === 'coordinador') homeRoute = route('coordinador.dashboard');
-    else if (auth.user?.rol_nombre === 'cajera') homeRoute = route('cajera.dashboard');
-    else if (auth.user?.rol_nombre === 'verificador') homeRoute = route('verificador.dashboard');
+    if (auth.user?.rol_codigo === 'COORDINADOR') homeRoute = route('coordinador.dashboard');
+    else if (auth.user?.rol_codigo === 'CAJERA') homeRoute = route('cajera.dashboard');
+    else if (auth.user?.rol_codigo === 'VERIFICADOR') homeRoute = route('verificador.dashboard');
 
     const agregarToast = (titulo, mensaje) => {
         const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -42,7 +42,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
     useEffect(() => {
         const userId = auth?.user?.id;
         const sucursalId = auth?.sucursal_id;
-        const rol = auth?.user?.rol_nombre;
+        const rolCodigo = auth?.user?.rol_codigo;
 
         if (!userId || !window.Echo) {
             return;
@@ -54,20 +54,20 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
         if (sucursalId) {
             sucursalChannel = window.Echo.private(`sucursal.${sucursalId}`);
 
-            if (rol === 'verificador') {
+            if (rolCodigo === 'VERIFICADOR') {
                 sucursalChannel.listen('.SolicitudPendienteVerificacion', (payload) => {
                     agregarToast('Nueva solicitud por verificar', `${payload.cliente_nombre} (folio #${payload.solicitud_id})`);
                 });
             }
 
-            if (rol === 'coordinador') {
+            if (rolCodigo === 'COORDINADOR') {
                 sucursalChannel.listen('.AlertaMorosidad', (payload) => {
                     agregarToast('Alerta de morosidad', payload.cliente_nombre || 'Se detectó una cuenta morosa');
                 });
             }
         }
 
-        if (rol === 'coordinador') {
+        if (rolCodigo === 'COORDINADOR') {
             userChannel.listen('.DictamenSolicitud', (payload) => {
                 const estatus = payload.resultado === 'VERIFICADA' ? 'verificada' : 'rechazada';
                 agregarToast('Dictamen recibido', `${payload.cliente_nombre} fue ${estatus}`);
@@ -80,7 +80,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
                 window.Echo.leave(`sucursal.${sucursalId}`);
             }
         };
-    }, [auth?.user?.id, auth?.user?.rol_nombre, auth?.sucursal_id]);
+    }, [auth?.user?.id, auth?.user?.rol_codigo, auth?.sucursal_id]);
 
     useEffect(() => {
         setSidebarOpen(false);
@@ -107,7 +107,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
     let navigation = [];
     let shortcuts = [];
 
-    if (auth.user?.rol_nombre === 'coordinador') {
+    if (auth.user?.rol_codigo === 'COORDINADOR') {
         navigation = [
             { name: 'Dashboard', href: route('coordinador.dashboard'), icon: faHouse, active: route().current('coordinador.dashboard') },
             { name: 'Nueva Solicitud', href: route('coordinador.solicitudes.create'), icon: faFileCirclePlus, active: route().current('coordinador.solicitudes.create') },
@@ -123,7 +123,7 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
             { name: 'Traspasos', href: route('coordinador.traspasos.index') },
             { name: 'Ver cartera de clientes', href: route('coordinador.clientes') },
         ];
-    } else if (auth.user?.rol_nombre === 'cajera') {
+    } else if (auth.user?.rol_codigo === 'CAJERA') {
         navigation = [
             { name: 'Dashboard', href: route('cajera.dashboard'), icon: faHouse, active: route().current('cajera.dashboard') },
             { name: 'Prevales', href: route('cajera.prevale.index'), icon: faFileLines, active: route().current('cajera.prevale.*') },
