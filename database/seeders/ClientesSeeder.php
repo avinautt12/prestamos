@@ -11,53 +11,49 @@ use Illuminate\Support\Facades\DB;
 class ClientesSeeder extends Seeder
 {
     /**
-     * Crea ~22 clientes cubriendo todos los estados:
-     *   - 2 ACTIVO por distribuidora ACTIVA (18 total)
-     *   - 1 EN_VERIFICACION (prospecto recien creado sin cajera aun)
-     *   - 1 BLOQUEADO (rechazado por parentesco)
-     *   - 1 MOROSO (con deuda vencida)
-     *   - 1 INACTIVO (ya no opera)
+     * Crea 2–3 clientes ACTIVO por cada distribuidora ACTIVA (total ~10).
+     * El número de clientes por distribuidora es variable (alterna 3/2/3/2) para
+     * dar variedad en los seeders.
      *
-     * Vincula pivot clientes_distribuidora con los 3 estado_relacion posibles
-     * (ACTIVA, BLOQUEADA, TERMINADA).
+     * Las distribuidoras CANDIDATA no reciben clientes (aún no operan).
      */
     public function run(): void
     {
-        $distribuidorasActivas = Distribuidora::where('estado', Distribuidora::ESTADO_ACTIVA)->get();
+        $distribuidorasActivas = Distribuidora::where('estado', Distribuidora::ESTADO_ACTIVA)
+            ->orderBy('id')
+            ->get();
 
         if ($distribuidorasActivas->isEmpty()) {
             $this->command?->warn('No hay distribuidoras ACTIVA. Corre DistribuidorasSeeder primero.');
             return;
         }
 
-        $codigo = 1;
-
-        // 1. Clientes ACTIVO: 2 por distribuidora ACTIVA
-        $nombresActivos = [
+        // Pool de nombres para clientes. Alcanza para ~12 (4 distribuidoras × 3 máx).
+        $nombresClientes = [
             ['Sofia', 'Jimenez', 'Cruz', 'F'],
             ['Luis', 'Hernandez', 'Peralta', 'M'],
             ['Maria Elena', 'Rodriguez', 'Sanchez', 'F'],
-            ['Carlos', 'Hernandez', 'Lopez', 'M'],
+            ['Carlos', 'Ramirez', 'Lopez', 'M'],
             ['Laura Patricia', 'Gomez', 'Torres', 'F'],
             ['Jose', 'Villarreal', 'Nava', 'M'],
             ['Ana', 'Cortez', 'Robles', 'F'],
-            ['Pedro', 'Ramirez', 'Soto', 'M'],
+            ['Pedro', 'Aguilar', 'Soto', 'M'],
             ['Gabriela', 'Moreno', 'Serna', 'F'],
             ['Rafael', 'Castro', 'Aguirre', 'M'],
             ['Claudia', 'Tapia', 'Villegas', 'F'],
             ['Miguel', 'Herrera', 'Benitez', 'M'],
-            ['Angelica', 'Robledo', 'Espinoza', 'F'],
-            ['Rodrigo', 'Sauceda', 'Alvarez', 'M'],
-            ['Yolanda', 'Ibarra', 'Montemayor', 'F'],
-            ['Eduardo', 'Nava', 'Zepeda', 'M'],
-            ['Dora', 'Maldonado', 'Contreras', 'F'],
-            ['Jesus', 'Villegas', 'Ruelas', 'M'],
         ];
 
+        $codigo = 1;
         $idx = 0;
-        foreach ($distribuidorasActivas as $distribuidora) {
-            for ($j = 0; $j < 2 && $idx < count($nombresActivos); $j++, $idx++) {
-                $n = $nombresActivos[$idx];
+        // Patrón variable 3 / 2 / 3 / 2 para dar variedad
+        $cantidadPorDist = [3, 2, 3, 2];
+
+        foreach ($distribuidorasActivas as $d => $distribuidora) {
+            $cantidad = $cantidadPorDist[$d % count($cantidadPorDist)];
+
+            for ($j = 0; $j < $cantidad && $idx < count($nombresClientes); $j++, $idx++) {
+                $n = $nombresClientes[$idx];
                 $cliente = $this->crearClienteConPersona(
                     codigo: 'CLI-COMP-' . str_pad((string) $codigo++, 3, '0', STR_PAD_LEFT),
                     nombre: $n[0],
@@ -74,6 +70,7 @@ class ClientesSeeder extends Seeder
                     ],
                     [
                         'estado_relacion'          => 'ACTIVA',
+                        'prevale_aprobado'         => true,
                         'bloqueado_por_parentesco' => false,
                         'observaciones_parentesco' => null,
                         'vinculado_en'             => now()->subDays(60),
@@ -83,93 +80,8 @@ class ClientesSeeder extends Seeder
             }
         }
 
-        $primerDistActiva = $distribuidorasActivas->first();
-
-        // 2. Cliente EN_VERIFICACION (prospecto nuevo que la cajera todavía no aprobó)
-        $clienteVerif = $this->crearClienteConPersona(
-            codigo: 'CLI-COMP-' . str_pad((string) $codigo++, 3, '0', STR_PAD_LEFT),
-            nombre: 'Veronica',
-            paterno: 'Prospecto',
-            materno: 'Nueva',
-            sexo: 'F',
-            estado: Cliente::ESTADO_EN_VERIFICACION
-        );
-        DB::table('clientes_distribuidora')->updateOrInsert(
-            ['distribuidora_id' => $primerDistActiva->id, 'cliente_id' => $clienteVerif->id],
-            [
-                'estado_relacion' => 'ACTIVA',
-                'bloqueado_por_parentesco' => false,
-                'observaciones_parentesco' => null,
-                'vinculado_en' => now()->subHours(2),
-                'desvinculado_en' => null,
-            ]
-        );
-
-        // 3. Cliente BLOQUEADO (por parentesco - rechazado por cajera)
-        $clienteBloq = $this->crearClienteConPersona(
-            codigo: 'CLI-COMP-' . str_pad((string) $codigo++, 3, '0', STR_PAD_LEFT),
-            nombre: 'Ernesto',
-            paterno: 'Martinez',
-            materno: 'Bloqueado',
-            sexo: 'M',
-            estado: Cliente::ESTADO_BLOQUEADO,
-            notas: 'Rechazado en prevale: parentesco con distribuidora.'
-        );
-        DB::table('clientes_distribuidora')->updateOrInsert(
-            ['distribuidora_id' => $primerDistActiva->id, 'cliente_id' => $clienteBloq->id],
-            [
-                'estado_relacion' => 'BLOQUEADA',
-                'bloqueado_por_parentesco' => true,
-                'observaciones_parentesco' => 'Apellido materno coincide con distribuidora. Rechazo inmediato.',
-                'vinculado_en' => now()->subDays(15),
-                'desvinculado_en' => now()->subDays(14),
-            ]
-        );
-
-        // 4. Cliente MOROSO (con vale vencido sin pagar)
-        $clienteMoroso = $this->crearClienteConPersona(
-            codigo: 'CLI-COMP-' . str_pad((string) $codigo++, 3, '0', STR_PAD_LEFT),
-            nombre: 'Roberto',
-            paterno: 'Atrasado',
-            materno: 'Vencido',
-            sexo: 'M',
-            estado: Cliente::ESTADO_MOROSO,
-            notas: 'Vale con 45 dias de atraso.'
-        );
-        DB::table('clientes_distribuidora')->updateOrInsert(
-            ['distribuidora_id' => $primerDistActiva->id, 'cliente_id' => $clienteMoroso->id],
-            [
-                'estado_relacion' => 'ACTIVA',
-                'bloqueado_por_parentesco' => false,
-                'observaciones_parentesco' => null,
-                'vinculado_en' => now()->subDays(90),
-                'desvinculado_en' => null,
-            ]
-        );
-
-        // 5. Cliente INACTIVO (terminó su relación pero conserva histórico)
-        $clienteInact = $this->crearClienteConPersona(
-            codigo: 'CLI-COMP-' . str_pad((string) $codigo++, 3, '0', STR_PAD_LEFT),
-            nombre: 'Felipe',
-            paterno: 'Terminado',
-            materno: 'Cerrado',
-            sexo: 'M',
-            estado: Cliente::ESTADO_INACTIVO,
-            notas: 'Cliente dio de baja su relacion voluntariamente.'
-        );
-        DB::table('clientes_distribuidora')->updateOrInsert(
-            ['distribuidora_id' => $primerDistActiva->id, 'cliente_id' => $clienteInact->id],
-            [
-                'estado_relacion' => 'TERMINADA',
-                'bloqueado_por_parentesco' => false,
-                'observaciones_parentesco' => null,
-                'vinculado_en' => now()->subDays(365),
-                'desvinculado_en' => now()->subDays(30),
-            ]
-        );
-
         $total = $codigo - 1;
-        $this->command?->info("{$total} clientes creados: 18 ACTIVO (2 por distribuidora) + 4 estados especiales.");
+        $this->command?->info("{$total} clientes ACTIVO creados (2–3 por distribuidora ACTIVA).");
     }
 
     private function crearClienteConPersona(

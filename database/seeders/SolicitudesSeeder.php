@@ -12,119 +12,108 @@ use Illuminate\Database\Seeder;
 class SolicitudesSeeder extends Seeder
 {
     /**
-     * Crea 7 solicitudes, una por cada estado del flujo:
-     * PRE, MODIFICADA, EN_REVISION, VERIFICADA, POSIBLE_DISTRIBUIDORA, APROBADA, RECHAZADA.
+     * Crea 6 solicitudes (3 por sucursal):
      *
-     * Las solicitudes con dictamen (VERIFICADA, POSIBLE_DISTRIBUIDORA, APROBADA, RECHAZADA)
-     * generan también su verificaciones_solicitud.
+     *   CENTRO:
+     *     - 2 APROBADA (ligan a distribuidoras ACTIVAS)
+     *     - 1 VERIFICADA (pendiente de decisión del gerente — sin distribuidora creada)
      *
-     * La solicitud APROBADA se referencia después en DistribuidorasSeeder.
+     *   NORTE:
+     *     - 2 APROBADA (ligan a distribuidoras ACTIVAS)
+     *     - 1 POSIBLE_DISTRIBUIDORA (liga a distribuidora en estado CANDIDATA)
      */
     public function run(): void
     {
         $centro = Sucursal::where('codigo', 'SUC-TRC-CENTRO')->first();
         $norte  = Sucursal::where('codigo', 'SUC-TRC-NTE')->first();
-        $sur    = Sucursal::where('codigo', 'SUC-TRC-SUR')->first();
 
         $coordCentro = Usuario::where('nombre_usuario', 'coordinador')->first();
         $coordNorte  = Usuario::where('nombre_usuario', 'coord.trc_nte')->first();
-        $coordSur    = Usuario::where('nombre_usuario', 'coord.trc_sur')->first();
 
         $verifCentro = Usuario::where('nombre_usuario', 'verificador')->first();
         $verifNorte  = Usuario::where('nombre_usuario', 'verif1.trc_nte')->first();
-        $verifSur    = Usuario::where('nombre_usuario', 'verif1.trc_sur')->first();
 
         $solicitudes = [
+            // ==================== CENTRO ====================
             [
-                'estado' => Solicitud::ESTADO_PRE,
-                'sucursal' => $centro,
-                'coordinador' => $coordCentro,
-                'verificador' => null,
-                'persona' => $this->crearPersonaSolicitante('SOL01', 'Armando', 'Prado', 'Chavez', 'M'),
-                'enviada_en' => null,
-                'tomada_en' => null,
-                'revisada_en' => null,
-                'decidida_en' => null,
-                'motivo_rechazo' => null,
-                'dictamen' => null,
-            ],
-            [
-                'estado' => Solicitud::ESTADO_MODIFICADA,
-                'sucursal' => $norte,
-                'coordinador' => $coordNorte,
-                'verificador' => $verifNorte,
-                'persona' => $this->crearPersonaSolicitante('SOL02', 'Beatriz', 'Quintero', 'Dominguez', 'F'),
-                'enviada_en' => now()->subDays(5),
-                'tomada_en' => now()->subDays(4),
-                'revisada_en' => now()->subDays(3),
-                'decidida_en' => null,
-                'motivo_rechazo' => null,
-                'dictamen' => 'PENDIENTE',
-            ],
-            [
-                'estado' => Solicitud::ESTADO_EN_REVISION,
-                'sucursal' => $sur,
-                'coordinador' => $coordSur,
-                'verificador' => null,
-                'persona' => $this->crearPersonaSolicitante('SOL03', 'Cesar', 'Rodriguez', 'Ibarra', 'M'),
-                'enviada_en' => now()->subDays(2),
-                'tomada_en' => null,
-                'revisada_en' => null,
-                'decidida_en' => null,
-                'motivo_rechazo' => null,
-                'dictamen' => null,
-            ],
-            [
-                'estado' => Solicitud::ESTADO_VERIFICADA,
-                'sucursal' => $centro,
+                'estado'      => Solicitud::ESTADO_APROBADA,
+                'sucursal'    => $centro,
                 'coordinador' => $coordCentro,
                 'verificador' => $verifCentro,
-                'persona' => $this->crearPersonaSolicitante('SOL04', 'Diana', 'Salazar', 'Jaramillo', 'F'),
-                'enviada_en' => now()->subDays(4),
-                'tomada_en' => now()->subDays(3),
+                'persona'     => $this->crearPersonaSolicitante('SOL01', 'Abarrotes', 'Martinez', 'Ortega', 'F'),
+                'enviada_en'  => now()->subDays(40),
+                'tomada_en'   => now()->subDays(39),
+                'revisada_en' => now()->subDays(38),
+                'decidida_en' => now()->subDays(35),
+                'motivo_rechazo' => null,
+                'dictamen' => 'VERIFICADA',
+            ],
+            [
+                'estado'      => Solicitud::ESTADO_APROBADA,
+                'sucursal'    => $centro,
+                'coordinador' => $coordCentro,
+                'verificador' => $verifCentro,
+                'persona'     => $this->crearPersonaSolicitante('SOL02', 'Deposito', 'Garcia', 'Reyes', 'M'),
+                'enviada_en'  => now()->subDays(35),
+                'tomada_en'   => now()->subDays(34),
+                'revisada_en' => now()->subDays(33),
+                'decidida_en' => now()->subDays(30),
+                'motivo_rechazo' => null,
+                'dictamen' => 'VERIFICADA',
+            ],
+            [
+                'estado'      => Solicitud::ESTADO_VERIFICADA,
+                'sucursal'    => $centro,
+                'coordinador' => $coordCentro,
+                'verificador' => $verifCentro,
+                'persona'     => $this->crearPersonaSolicitante('SOL03', 'Diana', 'Salazar', 'Jaramillo', 'F'),
+                'enviada_en'  => now()->subDays(4),
+                'tomada_en'   => now()->subDays(3),
                 'revisada_en' => now()->subDays(2),
                 'decidida_en' => null,
                 'motivo_rechazo' => null,
                 'dictamen' => 'VERIFICADA',
             ],
+
+            // ==================== NORTE ====================
             [
-                'estado' => Solicitud::ESTADO_POSIBLE_DISTRIBUIDORA,
-                'sucursal' => $norte,
+                'estado'      => Solicitud::ESTADO_APROBADA,
+                'sucursal'    => $norte,
                 'coordinador' => $coordNorte,
                 'verificador' => $verifNorte,
-                'persona' => $this->crearPersonaSolicitante('SOL05', 'Enrique', 'Tovar', 'Kessler', 'M'),
-                'enviada_en' => now()->subDays(7),
-                'tomada_en' => now()->subDays(6),
+                'persona'     => $this->crearPersonaSolicitante('SOL04', 'Tiendita', 'Lopez', 'Cantu', 'F'),
+                'enviada_en'  => now()->subDays(45),
+                'tomada_en'   => now()->subDays(44),
+                'revisada_en' => now()->subDays(43),
+                'decidida_en' => now()->subDays(40),
+                'motivo_rechazo' => null,
+                'dictamen' => 'VERIFICADA',
+            ],
+            [
+                'estado'      => Solicitud::ESTADO_APROBADA,
+                'sucursal'    => $norte,
+                'coordinador' => $coordNorte,
+                'verificador' => $verifNorte,
+                'persona'     => $this->crearPersonaSolicitante('SOL05', 'Bodega', 'Ramirez', 'Solis', 'M'),
+                'enviada_en'  => now()->subDays(38),
+                'tomada_en'   => now()->subDays(37),
+                'revisada_en' => now()->subDays(36),
+                'decidida_en' => now()->subDays(33),
+                'motivo_rechazo' => null,
+                'dictamen' => 'VERIFICADA',
+            ],
+            [
+                'estado'      => Solicitud::ESTADO_POSIBLE_DISTRIBUIDORA,
+                'sucursal'    => $norte,
+                'coordinador' => $coordNorte,
+                'verificador' => $verifNorte,
+                'persona'     => $this->crearPersonaSolicitante('SOL06', 'Enrique', 'Tovar', 'Kessler', 'M'),
+                'enviada_en'  => now()->subDays(7),
+                'tomada_en'   => now()->subDays(6),
                 'revisada_en' => now()->subDays(5),
                 'decidida_en' => null,
                 'motivo_rechazo' => null,
                 'dictamen' => 'VERIFICADA',
-            ],
-            [
-                'estado' => Solicitud::ESTADO_APROBADA,
-                'sucursal' => $sur,
-                'coordinador' => $coordSur,
-                'verificador' => $verifSur,
-                'persona' => $this->crearPersonaSolicitante('SOL06', 'Fabiola', 'Urrutia', 'Leon', 'F'),
-                'enviada_en' => now()->subDays(10),
-                'tomada_en' => now()->subDays(9),
-                'revisada_en' => now()->subDays(8),
-                'decidida_en' => now()->subDays(7),
-                'motivo_rechazo' => null,
-                'dictamen' => 'VERIFICADA',
-            ],
-            [
-                'estado' => Solicitud::ESTADO_RECHAZADA,
-                'sucursal' => $centro,
-                'coordinador' => $coordCentro,
-                'verificador' => $verifCentro,
-                'persona' => $this->crearPersonaSolicitante('SOL07', 'Gilberto', 'Valdez', 'Morales', 'M'),
-                'enviada_en' => now()->subDays(6),
-                'tomada_en' => now()->subDays(5),
-                'revisada_en' => now()->subDays(4),
-                'decidida_en' => now()->subDays(3),
-                'motivo_rechazo' => 'Buró de crédito con reportes negativos activos.',
-                'dictamen' => 'RECHAZADA',
             ],
         ];
 
@@ -154,7 +143,7 @@ class SolicitudesSeeder extends Seeder
                     'ine_reverso_path'           => 'solicitudes/demo/ine_reverso.jpg',
                     'comprobante_domicilio_path' => 'solicitudes/demo/comprobante.jpg',
                     'reporte_buro_path'          => 'solicitudes/demo/buro.pdf',
-                    'resultado_buro'             => $s['dictamen'] === 'RECHAZADA' ? 'Con reportes negativos' : 'Apto / Buen historial',
+                    'resultado_buro'             => 'Apto / Buen historial',
                     'motivo_rechazo'             => $s['motivo_rechazo'],
                     'enviada_en'                 => $s['enviada_en'],
                     'tomada_en'                  => $s['tomada_en'],
@@ -163,16 +152,13 @@ class SolicitudesSeeder extends Seeder
                 ]
             );
 
-            // Verificación para las que tienen dictamen.
             if ($s['dictamen'] !== null && $s['verificador']) {
                 VerificacionesSolicitud::updateOrCreate(
                     ['solicitud_id' => $solicitud->id],
                     [
                         'verificador_usuario_id' => $s['verificador']->id,
                         'resultado'              => $s['dictamen'],
-                        'observaciones'          => $s['dictamen'] === 'RECHAZADA'
-                            ? 'Domicilio visible pero con observaciones negativas.'
-                            : 'Domicilio confirmado, persona identificada, documentos en orden.',
+                        'observaciones'          => 'Domicilio confirmado, persona identificada, documentos en orden.',
                         'latitud_verificacion'   => 25.54,
                         'longitud_verificacion'  => -103.42,
                         'distancia_metros'       => 35,
@@ -180,7 +166,7 @@ class SolicitudesSeeder extends Seeder
                         'checklist_json'         => json_encode([
                             'identidad' => true,
                             'domicilio' => true,
-                            'referencias' => $s['dictamen'] !== 'RECHAZADA',
+                            'referencias' => true,
                         ]),
                         'foto_fachada'           => 'verificaciones/demo/fachada.jpg',
                         'foto_ine_con_persona'   => 'verificaciones/demo/ine_persona.jpg',
@@ -190,14 +176,14 @@ class SolicitudesSeeder extends Seeder
             }
         }
 
-        $this->command?->info('7 solicitudes creadas (1 por cada estado) + verificaciones donde corresponde.');
+        $this->command?->info('6 solicitudes creadas (3 por sucursal: 2 APROBADA + 1 pendiente).');
     }
 
     private function crearPersonaSolicitante(string $sufijo, string $nombre, string $apPat, string $apMat, string $sexo): Persona
     {
         $curp = strtoupper(substr($apPat, 0, 2) . substr($apMat, 0, 1) . substr($nombre, 0, 1))
             . '900101' . $sexo . 'CLXXXX' . str_pad($sufijo, 4, '0', STR_PAD_LEFT);
-        $curp = substr($curp, 0, 18); // máx 18 chars
+        $curp = substr($curp, 0, 18);
         if (strlen($curp) < 18) {
             $curp = str_pad($curp, 18, 'X');
         }
