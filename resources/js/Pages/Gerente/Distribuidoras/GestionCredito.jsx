@@ -12,14 +12,19 @@ import {
     faXmark,
     faChartLine,
     faEdit,
+    faLayerGroup,
 } from '@fortawesome/free-solid-svg-icons';
 
-export default function GestionCredito({ distribuidoras, filters, configuracion }) {
+export default function GestionCredito({ distribuidoras, filters, configuracion, categorias = [] }) {
     const { flash = {} } = usePage().props;
     const [showModal, setShowModal] = useState(false);
     const [selectedId, setSelectedId] = useState(null);
     const [form, setForm] = useState({ limite_credito: '', justificacion: '' });
     const [errors, setErrors] = useState({});
+    const [showCategoriaModal, setShowCategoriaModal] = useState(false);
+    const [selectedCategoriaDist, setSelectedCategoriaDist] = useState(null);
+    const [categoriaForm, setCategoriaForm] = useState({ categoria_id: '', motivo: '' });
+    const [categoriaErrors, setCategoriaErrors] = useState({});
 
     const runFilter = (next = {}) => {
         router.get(route('gerente.credito.index'), {
@@ -51,6 +56,30 @@ export default function GestionCredito({ distribuidoras, filters, configuracion 
             onSuccess: () => {
                 setShowModal(false);
                 setSelectedId(null);
+            },
+        });
+    };
+
+    const openCategoriaModal = (distribuidora) => {
+        setSelectedCategoriaDist(distribuidora);
+        setCategoriaForm({
+            categoria_id: String(distribuidora.categoria_id || ''),
+            motivo: '',
+        });
+        setCategoriaErrors({});
+        setShowCategoriaModal(true);
+    };
+
+    const handleSubmitCategoria = (e) => {
+        e.preventDefault();
+        router.put(route('gerente.distribuidoras.categoria.update', selectedCategoriaDist.id), {
+            categoria_id: categoriaForm.categoria_id,
+            motivo: categoriaForm.motivo,
+        }, {
+            onError: (errs) => setCategoriaErrors(errs),
+            onSuccess: () => {
+                setShowCategoriaModal(false);
+                setSelectedCategoriaDist(null);
             },
         });
     };
@@ -157,13 +186,24 @@ export default function GestionCredito({ distribuidoras, filters, configuracion 
                                     ${Number(dist.credito_disponible).toLocaleString('es-MX')}
                                 </td>
                                 <td className="px-2 py-2">
-                                    <button
-                                        onClick={() => openModal(dist)}
-                                        className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-                                    >
-                                        <FontAwesomeIcon icon={faEdit} className="mr-1" />
-                                        Editar
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => openModal(dist)}
+                                            className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                                            title="Modificar límite de crédito"
+                                        >
+                                            <FontAwesomeIcon icon={faEdit} className="mr-1" />
+                                            Crédito
+                                        </button>
+                                        <button
+                                            onClick={() => openCategoriaModal(dist)}
+                                            className="px-2 py-1 text-xs border rounded bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                                            title="Cambiar categoría (aumento/bajada)"
+                                        >
+                                            <FontAwesomeIcon icon={faLayerGroup} className="mr-1" />
+                                            Categoría
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -198,6 +238,73 @@ export default function GestionCredito({ distribuidoras, filters, configuracion 
                         >
                             Siguiente
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {showCategoriaModal && selectedCategoriaDist && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="w-full max-w-md p-6 mx-4 bg-white rounded-lg shadow-xl">
+                        <h3 className="mb-1 text-lg font-semibold">Cambiar Categoría</h3>
+                        <p className="mb-4 text-sm text-slate-600">
+                            {selectedCategoriaDist.persona?.primer_nombre} {selectedCategoriaDist.persona?.apellido_paterno} — <span className="text-slate-500">Actual:</span> <strong>{selectedCategoriaDist.categoria?.nombre || 'Sin categoría'}</strong>
+                        </p>
+
+                        <form onSubmit={handleSubmitCategoria}>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Nueva categoría <span className="text-red-600">*</span>
+                                </label>
+                                <select
+                                    value={categoriaForm.categoria_id}
+                                    onChange={(e) => setCategoriaForm({ ...categoriaForm, categoria_id: e.target.value })}
+                                    className="mt-1 fin-input"
+                                >
+                                    <option value="">Selecciona una categoría</option>
+                                    {categorias.map((cat) => (
+                                        <option key={cat.id} value={cat.id}>
+                                            {cat.nombre} ({cat.porcentaje_comision}% comisión)
+                                        </option>
+                                    ))}
+                                </select>
+                                {categoriaErrors.categoria_id && (
+                                    <p className="mt-1 text-xs text-red-600">{categoriaErrors.categoria_id}</p>
+                                )}
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Motivo del cambio <span className="text-red-600">*</span>
+                                </label>
+                                <textarea
+                                    value={categoriaForm.motivo}
+                                    onChange={(e) => setCategoriaForm({ ...categoriaForm, motivo: e.target.value })}
+                                    placeholder="Explica el aumento o bajada de categoría (mínimo 10 caracteres)..."
+                                    className="mt-1 fin-input"
+                                    rows={3}
+                                />
+                                {categoriaErrors.motivo && (
+                                    <p className="mt-1 text-xs text-red-600">{categoriaErrors.motivo}</p>
+                                )}
+                            </div>
+
+                            {categoriaErrors.security && (
+                                <p className="mb-2 text-xs text-red-600">{categoriaErrors.security}</p>
+                            )}
+
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCategoriaModal(false)}
+                                    className="fin-btn-secondary"
+                                >
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="fin-btn-primary">
+                                    Guardar
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

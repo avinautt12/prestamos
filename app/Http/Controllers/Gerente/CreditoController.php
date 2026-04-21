@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\ResuelveSucursalActivaGerente;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Gerente\ModificarCreditoRequest;
 use App\Models\BitacoraDecisionGerente;
+use App\Models\CategoriaDistribuidora;
 use App\Models\Distribuidora;
 use App\Models\HistorialCreditoScore;
 use App\Models\SugerenciaIncrementoCredito;
@@ -25,10 +26,16 @@ class CreditoController extends Controller
         $gerente = Auth::user();
         $sucursalId = $this->obtenerSucursalActivaGerente($gerente)?->id;
 
+        $categorias = CategoriaDistribuidora::query()
+            ->where('activo', true)
+            ->orderBy('nombre')
+            ->get(['id', 'codigo', 'nombre', 'porcentaje_comision']);
+
         if (!$sucursalId) {
             return Inertia::render('Gerente/Distribuidoras/GestionCredito', [
                 'distribuidoras' => ['data' => [], 'total' => 0],
                 'filters' => $request->only(['search', 'estado']),
+                'categorias' => $categorias,
             ]);
         }
 
@@ -65,6 +72,7 @@ class CreditoController extends Controller
             'distribuidoras' => $distribuidoras,
             'filters' => $request->only(['search', 'estado']),
             'configuracion' => $configuracion,
+            'categorias' => $categorias,
         ]);
     }
 

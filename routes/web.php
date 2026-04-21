@@ -117,6 +117,10 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
         ->middleware('gerente.secure-action')
         ->where('id', '[0-9]+')
         ->name('distribuidoras.rechazar');
+    Route::put('/distribuidoras/{id}/categoria', [App\Http\Controllers\Gerente\CategoriaDistribuidoraController::class, 'update'])
+        ->middleware('gerente.secure-action')
+        ->where('id', '[0-9]+')
+        ->name('distribuidoras.categoria.update');
 });
 
 // ============================================================
