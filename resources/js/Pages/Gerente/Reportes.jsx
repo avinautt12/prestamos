@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -25,6 +25,7 @@ export default function Reportes({
     presolicitudes,
     puntosPorDistribuidora,
     corteReferencia,
+    cortesDisponibles = [],
 }) {
     const periodoActivo = filtro?.periodo || 'mes';
 
@@ -306,6 +307,127 @@ export default function Reportes({
                     <p className="text-sm text-gray-500">No hay distribuidoras morosas registradas en tu sucursal.</p>
                 )}
             </div>
+
+            <DescargaReportes cortesDisponibles={cortesDisponibles} tieneSucursal={Boolean(sucursal)} />
         </AdminLayout>
+    );
+}
+
+function DescargaReportes({ cortesDisponibles, tieneSucursal }) {
+    const [tipo, setTipo] = React.useState('mensual');
+    const [mes, setMes] = React.useState(new Date().toISOString().slice(0, 7));
+    const [anio, setAnio] = React.useState(String(new Date().getFullYear()));
+    const [corteId, setCorteId] = React.useState('');
+    const [enviando, setEnviando] = React.useState(false);
+
+    const paramsObj = { tipo };
+    if (tipo === 'mensual') paramsObj.mes = mes;
+    if (tipo === 'anual') paramsObj.anio = anio;
+    if (tipo === 'corte' && corteId) paramsObj.corte_id = corteId;
+
+    const params = new URLSearchParams(paramsObj);
+
+    const puedeDescargar = tieneSucursal && (
+        (tipo === 'mensual' && /^\d{4}-\d{2}$/.test(mes)) ||
+        (tipo === 'anual' && /^\d{4}$/.test(anio)) ||
+        (tipo === 'corte' && corteId !== '')
+    );
+
+    const url = puedeDescargar ? `${route('gerente.reportes.descargar')}?${params.toString()}` : '#';
+
+    const enviarPorCorreo = () => {
+        if (!puedeDescargar || enviando) return;
+        setEnviando(true);
+        router.post(route('gerente.reportes.enviar'), paramsObj, {
+            preserveScroll: true,
+            onFinish: () => setEnviando(false),
+        });
+    };
+
+    const inputCls = 'w-full px-3 py-2 text-sm border rounded-lg border-gray-300 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500';
+    const labelCls = 'block mb-1 text-xs font-semibold tracking-wide uppercase text-gray-600';
+
+    return (
+        <div className="p-6 mt-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <p className="text-xs font-semibold tracking-[0.18em] text-emerald-600 uppercase">Exportación</p>
+                    <h2 className="mt-2 text-xl font-semibold text-gray-900">Descargar reportes</h2>
+                    <p className="mt-2 text-sm text-gray-500 max-w-3xl">
+                        Genera el Excel ejecutivo con los 4 reportes (morosos, saldo de cortes, puntos y presolicitudes) de tu sucursal en un solo archivo.
+                    </p>
+                </div>
+                <span className="self-start inline-flex items-center px-3 py-2 text-xs font-semibold border rounded-full border-emerald-200 bg-emerald-50 text-emerald-700">
+                    5 hojas · portada + 4 reportes
+                </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 mt-6 md:grid-cols-3">
+                <div>
+                    <label className={labelCls}>Tipo de periodo</label>
+                    <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={inputCls}>
+                        <option value="mensual">Mensual</option>
+                        <option value="anual">Anual</option>
+                        <option value="corte">Por corte</option>
+                    </select>
+                </div>
+
+                {tipo === 'mensual' && (
+                    <div>
+                        <label className={labelCls}>Mes</label>
+                        <input type="month" value={mes} onChange={(e) => setMes(e.target.value)} className={inputCls} />
+                    </div>
+                )}
+
+                {tipo === 'anual' && (
+                    <div>
+                        <label className={labelCls}>Año</label>
+                        <input type="number" value={anio} min="2020" max="2099" onChange={(e) => setAnio(e.target.value)} className={inputCls} />
+                    </div>
+                )}
+
+                {tipo === 'corte' && (
+                    <div className="md:col-span-2">
+                        <label className={labelCls}>Corte</label>
+                        <select value={corteId} onChange={(e) => setCorteId(e.target.value)} className={inputCls}>
+                            <option value="">— Selecciona un corte —</option>
+                            {cortesDisponibles.map((c) => (
+                                <option key={c.id} value={c.id}>{c.label}</option>
+                            ))}
+                        </select>
+                        {cortesDisponibles.length === 0 && (
+                            <p className="mt-1 text-xs text-amber-600">No hay cortes disponibles en tu sucursal.</p>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 mt-6">
+                <a
+                    href={url}
+                    aria-disabled={!puedeDescargar}
+                    className={`inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition ${puedeDescargar ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-400 cursor-not-allowed pointer-events-none'}`}
+                >
+                    Descargar Excel
+                </a>
+                <button
+                    type="button"
+                    onClick={enviarPorCorreo}
+                    disabled={!puedeDescargar || enviando}
+                    className={`inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg shadow-sm transition border ${puedeDescargar && !enviando ? 'border-emerald-600 text-emerald-700 bg-white hover:bg-emerald-50' : 'border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed'}`}
+                >
+                    {enviando ? 'Enviando…' : 'Enviar por correo'}
+                </button>
+                {!tieneSucursal && (
+                    <span className="text-xs text-red-600">Tu usuario no tiene una sucursal asignada.</span>
+                )}
+                {tieneSucursal && !puedeDescargar && (
+                    <span className="text-xs text-gray-500">Completa los filtros del periodo para habilitar las opciones.</span>
+                )}
+                {tieneSucursal && puedeDescargar && (
+                    <span className="text-xs text-gray-500">"Enviar" llega a tu correo registrado en tu perfil.</span>
+                )}
+            </div>
+        </div>
     );
 }

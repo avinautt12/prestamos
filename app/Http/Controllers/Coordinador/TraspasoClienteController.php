@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Coordinador;
 
 use App\Http\Controllers\Controller;
+use App\Models\Distribuidora;
 use App\Models\SolicitudTraspasoCliente;
 use App\Models\Sucursal;
 use App\Models\Usuario;
@@ -166,13 +167,8 @@ class TraspasoClienteController extends Controller
 
     private function notificarAprobacion(SolicitudTraspasoCliente $traspaso, string $codigo): void
     {
-        $origenUsuario = $traspaso->distribuidoraOrigen
-            ? Usuario::query()->where('persona_id', $traspaso->distribuidoraOrigen->persona_id)->first()
-            : null;
-
-        $destinoUsuario = $traspaso->distribuidoraDestino
-            ? Usuario::query()->where('persona_id', $traspaso->distribuidoraDestino->persona_id)->first()
-            : null;
+        $origenUsuario = $this->resolverUsuarioDistribuidora($traspaso->distribuidoraOrigen);
+        $destinoUsuario = $this->resolverUsuarioDistribuidora($traspaso->distribuidoraDestino);
 
         if ($origenUsuario) {
             $origenUsuario->notify(new TraspasoClienteNotification(
@@ -199,13 +195,8 @@ class TraspasoClienteController extends Controller
 
     private function notificarRechazo(SolicitudTraspasoCliente $traspaso, string $motivo): void
     {
-        $destinoUsuario = $traspaso->distribuidoraDestino
-            ? Usuario::query()->where('persona_id', $traspaso->distribuidoraDestino->persona_id)->first()
-            : null;
-
-        $origenUsuario = $traspaso->distribuidoraOrigen
-            ? Usuario::query()->where('persona_id', $traspaso->distribuidoraOrigen->persona_id)->first()
-            : null;
+        $destinoUsuario = $this->resolverUsuarioDistribuidora($traspaso->distribuidoraDestino);
+        $origenUsuario = $this->resolverUsuarioDistribuidora($traspaso->distribuidoraOrigen);
 
         if ($destinoUsuario) {
             $destinoUsuario->notify(new TraspasoClienteNotification(
@@ -263,5 +254,22 @@ class TraspasoClienteController extends Controller
         ])));
 
         return $nombre !== '' ? $nombre : 'Sin nombre';
+    }
+
+    private function resolverUsuarioDistribuidora(?Distribuidora $distribuidora): ?Usuario
+    {
+        if (!$distribuidora?->persona_id) {
+            return null;
+        }
+
+        return Usuario::query()
+            ->where('persona_id', $distribuidora->persona_id)
+            ->where('activo', true)
+            ->whereHas('roles', function ($query) {
+                $query->where('codigo', 'DISTRIBUIDORA')
+                    ->wherePivotNull('revocado_en');
+            })
+            ->latest('id')
+            ->first();
     }
 }

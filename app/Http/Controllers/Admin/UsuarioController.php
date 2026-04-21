@@ -75,6 +75,15 @@ class UsuarioController extends Controller
             ->appends($request->query());
 
         $this->agregarEstadoActivacionDistribuidora($usuarios);
+        $sucursalesMap = Sucursal::query()->where('activo', true)->pluck('nombre', 'id');
+        $usuarios->getCollection()->transform(function ($usuario) use ($sucursalesMap) {
+            $rolPrincipal = $usuario->roles->first(fn ($rol) => $rol->pivot->es_principal);
+            $sucursalId = $rolPrincipal ? (($rolPrincipal->pivot->sucursal_id ?? null) ?: null) : null;
+            $sucursalId = $sucursalId ? (int) $sucursalId : null;
+            $usuario->setAttribute('sucursal_actual_id', $sucursalId);
+            $usuario->setAttribute('sucursal_actual_nombre', $sucursalId ? ($sucursalesMap[$sucursalId] ?? null) : null);
+            return $usuario;
+        });
 
         return Inertia::render('Admin/Usuarios', [
             'usuarios' => $usuarios,
@@ -320,11 +329,15 @@ class UsuarioController extends Controller
     private function validarReglasRol(Rol $rol, ?int $sucursalId): void
     {
         if ($rol->codigo !== 'ADMIN' && !$sucursalId) {
-            abort(422, 'El rol seleccionado requiere sucursal.');
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'sucursal_id' => 'El rol seleccionado requiere seleccionar una sucursal.',
+            ]);
         }
 
         if ($rol->codigo === 'ADMIN' && $sucursalId) {
-            abort(422, 'El rol admin no debe tener sucursal fija.');
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'sucursal_id' => 'El rol ADMIN no debe tener sucursal asignada.',
+            ]);
         }
 
         if (in_array($rol->codigo, ['ADMIN', 'GERENTE'], true)) {

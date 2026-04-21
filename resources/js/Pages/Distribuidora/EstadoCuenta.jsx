@@ -1,716 +1,321 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSearch, faPlus, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from './utils';
-import FinDatePicker from '@/Components/FinDatePicker';
 
-function Paginator({ currentPage, lastPage, total, onChange, label = 'Página' }) {
-    if (lastPage <= 1) return null;
-    return (
-        <div className="flex items-center justify-between gap-3 px-3 py-2 mt-2 text-xs text-gray-600 border rounded-lg border-gray-200 bg-gray-50">
-            <span>{label} {currentPage} de {lastPage} · {formatNumber(total)} en total</span>
-            <div className="flex gap-1">
-                <button
-                    type="button"
-                    onClick={() => onChange(currentPage - 1)}
-                    disabled={currentPage <= 1}
-                    className="px-3 py-1 font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                    ← Anterior
-                </button>
-                <button
-                    type="button"
-                    onClick={() => onChange(currentPage + 1)}
-                    disabled={currentPage >= lastPage}
-                    className="px-3 py-1 font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                    Siguiente →
-                </button>
-            </div>
-        </div>
-    );
-}
-
-export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, opciones = {}, relaciones = { data: [], current_page: 1, last_page: 1, total: 0 }, relacionSeleccionada = null, pagos = { data: [], current_page: 1, last_page: 1, total: 0 }, cuentasEmpresa = [] }) {
-    const sinConfig = !distribuidora;
-    const { errors } = usePage().props;
-    const [form, setForm] = useState({
-        estado: filtros.estado || 'TODAS',
-        q: filtros.q || '',
-        relacion_id: filtros.relacion_id || '',
-        fecha_desde: filtros.fecha_desde || '',
-        fecha_hasta: filtros.fecha_hasta || '',
-    });
-    const [filterOpen, setFilterOpen] = useState(false);
-
-    // Validación: si ambas fechas están presentes, fecha_desde debe ser <= fecha_hasta
-    const fechasInvalidas = form.fecha_desde && form.fecha_hasta && form.fecha_desde > form.fecha_hasta;
-
-    const applyFilters = (event) => {
-        event.preventDefault();
-        if (fechasInvalidas) return;
-        router.get(route('distribuidora.estado-cuenta'), { ...form, relaciones_page: 1, pagos_page: 1 }, { preserveState: true, preserveScroll: true, replace: true });
-    };
-
-    const clearFilters = () => {
-        const empty = { estado: 'TODAS', q: '', relacion_id: '', fecha_desde: '', fecha_hasta: '' };
-        setForm(empty);
-        router.get(route('distribuidora.estado-cuenta'), empty, { preserveState: true, preserveScroll: true, replace: true });
-        setFilterOpen(false);
-    };
-
-    const filtrosActivos = useMemo(() => {
-        let total = 0;
-        if (form.estado !== 'TODAS') total += 1;
-        if ((form.q || '').trim().length > 0) total += 1;
-        if (form.fecha_desde) total += 1;
-        if (form.fecha_hasta) total += 1;
-        return total;
-    }, [form]);
-
-    const selectRelacion = (relacionId) => {
-        // Preservar la página actual de relaciones (si no, el backend la resetea a 1)
-        const next = {
-            ...form,
-            relacion_id: relacionId,
-            relaciones_page: relaciones?.current_page || 1,
-            pagos_page: 1,
-        };
-        setForm({ ...form, relacion_id: relacionId });
-        router.get(route('distribuidora.estado-cuenta'), next, { preserveState: true, preserveScroll: true, replace: true });
-    };
-
-    const cambiarPaginaRelaciones = (page) => {
-        router.get(route('distribuidora.estado-cuenta'), {
-            ...form,
-            relaciones_page: page,
-            pagos_page: pagos?.current_page || 1,
-        }, { preserveState: true, preserveScroll: true, replace: true });
-    };
-
-    const cambiarPaginaPagos = (page) => {
-        router.get(route('distribuidora.estado-cuenta'), {
-            ...form,
-            relaciones_page: relaciones?.current_page || 1,
-            pagos_page: page,
-        }, { preserveState: true, preserveScroll: true, replace: true });
-    };
-
-    const copiarReferencia = async (referencia) => {
-        if (!referencia || !navigator?.clipboard) return;
-        await navigator.clipboard.writeText(referencia);
-        window.dispatchEvent(new CustomEvent('app-notification', {
-            detail: { titulo: 'Referencia copiada', mensaje: `Se copió ${referencia} al portapapeles.` },
-        }));
-    };
-
+export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, relaciones = { data: [] }, relacionSeleccionada = null, pagos = { data: [] }, cuentasEmpresa = [] }) {
+    const [form, setForm] = useState({ estado: filtros.estado || 'TODAS', q: filtros.q || '' });
+    const [modalPago, setModalPago] = useState(false);
+    const [detalleOpen, setDetalleOpen] = useState(Boolean(relacionSeleccionada));
     const [canjeInline, setCanjeInline] = useState({ abierto: false, puntos: '' });
     const [canjeando, setCanjeando] = useState(false);
+    const { errors } = usePage().props;
+
+    React.useEffect(() => {
+        setDetalleOpen(Boolean(relacionSeleccionada));
+    }, [relacionSeleccionada?.id]);
+
+    React.useEffect(() => {
+        if (!detalleOpen) return;
+        const handle = (ev) => { if (ev.key === 'Escape') setDetalleOpen(false); };
+        window.addEventListener('keydown', handle);
+        document.body.style.overflow = 'hidden';
+        return () => { window.removeEventListener('keydown', handle); document.body.style.overflow = ''; };
+    }, [detalleOpen]);
+
+    const valorPorPunto = distribuidora?.valor_punto || 2;
     const puntosDisponibles = distribuidora?.puntos_actuales || 0;
     const puntosNum = parseInt(canjeInline.puntos, 10) || 0;
-    const puedeAplicarPuntos = relacionSeleccionada
-        && ['GENERADA', 'PARCIAL', 'VENCIDA'].includes(relacionSeleccionada.estado)
-        && puntosDisponibles >= 2;
-    const valorPorPunto = distribuidora?.valor_punto || 2;
-    const puntosMaxRelacion = relacionSeleccionada ? Math.min(puntosDisponibles, Math.floor(relacionSeleccionada.total_a_pagar / valorPorPunto)) : 0;
+    const puedeAplicarPuntos = relacionSeleccionada && ['GENERADA', 'PARCIAL', 'VENCIDA'].includes(relacionSeleccionada.estado);
 
-    // Validación client-side del canje de puntos
-    const canjeError = (() => {
-        if (!canjeInline.puntos) return null;
-        if (isNaN(puntosNum) || puntosNum <= 0) return 'Debe ser un número mayor a cero';
-        if (puntosNum < 2) return 'Mínimo 2 puntos para canjear';
-        if (puntosNum > puntosDisponibles) return `Solo tienes ${puntosDisponibles} puntos disponibles`;
-        if (puntosNum > puntosMaxRelacion) return `Máximo ${puntosMaxRelacion} puntos para esta relación`;
-        return null;
-    })();
-
-    const aplicarPuntos = () => {
-        if (canjeando || puntosNum < 2 || canjeError) return;
-        setCanjeando(true);
-        router.post(route('distribuidora.puntos.canjear'), {
-            relacion_corte_id: relacionSeleccionada.id,
-            puntos_a_canjear: puntosNum,
-        }, {
-            onSuccess: () => { setCanjeInline({ abierto: false, puntos: '' }); },
-            onFinish: () => setCanjeando(false),
-        });
-    };
-
-    // Reportar pago
-    const [modalReportar, setModalReportar] = useState(false);
-    const [reportando, setReportando] = useState(false);
     const [pagoForm, setPagoForm] = useState({ monto: '', metodo_pago: 'TRANSFERENCIA', referencia_reportada: '', observaciones: '' });
-    const [pagoFormTouched, setPagoFormTouched] = useState({ monto: false, referencia_reportada: false, observaciones: false });
-    const puedeReportarPago = relacionSeleccionada && ['GENERADA', 'PARCIAL', 'VENCIDA'].includes(relacionSeleccionada.estado);
+    const [reportando, setReportando] = useState(false);
 
-    // Validación client-side del modal "Reportar pago"
-    const pagoMontoNum = parseFloat(pagoForm.monto);
-    const pagoErrors = {
-        monto: isNaN(pagoMontoNum) || pagoMontoNum <= 0
-            ? 'El monto debe ser mayor a cero'
-            : (relacionSeleccionada && pagoMontoNum > relacionSeleccionada.total_a_pagar
-                ? `El monto no puede exceder el total de la relación (${formatCurrency(relacionSeleccionada.total_a_pagar)})`
-                : null),
-        referencia_reportada: !pagoForm.referencia_reportada.trim()
-            ? 'La referencia es obligatoria'
-            : (pagoForm.referencia_reportada.length > 100 ? 'Máximo 100 caracteres' : null),
-        observaciones: pagoForm.observaciones.length > 500 ? 'Máximo 500 caracteres' : null,
-    };
-    const pagoFormValido = !pagoErrors.monto && !pagoErrors.referencia_reportada && !pagoErrors.observaciones;
-
-    const abrirReportarPago = () => {
-        if (!relacionSeleccionada) return;
-        setPagoForm({
-            monto: relacionSeleccionada.total_a_pagar,
-            metodo_pago: 'TRANSFERENCIA',
-            referencia_reportada: relacionSeleccionada.referencia_pago || '',
-            observaciones: '',
-        });
-        setPagoFormTouched({ monto: false, referencia_reportada: false, observaciones: false });
-        setModalReportar(true);
+    const aplicarFiltros = (e) => {
+        e?.preventDefault();
+        router.get(route('distribuidora.estado-cuenta'), form, { preserveState: true, preserveScroll: true, replace: true });
     };
 
-    const confirmarReportarPago = () => {
-        if (reportando || !pagoFormValido) {
-            setPagoFormTouched({ monto: true, referencia_reportada: true, observaciones: true });
-            return;
-        }
+    const selectRelacion = (relacionId) => {
+        router.get(route('distribuidora.estado-cuenta'), { ...form, relacion_id: relacionId }, { preserveState: true, preserveScroll: true });
+    };
+
+    const puedoReportar = relacionSeleccionada && ['GENERADA', 'PARCIAL', 'VENCIDA'].includes(relacionSeleccionada.estado);
+
+    const confirmarReporte = () => {
+        if (!puedoReportar || !pagoForm.monto) return;
         setReportando(true);
         router.post(route('distribuidora.relaciones.reportar-pago', relacionSeleccionada.id), pagoForm, {
-            onSuccess: () => { setModalReportar(false); },
+            onSuccess: () => { setModalPago(false); setPagoForm({ monto: '', metodo_pago: 'TRANSFERENCIA', referencia_reportada: '', observaciones: '' }); },
             onFinish: () => setReportando(false),
         });
     };
 
+    const aplicarCanje = () => {
+        if (canjeando || !canjeInline.puntos || puntosNum < 2) return;
+        setCanjeando(true);
+        router.post(route('distribuidora.puntos.canjear'), { relacion_corte_id: relacionSeleccionada.id, puntos_a_canjear: canjeInline.puntos }, {
+            onSuccess: () => setCanjeInline({ abierto: false, puntos: '' }),
+            onFinish: () => setCanjeando(false),
+        });
+    };
+
+    if (!distribuidora) {
+        return (
+            <DistribuidoraLayout title="Estado cuenta" subtitle="No disponible">
+                <Head title="Estado de Cuenta" />
+                <div className="p-8 text-center text-gray-500">Sin distribuidora.</div>
+            </DistribuidoraLayout>
+        );
+    }
+
     return (
-        <DistribuidoraLayout
-            title="Estado de Cuenta"
-            subtitle="Relaciones de corte, partidas y pagos a empresa."
-        >
+        <DistribuidoraLayout title="Estado cuenta" subtitle={`Pendiente: ${formatCurrency(resumen.total_pendiente)}`}>
             <Head title="Estado de Cuenta" />
 
-            {sinConfig ? (
-                <div className="fin-card bg-white/95 backdrop-blur">
-                    <p className="fin-title">Aún no existe una distribuidora operativa ligada a tu acceso</p>
-                    <p className="mt-2 fin-subtitle">Cuando se complete el alta formal, aquí aparecerán tus relaciones y pagos a empresa.</p>
-                </div>
-            ) : (
-                <>
-                    {/* Resumen compacto */}
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 fin-enter">
-                        <div className="fin-card border-green-100 bg-green-50/50">
-                            <p className="text-xs font-medium text-gray-500">Abiertas</p>
-                            <p className="mt-1 text-lg font-bold text-gray-900">{formatNumber(resumen.relaciones_abiertas)}</p>
-                        </div>
-                        <div className="fin-card border-amber-100 bg-amber-50/60">
-                            <p className="text-xs font-medium text-gray-500">Pendiente</p>
-                            <p className="mt-1 text-lg font-bold text-gray-900">{formatCurrency(resumen.total_pendiente)}</p>
-                        </div>
-                        <div className="fin-card border-indigo-100 bg-indigo-50/60">
-                            <p className="text-xs font-medium text-gray-500">Última relación</p>
-                            <p className="mt-1 text-sm font-bold text-gray-900">{resumen.ultima_relacion?.numero_relacion || '—'}</p>
-                        </div>
-                        <div className="fin-card border-green-100 bg-green-50/60">
-                            <p className="text-xs font-medium text-gray-500">Pagos pendientes</p>
-                            <p className="mt-1 text-lg font-bold text-gray-900">{formatNumber(resumen.pagos_pendientes)}</p>
-                        </div>
+            <div className="space-y-3">
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="p-3 bg-white border border-gray-200 rounded-xl text-center">
+                        <p className="text-lg font-bold text-gray-900">{resumen.relaciones_abiertas}</p>
+                        <p className="text-[10px] text-gray-500 uppercase">Abiertas</p>
                     </div>
+                    <div className="p-3 bg-white border border-gray-200 rounded-xl text-center">
+                        <p className="text-lg font-bold text-amber-600">{formatCurrency(resumen.total_pendiente)}</p>
+                        <p className="text-[10px] text-gray-500 uppercase">Pendiente</p>
+                    </div>
+                </div>
 
-                    <form onSubmit={applyFilters} className="mt-6 space-y-3">
-                        <div className="flex items-center gap-2">
-                            <div className="flex-1">
-                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Buscar</label>
-                                <input type="text" value={form.q} onChange={(e) => setForm((p) => ({ ...p, q: e.target.value }))} className="fin-input" placeholder="Número o referencia" />
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setFilterOpen(true)}
-                                className="inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl"
-                            >
-                                Filtros
-                                {filtrosActivos > 0 && (
-                                    <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-green-700 rounded-full">
-                                        {filtrosActivos}
-                                    </span>
-                                )}
+                {/* Botón reportar */}
+                {puedoReportar && (
+                    <button onClick={() => setModalPago(true)} className="flex items-center justify-center gap-2 w-full py-3 bg-green-700 text-white rounded-xl font-medium">
+                        <FontAwesomeIcon icon={faPlus} className="w-5 h-5" />
+                        Reportar pago
+                    </button>
+                )}
+
+                {/* Buscador */}
+                <div className="flex gap-2">
+                    <input type="text" value={form.q} onChange={(e) => setForm((p) => ({ ...p, q: e.target.value }))} className="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl" placeholder="Buscar..." onKeyDown={(e) => e.key === 'Enter' && aplicarFiltros(e)} />
+                    <button onClick={aplicarFiltros} className="px-4 py-2.5 bg-green-700 text-white rounded-xl">
+                        <FontAwesomeIcon icon={faSearch} className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {/* Lista relaciones */}
+                <div className="space-y-2">
+                    {!relaciones.data?.length ? (
+                        <div className="p-8 text-center text-gray-400 text-sm">Sin relaciones.</div>
+                    ) : (
+                        relaciones.data.map((rel) => (
+                            <button key={rel.id} onClick={() => selectRelacion(rel.id)} className={`w-full p-3 text-left bg-white border rounded-xl ${form.relacion_id == rel.id ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-900">#{rel.numero_relacion}</p>
+                                        <p className="text-xs text-gray-500">Vence: {formatDate(rel.fecha_limite_pago)}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm font-bold text-gray-900">{formatCurrency(rel.total_a_pagar)}</p>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${statusBadgeClass(rel.estado).split(' ').slice(0, 2).join(' ')}`}>
+                                            {rel.estado}
+                                        </span>
+                                    </div>
+                                </div>
                             </button>
-                        </div>
+                        ))
+                    )}
+                </div>
 
+                {/* Paginator */}
+                {relaciones.last_page > 1 && (
+                    <div className="flex justify-center gap-2">
+                        {relaciones.current_page > 1 && (
+                            <button onClick={() => router.get(route('distribuidora.estado-cuenta'), { ...form, relaciones_page: relaciones.current_page - 1 }, { preserveState: true })} className="px-3 py-1.5 text-xs bg-gray-100 rounded-lg">←</button>
+                        )}
+                        <span className="px-2 py-1.5 text-xs">{relaciones.current_page}/{relaciones.last_page}</span>
+                        {relaciones.current_page < relaciones.last_page && (
+                            <button onClick={() => router.get(route('distribuidora.estado-cuenta'), { ...form, relaciones_page: relaciones.current_page + 1 }, { preserveState: true })} className="px-3 py-1.5 text-xs bg-gray-100 rounded-lg">→</button>
+                        )}
+                    </div>
+                )}
 
-                    </form>
-
-                    {filterOpen && (
-                        <div className="fin-modal-backdrop" onClick={() => setFilterOpen(false)}>
-                            <div className="fin-modal-sheet max-w-md" onClick={(e) => e.stopPropagation()}>
-                                <div className="fin-modal-head">
-                                    <div>
-                                        <h2 className="text-lg font-bold text-gray-900">Filtros de cuenta</h2>
-                                        <p className="mt-1 text-sm text-gray-500">Refina relaciones y rango de fechas.</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFilterOpen(false)}
-                                        className="inline-flex items-center justify-center w-10 h-10 text-gray-600 border border-gray-200 rounded-xl"
-                                        aria-label="Cerrar filtros"
-                                    >
-                                        ×
-                                    </button>
+                {/* Modal detalle de corte (informativo) */}
+                {detalleOpen && relacionSeleccionada && (
+                    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={() => setDetalleOpen(false)}>
+                        <div className="w-full max-w-md bg-white rounded-t-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                            <div className="sticky top-0 bg-white p-4 border-b border-gray-100 flex justify-between items-center">
+                                <div>
+                                    <p className="text-xs text-gray-500">Corte</p>
+                                    <p className="text-base font-bold text-gray-900">#{relacionSeleccionada.numero_relacion}</p>
                                 </div>
-
-                                <div className="fin-modal-body space-y-4">
-                                    <div>
-                                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Estado</label>
-                                        <select value={form.estado} onChange={(e) => setForm((p) => ({ ...p, estado: e.target.value }))} className="fin-input">
-                                            {(opciones.estados || []).map((e) => <option key={e} value={e}>{e}</option>)}
-                                        </select>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                        <div>
-                                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Desde</label>
-                                            <div>
-                                                <FinDatePicker
-                                                    value={form.fecha_desde || ''}
-                                                    onChange={(val) => setForm((p) => ({ ...p, fecha_desde: val }))}
-                                                    placeholder="Fecha inicial..."
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Hasta</label>
-                                            <div>
-                                                <FinDatePicker
-                                                    value={form.fecha_hasta || ''}
-                                                    onChange={(val) => setForm((p) => ({ ...p, fecha_hasta: val }))}
-                                                    placeholder="Fecha final..."
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="fin-modal-foot flex gap-2">
-                                    <button type="button" onClick={clearFilters} className="flex-1 fin-btn-secondary">Limpiar</button>
-                                    <button
-                                        type="button"
-                                        disabled={fechasInvalidas}
-                                        onClick={(event) => {
-                                            applyFilters(event);
-                                            setFilterOpen(false);
-                                        }}
-                                        className="flex-1 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Aplicar
-                                    </button>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${statusBadgeClass(relacionSeleccionada.estado).split(' ').slice(0, 2).join(' ')}`}>
+                                        {relacionSeleccionada.estado}
+                                    </span>
+                                    <button onClick={() => setDetalleOpen(false)} className="p-1 text-gray-400"><FontAwesomeIcon icon={faXmark} /></button>
                                 </div>
                             </div>
-                        </div>
-                    )}
 
-                    <div className="grid grid-cols-1 gap-4 mt-6 xl:grid-cols-5 fin-enter">
-                        {/* Lista de relaciones */}
-                        <div className="space-y-2 xl:col-span-2">
-                            {!relaciones.data?.length ? (
-                                <p className="p-4 text-sm text-gray-500">Sin relaciones con ese filtro.</p>
-                            ) : (
-                                <>
-                                    {relaciones.data.map((r, index) => (
-                                        <button
-                                            key={r.id}
-                                            type="button"
-                                            onClick={() => selectRelacion(r.id)}
-                                            className={`w-full p-3 text-left border rounded-xl transition fin-interactive fin-stagger-item ${relacionSeleccionada?.id === r.id ? 'border-green-300 bg-green-50/50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
-                                            style={{ animationDelay: `${Math.min(index * 30, 210)}ms` }}
-                                        >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <div>
-                                                    <p className="text-sm font-semibold text-gray-900">{r.numero_relacion}</p>
-                                                    <p className="text-xs text-gray-500">{formatDate(r.fecha_limite_pago)} · {formatNumber(r.partidas_count)} partidas</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <span className={statusBadgeClass(r.estado)}>{r.estado}</span>
-                                                    <p className="mt-1 text-sm font-bold text-gray-900">{formatCurrency(r.total_a_pagar)}</p>
-                                                </div>
-                                            </div>
-                                        </button>
-                                    ))}
-                                    <Paginator
-                                        currentPage={relaciones.current_page}
-                                        lastPage={relaciones.last_page}
-                                        total={relaciones.total}
-                                        onChange={cambiarPaginaRelaciones}
-                                    />
-                                </>
-                            )}
-                        </div>
-
-                        {/* Detalle de la relación */}
-                        <div className="xl:col-span-3">
-                            {!relacionSeleccionada ? (
-                                <div className="flex items-center justify-center p-12 border-2 border-gray-200 border-dashed rounded-xl">
-                                    <p className="text-sm text-gray-400">Selecciona una relación de la lista</p>
+                            <div className="p-4 space-y-4">
+                                {/* Resumen principal */}
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <p className="text-xs text-gray-500">Total a pagar</p>
+                                        <p className="font-bold text-gray-900">{formatCurrency(relacionSeleccionada.total_a_pagar)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Fecha límite</p>
+                                        <p className="font-bold text-amber-600">{formatDate(relacionSeleccionada.fecha_limite_pago)}</p>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="border rounded-xl border-gray-200 bg-white overflow-hidden">
-                                    {/* Header de la relación */}
-                                    <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div>
-                                                <p className="text-lg font-bold text-gray-900">{relacionSeleccionada.numero_relacion}</p>
-                                                <p className="text-sm text-gray-500">Generada {formatDate(relacionSeleccionada.generada_en, true)}</p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={statusBadgeClass(relacionSeleccionada.estado)}>{relacionSeleccionada.estado}</span>
-                                                <button type="button" onClick={() => copiarReferencia(relacionSeleccionada.referencia_pago)} className="px-3 py-1 text-xs fin-btn-secondary">
-                                                    Copiar ref.
-                                                </button>
-                                            </div>
-                                        </div>
 
-                                        {/* Info clave en una sola línea */}
-                                        <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-sm">
-                                            <span className="text-gray-500">Ref: <span className="font-semibold text-gray-900">{relacionSeleccionada.referencia_pago || '—'}</span></span>
-                                            <span className="text-gray-500">Límite: <span className="font-semibold text-gray-900">{formatDate(relacionSeleccionada.fecha_limite_pago)}</span></span>
-                                            {relacionSeleccionada.fecha_inicio_pago_anticipado && (
-                                                <span className="text-gray-500">Anticipado: <span className="font-semibold text-green-700">{formatDate(relacionSeleccionada.fecha_inicio_pago_anticipado)} — {formatDate(relacionSeleccionada.fecha_fin_pago_anticipado)}</span></span>
-                                            )}
-                                            <span className="text-gray-500">Crédito: <span className="font-semibold text-gray-900">{formatCurrency(relacionSeleccionada.credito_disponible_snapshot)}</span> / {formatCurrency(relacionSeleccionada.limite_credito_snapshot)}</span>
-                                            <span className="text-gray-500">Puntos: <span className="font-semibold text-gray-900">{formatNumber(relacionSeleccionada.puntos_snapshot)}</span></span>
+                                {/* Referencia */}
+                                {relacionSeleccionada.referencia_pago && (
+                                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                                        <p className="text-[10px] uppercase tracking-wider text-blue-700">Referencia de pago</p>
+                                        <p className="mt-1 font-mono text-sm font-semibold text-gray-900 break-all">{relacionSeleccionada.referencia_pago}</p>
+                                        <p className="mt-1 text-[10px] text-blue-700">Usa esta referencia al transferir a la empresa.</p>
+                                    </div>
+                                )}
+
+                                {/* Ventanas de pago */}
+                                <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs space-y-1">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Anticipado</span>
+                                        <span className="text-gray-900">{formatDate(relacionSeleccionada.fecha_inicio_pago_anticipado)} – {formatDate(relacionSeleccionada.fecha_fin_pago_anticipado)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Límite</span>
+                                        <span className="text-gray-900">{formatDate(relacionSeleccionada.fecha_limite_pago)}</span>
+                                    </div>
+                                </div>
+
+                                {/* Desglose */}
+                                <div>
+                                    <p className="text-xs font-bold text-gray-500 mb-2">Desglose</p>
+                                    <div className="p-3 bg-white border border-gray-100 rounded-xl text-xs space-y-1">
+                                        <div className="flex justify-between"><span className="text-gray-500">Pagos de vales</span><span className="font-medium">{formatCurrency(relacionSeleccionada.total_pago)}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Comisión</span><span className="font-medium">{formatCurrency(relacionSeleccionada.total_comision)}</span></div>
+                                        {Number(relacionSeleccionada.total_recargos) > 0 && (
+                                            <div className="flex justify-between"><span className="text-gray-500">Recargos</span><span className="font-medium text-red-600">{formatCurrency(relacionSeleccionada.total_recargos)}</span></div>
+                                        )}
+                                        <div className="flex justify-between pt-1 border-t border-gray-100">
+                                            <span className="font-bold text-gray-900">Total</span>
+                                            <span className="font-bold text-gray-900">{formatCurrency(relacionSeleccionada.total_a_pagar)}</span>
                                         </div>
                                     </div>
+                                </div>
 
-                                    {/* Tabla de partidas */}
-                                    <div className="p-4">
-                                        {!relacionSeleccionada.partidas?.length ? (
-                                            <p className="text-sm text-gray-500">Sin partidas ligadas.</p>
+                                {/* Partidas (vales del corte) */}
+                                {relacionSeleccionada.partidas?.length > 0 && (
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-500 mb-2">Vales del corte ({relacionSeleccionada.partidas.length})</p>
+                                        <div className="space-y-1">
+                                            {relacionSeleccionada.partidas.map((p) => (
+                                                <div key={p.id} className="p-2 bg-gray-50 rounded-lg text-xs">
+                                                    <div className="flex justify-between">
+                                                        <span className="font-medium text-gray-900">{p.nombre_producto_snapshot || 'Vale'}</span>
+                                                        <span className="font-bold text-gray-900">{formatCurrency(p.monto_total_linea)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between mt-0.5 text-gray-500">
+                                                        <span>{formatNumber(p.pagos_realizados)}/{formatNumber(p.pagos_totales)} pagos</span>
+                                                        <span>
+                                                            {formatCurrency(p.monto_pago)}
+                                                            {Number(p.monto_recargo) > 0 && <span className="text-red-600"> +{formatCurrency(p.monto_recargo)}</span>}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Pagos reportados */}
+                                {pagos.data?.length > 0 && (
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-500 mb-2">Pagos reportados</p>
+                                        <div className="space-y-1">
+                                            {pagos.data.map((p) => (
+                                                <div key={p.id} className="flex justify-between p-2 bg-gray-50 rounded-lg text-xs">
+                                                    <span>{formatCurrency(p.monto)} · {formatDate(p.fecha_pago, true)}</span>
+                                                    <span className={statusBadgeClass(p.estado)}>{p.estado}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Canje inline de puntos */}
+                                {puedeAplicarPuntos && puntosDisponibles >= 2 && (
+                                    <div className="p-3 bg-green-50 border border-green-100 rounded-xl">
+                                        <p className="text-xs font-bold text-green-700 mb-2">Aplicar puntos ({formatNumber(puntosDisponibles)} disponibles)</p>
+                                        {!canjeInline.abierto ? (
+                                            <button onClick={() => setCanjeInline({ abierto: true, puntos: '' })} className="w-full py-2 text-xs font-medium text-green-700 bg-white border border-green-200 rounded-lg">Aplicar puntos a este corte</button>
                                         ) : (
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-sm">
-                                                    <thead>
-                                                        <tr className="border-b border-gray-200">
-                                                            <th className="py-2 pr-2 text-left text-xs font-semibold text-gray-500 uppercase">#</th>
-                                                            <th className="py-2 pr-2 text-left text-xs font-semibold text-gray-500 uppercase">Producto</th>
-                                                            <th className="py-2 pr-2 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
-                                                            <th className="py-2 pr-2 text-center text-xs font-semibold text-gray-500 uppercase">Pagos</th>
-                                                            <th className="py-2 pr-2 text-right text-xs font-semibold text-gray-500 uppercase">Comisión</th>
-                                                            <th className="py-2 pr-2 text-right text-xs font-semibold text-gray-500 uppercase">Pago</th>
-                                                            <th className="py-2 pr-2 text-right text-xs font-semibold text-gray-500 uppercase">Recargos</th>
-                                                            <th className="py-2 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {relacionSeleccionada.partidas.map((p, i) => (
-                                                            <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                                                                <td className="py-2 pr-2 text-gray-400">{i + 1}</td>
-                                                                <td className="py-2 pr-2 font-medium text-gray-900">{p.nombre_producto_snapshot}</td>
-                                                                <td className="py-2 pr-2 text-gray-700">{p.cliente_nombre || '—'}</td>
-                                                                <td className="py-2 pr-2 text-center text-gray-700">{p.pagos_realizados}/{p.pagos_totales}</td>
-                                                                <td className="py-2 pr-2 text-right text-gray-700">{formatCurrency(p.monto_comision)}</td>
-                                                                <td className="py-2 pr-2 text-right text-gray-700">{formatCurrency(p.monto_pago)}</td>
-                                                                <td className="py-2 pr-2 text-right text-gray-700">{formatCurrency(p.monto_recargo)}</td>
-                                                                <td className="py-2 text-right font-semibold text-gray-900">{formatCurrency(p.monto_total_linea)}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                    <tfoot>
-                                                        <tr className="border-t-2 border-gray-300">
-                                                            <td colSpan={4} className="py-3 pr-2 text-right font-semibold text-gray-700">Totales</td>
-                                                            <td className="py-3 pr-2 text-right font-semibold">{formatCurrency(relacionSeleccionada.total_comision)}</td>
-                                                            <td className="py-3 pr-2 text-right font-semibold">{formatCurrency(relacionSeleccionada.total_pago)}</td>
-                                                            <td className="py-3 pr-2 text-right font-semibold">{formatCurrency(relacionSeleccionada.total_recargos)}</td>
-                                                            <td className="py-3 text-right text-lg font-bold text-gray-900">{formatCurrency(relacionSeleccionada.total_a_pagar)}</td>
-                                                        </tr>
-                                                    </tfoot>
-                                                </table>
+                                            <div className="flex gap-2">
+                                                <input type="number" value={canjeInline.puntos} onChange={(e) => setCanjeInline((p) => ({ ...p, puntos: e.target.value }))} placeholder={`Máx ${Math.floor(relacionSeleccionada.total_a_pagar / valorPorPunto)}`} className="flex-1 px-2 py-2 text-sm border border-gray-200 rounded-lg" />
+                                                <button onClick={aplicarCanje} disabled={canjeando || puntosNum < 2} className="px-4 py-2 text-xs font-bold text-white bg-green-700 rounded-lg disabled:opacity-50">
+                                                    {canjeando ? '...' : 'Aplicar'}
+                                                </button>
+                                                <button onClick={() => setCanjeInline({ abierto: false, puntos: '' })} className="px-2 py-2 text-gray-500">
+                                                    <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         )}
                                     </div>
+                                )}
 
-                                    {/* Aplicar puntos */}
-                                    {puedeAplicarPuntos && (
-                                        <div className="p-4 border-t border-gray-100 bg-amber-50/40">
-                                            {!canjeInline.abierto ? (
-                                                <div className="flex items-center justify-between">
-                                                    <p className="text-sm text-amber-800">
-                                                        Tienes <span className="font-bold">{formatNumber(puntosDisponibles)} puntos</span> ({formatCurrency(puntosDisponibles * valorPorPunto)} disponibles)
-                                                    </p>
-                                                    <button type="button" onClick={() => setCanjeInline({ abierto: true, puntos: '' })} className="px-4 py-2 text-xs font-semibold text-amber-800 bg-amber-200 rounded-lg hover:bg-amber-300 transition">
-                                                        Aplicar puntos
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    <p className="text-sm font-semibold text-amber-800">Canjear puntos en esta relación</p>
-                                                    <div className="flex items-end gap-3">
-                                                        <div className="flex-1">
-                                                            <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Puntos (máx. {formatNumber(puntosMaxRelacion)})</label>
-                                                            <input
-                                                                type="number"
-                                                                value={canjeInline.puntos}
-                                                                onChange={(e) => setCanjeInline((p) => ({ ...p, puntos: e.target.value }))}
-                                                                className={`fin-input ${canjeError ? 'border-red-400' : ''}`}
-                                                                min={2}
-                                                                max={puntosMaxRelacion}
-                                                                placeholder="Ej. 50"
-                                                            />
-                                                            {canjeError && <p className="mt-1 text-xs text-red-600">{canjeError}</p>}
-                                                        </div>
-                                                        {puntosNum >= 2 && !canjeError && (
-                                                            <p className="pb-2 text-sm font-bold text-green-700">= {formatCurrency(puntosNum * valorPorPunto)} descuento</p>
-                                                        )}
-                                                        <button type="button" onClick={aplicarPuntos} disabled={canjeando || puntosNum < 2 || !!canjeError} className="px-4 py-2 text-sm fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
-                                                            {canjeando ? 'Aplicando...' : 'Confirmar'}
-                                                        </button>
-                                                        <button type="button" onClick={() => setCanjeInline({ abierto: false, puntos: '' })} className="px-4 py-2 text-sm fin-btn-secondary">
-                                                            Cancelar
-                                                        </button>
-                                                    </div>
-                                                    {(errors?.puntos_a_canjear || errors?.general) && (
-                                                        <p className="text-xs text-red-600">{errors?.puntos_a_canjear || errors?.general}</p>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Pagos en revisión (informativo) */}
-                                    {relacionSeleccionada.pagos_en_revision_count > 0 && (
-                                        <div className="p-4 border-t border-gray-100 bg-blue-50">
-                                            <div className="flex items-start gap-3">
-                                                <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 bg-blue-200 rounded-full text-blue-800 font-bold text-sm">
-                                                    {relacionSeleccionada.pagos_en_revision_count}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p className="text-sm font-semibold text-blue-900">En revisión</p>
-                                                    <p className="text-xs text-blue-700">
-                                                        Tienes {relacionSeleccionada.pagos_en_revision_count} pago(s) por un total de <span className="font-bold">{formatCurrency(relacionSeleccionada.pagos_en_revision_total)}</span> esperando conciliación por la cajera.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Reportar pago */}
-                                    {puedeReportarPago && (
-                                        <div className="p-4 border-t border-gray-100 bg-green-50/40">
-                                            <div className="flex items-center justify-between gap-3">
-                                                <div>
-                                                    <p className="text-sm font-semibold text-green-900">¿Ya pagaste esta relación?</p>
-                                                    <p className="text-xs text-green-700">Reporta el pago (o un abono parcial) para que la cajera lo concilie con el archivo bancario.</p>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={abrirReportarPago}
-                                                    className="px-4 py-2 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
-                                                >
-                                                    Reportar pago
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Pagos reportados (colapsable, solo si hay) */}
-                                    {pagos.total > 0 && (
-                                        <div className="p-4 border-t border-gray-100">
-                                            <h3 className="text-sm font-semibold text-gray-700">Pagos reportados ({pagos.total})</h3>
-                                            <div className="mt-2 space-y-2">
-                                                {pagos.data.map((pago) => (
-                                                    <div key={pago.id} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-gray-50">
-                                                        <div className="flex items-center gap-3">
-                                                            <p className="font-semibold text-gray-900">{formatCurrency(pago.monto)}</p>
-                                                            <p className="text-xs text-gray-500">{formatDate(pago.fecha_pago, true)} · {pago.metodo_pago}</p>
-                                                        </div>
-                                                        <div className="flex gap-1">
-                                                            <span className={statusBadgeClass(pago.estado)}>{pago.estado}</span>
-                                                            {pago.conciliacion_estado && <span className={statusBadgeClass(pago.conciliacion_estado)}>{pago.conciliacion_estado}</span>}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <Paginator
-                                                currentPage={pagos.current_page}
-                                                lastPage={pagos.last_page}
-                                                total={pagos.total}
-                                                onChange={cambiarPaginaPagos}
-                                            />
-                                        </div>
-                                    )}
-
-                                    {/* Cuentas bancarias de la empresa (inline, compacto) */}
-                                    {cuentasEmpresa.length > 0 && (
-                                        <div className="p-4 border-t border-gray-100 bg-green-50/50">
-                                            <p className="text-xs font-semibold text-green-700 uppercase">Depositar a</p>
-                                            <div className="flex flex-wrap gap-4 mt-2">
-                                                {cuentasEmpresa.map((c, i) => (
-                                                    <div key={i} className="text-sm">
-                                                        <span className="font-semibold text-gray-900">{c.banco}</span>
-                                                        {c.convenio && <span className="text-gray-500"> · Conv. {c.convenio}</span>}
-                                                        <span className="text-gray-500"> · </span>
-                                                        <span className="font-mono text-gray-700">{c.clabe}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                {/* Botón reportar pago dentro del modal */}
+                                {puedoReportar && (
+                                    <button
+                                        onClick={() => { setDetalleOpen(false); setModalPago(true); }}
+                                        className="flex items-center justify-center gap-2 w-full py-3 bg-green-700 text-white rounded-xl font-medium"
+                                    >
+                                        <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />
+                                        Reportar pago
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </>
-            )}
+                )}
 
-            {/* Modal Reportar Pago */}
-            {modalReportar && relacionSeleccionada && (
-                <div className="fin-modal-backdrop" onClick={() => setModalReportar(false)}>
-                    <div className="fin-modal-sheet max-w-md" onClick={(e) => e.stopPropagation()}>
-                        <div className="fin-modal-head">
-                            <h2 className="text-lg font-bold text-gray-900">Reportar pago</h2>
-                            <p className="mt-1 text-sm text-gray-500">{relacionSeleccionada.numero_relacion}</p>
-                        </div>
-                        <div className="fin-modal-body space-y-4 max-h-[70vh] overflow-y-auto">
-                            <div>
-                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Monto pagado al banco</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0.01"
-                                    max={relacionSeleccionada.total_a_pagar}
-                                    value={pagoForm.monto}
-                                    onChange={(e) => setPagoForm((p) => ({ ...p, monto: e.target.value }))}
-                                    onBlur={() => setPagoFormTouched((t) => ({ ...t, monto: true }))}
-                                    className={`fin-input ${pagoFormTouched.monto && pagoErrors.monto ? 'border-red-400' : ''}`}
-                                />
-                                {pagoFormTouched.monto && pagoErrors.monto && <p className="mt-1 text-xs text-red-600">{pagoErrors.monto}</p>}
-                                {errors?.monto && <p className="mt-1 text-xs text-red-600">{errors.monto}</p>}
-                                <p className="mt-1 text-xs text-amber-600 font-semibold">
-                                    Nota: Es obligatorio cubrir el total ({formatCurrency(relacionSeleccionada.total_a_pagar)}) para evitar penalizaciones.
-                                </p>
-                            </div>
-
-                            {/* Desglose de Clientes */}
-                            <div className="border border-gray-200 rounded-lg overflow-hidden">
-                                <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
-                                    <h3 className="text-sm font-semibold text-gray-700">Asignar pagos de clientes (Tú control interno)</h3>
-                                </div>
-                                <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto">
-                                    {relacionSeleccionada?.partidas?.map((p) => {
-                                        const asig = pagoForm.desglose?.find(d => d.partida_id === p.id) || { status: 'PAGADO', monto_capturado: p.monto_total_linea };
-                                        return (
-                                            <div key={p.id} className="p-3 text-sm">
-                                                <div className="flex items-center justify-between font-medium text-gray-900 mb-2">
-                                                    <span>{p.cliente_nombre || 'Cliente'}</span>
-                                                    <span>{formatCurrency(p.monto_total_linea)}</span>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <select 
-                                                        className="fin-input py-1 px-2 text-xs flex-1"
-                                                        value={asig.status}
-                                                        onChange={(e) => {
-                                                            const newStatus = e.target.value;
-                                                            let newMonto = asig.monto_capturado;
-                                                            if (newStatus === 'PAGADO') newMonto = p.monto_total_linea;
-                                                            if (newStatus === 'NO_PAGO') newMonto = 0;
-                                                            
-                                                            const newDesglose = [...(pagoForm.desglose || [])];
-                                                            const idx = newDesglose.findIndex(d => d.partida_id === p.id);
-                                                            if (idx >= 0) {
-                                                                newDesglose[idx] = { ...newDesglose[idx], status: newStatus, monto_capturado: newMonto };
-                                                            } else {
-                                                                newDesglose.push({ partida_id: p.id, status: newStatus, monto_capturado: newMonto });
-                                                            }
-                                                            setPagoForm(prev => ({ ...prev, desglose: newDesglose }));
-                                                        }}
-                                                    >
-                                                        <option value="PAGADO">Pagado completo</option>
-                                                        <option value="PARCIAL">Pago parcial</option>
-                                                        <option value="NO_PAGO">No pagó</option>
-                                                    </select>
-                                                    
-                                                    {asig.status === 'PARCIAL' && (
-                                                        <input 
-                                                            type="number" 
-                                                            step="0.01" 
-                                                            className="fin-input py-1 px-2 text-xs w-24"
-                                                            value={asig.monto_capturado}
-                                                            onChange={(e) => {
-                                                                const newDesglose = [...(pagoForm.desglose || [])];
-                                                                const idx = newDesglose.findIndex(d => d.partida_id === p.id);
-                                                                if (idx >= 0) newDesglose[idx].monto_capturado = e.target.value;
-                                                                setPagoForm(prev => ({ ...prev, desglose: newDesglose }));
-                                                            }}
-                                                        />
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
+                {/* Modal reportar pago */}
+                {modalPago && (
+                    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={() => setModalPago(false)}>
+                        <div className="w-full max-w-md bg-white rounded-t-2xl p-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                            <p className="text-base font-bold text-gray-900 mb-4">Reportar pago</p>
+                            {errors?.general && <p className="text-xs text-red-600 mb-2">{errors.general}</p>}
+                            <div className="space-y-3">
                                 <div>
-                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Método de pago</label>
-                                    <select
-                                        value={pagoForm.metodo_pago}
-                                        onChange={(e) => setPagoForm((p) => ({ ...p, metodo_pago: e.target.value }))}
-                                        className="fin-input"
-                                    >
+                                    <label className="text-xs text-gray-500 mb-1 block">Monto</label>
+                                    <input type="number" step="0.01" value={pagoForm.monto} onChange={(e) => setPagoForm((p) => ({ ...p, monto: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg" placeholder="0.00" />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500 mb-1 block">Método</label>
+                                    <select value={pagoForm.metodo_pago} onChange={(e) => setPagoForm((p) => ({ ...p, metodo_pago: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg">
                                         <option value="TRANSFERENCIA">Transferencia</option>
                                         <option value="DEPOSITO">Depósito</option>
-                                        <option value="OTRO">Otro</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Referencia</label>
-                                    <input
-                                        type="text"
-                                        maxLength={100}
-                                        value={pagoForm.referencia_reportada}
-                                        onChange={(e) => setPagoForm((p) => ({ ...p, referencia_reportada: e.target.value }))}
-                                        onBlur={() => setPagoFormTouched((t) => ({ ...t, referencia_reportada: true }))}
-                                        className={`fin-input ${pagoFormTouched.referencia_reportada && pagoErrors.referencia_reportada ? 'border-red-400' : ''}`}
-                                        placeholder="Referencia del banco"
-                                    />
+                                    <label className="text-xs text-gray-500 mb-1 block">Referencia</label>
+                                    <input type="text" value={pagoForm.referencia_reportada} onChange={(e) => setPagoForm((p) => ({ ...p, referencia_reportada: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg" placeholder="Referencia" />
                                 </div>
+                                {cuentasEmpresa?.[0] && <p className="text-xs text-gray-500">CLABE: {cuentasEmpresa[0].clabe}</p>}
                             </div>
-                            
-                            {pagoFormTouched.referencia_reportada && pagoErrors.referencia_reportada && <p className="mt-1 text-xs text-red-600">{pagoErrors.referencia_reportada}</p>}
-                            {errors?.referencia_reportada && <p className="mt-1 text-xs text-red-600">{errors.referencia_reportada}</p>}
-                            
-                            <div>
-                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Observaciones (opcional)</label>
-                                <textarea
-                                    value={pagoForm.observaciones}
-                                    maxLength={500}
-                                    onChange={(e) => setPagoForm((p) => ({ ...p, observaciones: e.target.value }))}
-                                    onBlur={() => setPagoFormTouched((t) => ({ ...t, observaciones: true }))}
-                                    className={`fin-input ${pagoFormTouched.observaciones && pagoErrors.observaciones ? 'border-red-400' : ''}`}
-                                    rows={2}
-                                />
-                                <p className="mt-1 text-xs text-gray-400">{pagoForm.observaciones.length}/500</p>
-                                {pagoFormTouched.observaciones && pagoErrors.observaciones && <p className="mt-1 text-xs text-red-600">{pagoErrors.observaciones}</p>}
+                            <div className="flex gap-2 mt-4">
+                                <button onClick={() => setModalPago(false)} className="flex-1 py-3 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg">Cancelar</button>
+                                <button onClick={confirmarReporte} disabled={reportando || !pagoForm.monto} className="flex-1 py-3 text-sm font-medium text-white bg-green-700 rounded-lg disabled:opacity-50">
+                                    {reportando ? 'Enviando...' : 'Confirmar'}
+                                </button>
                             </div>
-                            <div className="p-3 text-xs rounded-lg bg-blue-50 border border-blue-200 text-blue-800">
-                                Al confirmar, el sistema guardará cómo tus clientes te pagaron hoy. La cajera conciliará el dinero global.
-                            </div>
-                        </div>
-                        <div className="fin-modal-foot flex justify-end gap-3 mt-4">
-                            <button type="button" onClick={() => setModalReportar(false)} className="px-5 py-2 fin-btn-secondary">Cancelar</button>
-                            <button
-                                type="button"
-                                onClick={confirmarReportarPago}
-                                disabled={reportando || !pagoFormValido}
-                                className="px-5 py-2 fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {reportando ? 'Reportando...' : 'Confirmar pago'}
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </DistribuidoraLayout>
     );
 }
-
-

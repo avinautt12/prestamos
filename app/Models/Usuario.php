@@ -220,6 +220,26 @@ class Usuario extends Authenticatable
             ->exists();
     }
 
+    public function getSucursalActualIdAttribute(): ?int
+    {
+        $rolPrincipal = $this->roles()
+            ->wherePivot('es_principal', true)
+            ->wherePivotNull('revocado_en')
+            ->first();
+
+        return $rolPrincipal?->pivot->sucursal_id;
+    }
+
+    public function getSucursalActualNombreAttribute(): ?string
+    {
+        $sucursalId = $this->sucursal_actual_id;
+        if (!$sucursalId) {
+            return null;
+        }
+
+        return Sucursal::find($sucursalId)?->nombre;
+    }
+
     public function tieneCombinacionRolesIncompatible(): bool
     {
         return $this->roles()

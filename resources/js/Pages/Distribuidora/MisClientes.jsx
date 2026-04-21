@@ -1,263 +1,147 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
-import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from './utils';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSearch, faFilter, faPlus, faUser as faUserIcon } from '@fortawesome/free-solid-svg-icons';
+import { formatCurrency, formatNumber, statusBadgeClass } from './utils';
 
 export default function MisClientes({ distribuidora, resumen, clientes = [], filtros = {} }) {
-    const sinConfig = !distribuidora;
-    const [form, setForm] = useState({
-        q: filtros.q || '',
-        estado_relacion: filtros.estado_relacion || 'TODOS',
-        elegibilidad: filtros.elegibilidad || 'TODOS',
-    });
-    const [filterOpen, setFilterOpen] = useState(false);
-
-    const copiarCodigo = async (codigo) => {
-        if (!codigo) {
-            return;
-        }
-
-        try {
-            await navigator.clipboard.writeText(codigo);
-            window.alert(`Codigo copiado: ${codigo}`); 
-        } catch (error) {
-            const input = document.createElement('input');
-            input.value = codigo;
-            document.body.appendChild(input);
-            input.select();
-            document.execCommand('copy');
-            document.body.removeChild(input);
-            window.alert(`Codigo copiado: ${codigo}`); 
-        }
-    };
-
-    const submitFilters = (event) => {
-        event.preventDefault();
-        router.get(route('distribuidora.clientes'), form, { preserveState: true, preserveScroll: true, replace: true });
-    };
-
-    const clearFilters = () => {
-        const empty = { q: '', estado_relacion: 'TODOS', elegibilidad: 'TODOS' };
-        setForm(empty);
-        router.get(route('distribuidora.clientes'), empty, { preserveState: true, preserveScroll: true, replace: true });
-        setFilterOpen(false);
-    };
+    const [form, setForm] = useState({ q: filtros.q || '', estado_relacion: filtros.estado_relacion || 'TODOS', elegibilidad: filtros.elegibilidad || 'TODOS' });
+    const [showFilters, setShowFilters] = useState(false);
 
     const iniciales = (nombre) => {
         if (!nombre) return '?';
         return nombre.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
     };
 
-    const filtrosActivos = useMemo(() => {
-        let total = 0;
-        if (form.estado_relacion !== 'TODOS') total += 1;
-        if (form.elegibilidad !== 'TODOS') total += 1;
-        if ((form.q || '').trim().length > 0) total += 1;
-        return total;
-    }, [form]);
+    const submitFilters = (e) => {
+        e?.preventDefault();
+        router.get(route('distribuidora.clientes'), form, { preserveState: true, preserveScroll: true, replace: true });
+    };
+
+    const clearFilters = () => {
+        setForm({ q: '', estado_relacion: 'TODOS', elegibilidad: 'TODOS' });
+        setShowFilters(false);
+        router.get(route('distribuidora.clientes'), { q: '', estado_relacion: 'TODOS', elegibilidad: 'TODOS' }, { preserveState: true });
+    };
+
+    if (!distribuidora) {
+        return (
+            <DistribuidoraLayout title="Clientes" subtitle="No disponible">
+                <Head title="Clientes" />
+                <div className="p-8 text-center text-gray-500">Sin distribuidora asignada.</div>
+            </DistribuidoraLayout>
+        );
+    }
 
     return (
-        <DistribuidoraLayout
-            title="Clientes"
-            subtitle="Tu cartera de clientes y su estado actual."
-        >
-            <Head title="Clientes" />
+        <DistribuidoraLayout title="Mi cartera" subtitle={`${resumen.total} clientes`}>
+            <Head title="Mis Clientes" />
 
-            {sinConfig ? (
-                <div className="fin-card bg-white/95 backdrop-blur">
-                    <p className="fin-title">Tu cuenta todavía no tiene una distribuidora ligada</p>
-                    <p className="mt-2 fin-subtitle">Cuando el registro operativo exista, aquí verás tu cartera de clientes.</p>
+            <div className="space-y-3">
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-2">
+                    <div className="p-3 bg-white border border-gray-200 rounded-xl text-center">
+                        <p className="text-xl font-bold text-gray-900">{formatNumber(resumen.total)}</p>
+                        <p className="text-[10px] text-gray-500 uppercase">Total</p>
+                    </div>
+                    <div className="p-3 bg-white border border-gray-200 rounded-xl text-center">
+                        <p className="text-xl font-bold text-green-600">{formatNumber(resumen.activos)}</p>
+                        <p className="text-[10px] text-gray-500 uppercase">Activos</p>
+                    </div>
+                    <div className="p-3 bg-white border border-gray-200 rounded-xl text-center">
+                        <p className="text-xl font-bold text-green-600">{formatNumber(resumen.elegibles)}</p>
+                        <p className="text-[10px] text-gray-500 uppercase">Elegibles</p>
+                    </div>
                 </div>
-            ) : (
-                <>
-                    {/* Resumen compacto */}
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-5 fin-enter">
-                        <div className="fin-card border-green-100 bg-green-50/50">
-                            <p className="text-xs font-medium text-gray-500">Total</p>
-                            <p className="mt-1 text-xl font-bold text-gray-900">{formatNumber(resumen.total)}</p>
+
+                {/* Buscador + Filtro */}
+                <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                        <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            value={form.q}
+                            onChange={(e) => setForm((p) => ({ ...p, q: e.target.value }))}
+                            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl"
+                            placeholder="Buscar cliente..."
+                            onKeyDown={(e) => e.key === 'Enter' && submitFilters(e)}
+                        />
+                    </div>
+                    <button onClick={() => setShowFilters(!showFilters)} className={`px-3 py-2.5 border border-gray-200 rounded-xl ${form.estado_relacion !== 'TODOS' || form.elegibilidad !== 'TODOS' ? 'bg-green-700 text-white' : 'bg-white text-gray-600'}`}>
+                        <FontAwesomeIcon icon={faFilter} className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {/* Filtros expandidos */}
+                {showFilters && (
+                    <div className="p-3 bg-white border border-gray-200 rounded-xl space-y-3">
+                        <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Relación</label>
+                            <select value={form.estado_relacion} onChange={(e) => setForm((p) => ({ ...p, estado_relacion: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg">
+                                <option value="TODOS">Todos</option>
+                                <option value="ACTIVA">Activas</option>
+                                <option value="BLOQUEADA">Bloqueadas</option>
+                            </select>
                         </div>
-                        <div className="fin-card border-green-100 bg-green-50/60">
-                            <p className="text-xs font-medium text-gray-500">Activos</p>
-                            <p className="mt-1 text-xl font-bold text-green-600">{formatNumber(resumen.activos)}</p>
+                        <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Elegibilidad</label>
+                            <select value={form.elegibilidad} onChange={(e) => setForm((p) => ({ ...p, elegibilidad: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg">
+                                <option value="TODOS">Todos</option>
+                                <option value="ELEGIBLES">Para nuevo vale</option>
+                                <option value="CON_SALDO">Con deuda</option>
+                            </select>
                         </div>
-                        <div className="fin-card border-rose-100 bg-rose-50/60">
-                            <p className="text-xs font-medium text-gray-500">Bloqueados</p>
-                            <p className="mt-1 text-xl font-bold text-red-600">{formatNumber(resumen.bloqueados)}</p>
-                        </div>
-                        <div className="fin-card border-indigo-100 bg-indigo-50/60">
-                            <p className="text-xs font-medium text-gray-500">Elegibles</p>
-                            <p className="mt-1 text-xl font-bold text-green-600">{formatNumber(resumen.elegibles)}</p>
-                        </div>
-                        <div className="fin-card border-amber-100 bg-amber-50/60">
-                            <p className="text-xs font-medium text-gray-500">Con saldo</p>
-                            <p className="mt-1 text-xl font-bold text-amber-600">{formatNumber(resumen.con_saldo)}</p>
+                        <div className="flex gap-2">
+                            <button onClick={clearFilters} className="flex-1 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg">Limpiar</button>
+                            <button onClick={() => { submitFilters({ preventDefault: () => {} }); setShowFilters(false); }} className="flex-1 py-2 text-sm font-medium text-white bg-green-700 rounded-lg">Aplicar</button>
                         </div>
                     </div>
+                )}
 
-                    <form onSubmit={submitFilters} className="mt-6 space-y-3">
-                        <div className="flex items-center gap-2">
-                            <div className="flex-1">
-                                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Buscar</label>
-                                <input
-                                    type="text"
-                                    value={form.q}
-                                    onChange={(e) => setForm((p) => ({ ...p, q: e.target.value }))}
-                                    className="fin-input"
-                                    placeholder="Nombre del cliente"
-                                />
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setFilterOpen(true)}
-                                className="inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl"
-                            >
-                                Filtros
-                                {filtrosActivos > 0 && (
-                                    <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-green-700 rounded-full">
-                                        {filtrosActivos}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
+                {/* Botón crear vale rápido */}
+                <Link href={route('distribuidora.vales.create')} className="flex items-center justify-center gap-2 w-full py-3 bg-green-700 text-white rounded-xl font-medium">
+                    <FontAwesomeIcon icon={faPlus} className="w-5 h-5" />
+                    Nuevo cliente
+                </Link>
 
-
-                    </form>
-
-                    {filterOpen && (
-                        <div className="fin-modal-backdrop" onClick={() => setFilterOpen(false)}>
-                            <div className="fin-modal-sheet max-w-md" onClick={(e) => e.stopPropagation()}>
-                                <div className="fin-modal-head">
-                                    <div>
-                                        <h2 className="text-lg font-bold text-gray-900">Filtros de clientes</h2>
-                                        <p className="mt-1 text-sm text-gray-500">Ajusta relación y elegibilidad.</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFilterOpen(false)}
-                                        className="inline-flex items-center justify-center w-10 h-10 text-gray-600 border border-gray-200 rounded-xl"
-                                        aria-label="Cerrar filtros"
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-
-                                <div className="fin-modal-body space-y-4">
-                                    <div>
-                                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Relación</label>
-                                        <select value={form.estado_relacion} onChange={(e) => setForm((p) => ({ ...p, estado_relacion: e.target.value }))} className="fin-input">
-                                            <option value="TODOS">Todas</option>
-                                            <option value="ACTIVA">Activas</option>
-                                            <option value="BLOQUEADA">Bloqueadas</option>
-                                            <option value="TERMINADA">Terminadas</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Elegibilidad</label>
-                                        <select value={form.elegibilidad} onChange={(e) => setForm((p) => ({ ...p, elegibilidad: e.target.value }))} className="fin-input">
-                                            <option value="TODOS">Todos</option>
-                                            <option value="ELEGIBLES">Elegibles</option>
-                                            <option value="OBSERVADOS">Observados</option>
-                                            <option value="CON_SALDO">Con saldo</option>
-                                            <option value="SIN_DEUDA">Sin deuda</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="fin-modal-foot flex gap-2">
-                                    <button type="button" onClick={clearFilters} className="flex-1 fin-btn-secondary">Limpiar</button>
-                                    <button
-                                        type="button"
-                                        onClick={(event) => {
-                                            submitFilters(event);
-                                            setFilterOpen(false);
-                                        }}
-                                        className="flex-1 fin-btn-primary"
-                                    >
-                                        Aplicar
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Lista de clientes */}
+                {/* Lista de clientes */}
+                <div className="space-y-2">
                     {!clientes.length ? (
-                        <div className="flex items-center justify-center p-12 mt-6 border-2 border-gray-200 border-dashed rounded-xl">
-                            <p className="text-sm text-gray-400">No hay clientes que cumplan con el filtro actual.</p>
-                        </div>
+                        <div className="p-8 text-center text-gray-400 text-sm">Sin clientes.</div>
                     ) : (
-                        <div className="mt-6 space-y-3 fin-enter">
-                            {clientes.map((cliente, index) => (
-                                <div key={cliente.id} className="overflow-hidden border rounded-xl border-gray-200 bg-white fin-interactive fin-stagger-item" style={{ animationDelay: `${Math.min(index * 28, 196)}ms` }}>
-                                    <div className="p-4 space-y-4">
-                                        <div className="flex items-start gap-3">
-                                            <div className={`flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold ${cliente.puede_solicitar_vale
-                                                ? 'bg-green-100 text-green-700'
-                                                : cliente.bloqueado_por_parentesco
-                                                    ? 'bg-red-100 text-red-700'
-                                                    : 'bg-gray-100 text-gray-600'
-                                                }`}>
-                                                {iniciales(cliente.nombre)}
-                                            </div>
-
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <p className="font-semibold text-gray-900 truncate">{cliente.nombre}</p>
-                                                    <span className={statusBadgeClass(cliente.estado_cliente)}>Cliente: {cliente.estado_cliente}</span>
-                                                </div>
-                                                <div className="grid grid-cols-1 gap-y-1 mt-2 text-sm text-gray-600">
-                                                    <span className="flex items-center gap-2">
-                                                        Codigo cliente: <span className="font-semibold text-gray-700">{cliente.codigo_cliente || 'Sin codigo'}</span>
-                                                        {cliente.codigo_cliente && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => copiarCodigo(cliente.codigo_cliente)}
-                                                                className="inline-flex items-center rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                                                            >
-                                                                Copiar
-                                                            </button>
-                                                        )}
-                                                    </span>
-                                                    <span>Vales abiertos: <span className="font-semibold text-gray-700">{formatNumber(cliente.vales_abiertos)}</span></span>
-                                                    <span>Saldo pendiente: <span className="font-semibold text-gray-700">{formatCurrency(cliente.saldo_pendiente)}</span></span>
-                                                    {cliente.siguiente_vencimiento && (
-                                                        <span>Siguiente vencimiento: <span className="font-semibold text-gray-700">{formatDate(cliente.siguiente_vencimiento)}</span></span>
-                                                    )}
-                                                    <span>Vinculado: <span className="font-semibold text-gray-700">{formatDate(cliente.vinculado_en)}</span></span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                            <Link href={route('distribuidora.vales', { cliente_id: cliente.id })} className="w-full text-sm fin-btn-secondary">
-                                                Ver vales
-                                            </Link>
-                                            {cliente.puede_solicitar_vale && (
-                                                <Link href={route('distribuidora.vales.create')} className="w-full text-sm fin-btn-primary">
-                                                    Pre vale
-                                                </Link>
-                                            )}
-                                        </div>
+                        clientes.map((cliente) => (
+                            <div key={cliente.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-sm font-bold ${
+                                        cliente.puede_solicitar_vale
+                                            ? 'bg-green-100 text-green-700'
+                                            : cliente.bloqueado_por_parentesco
+                                            ? 'bg-red-100 text-red-700'
+                                            : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                        {iniciales(cliente.nombre)}
                                     </div>
-
-                                    {/* Alertas (solo si aplica) */}
-                                    {cliente.bloqueado_por_parentesco && (
-                                        <div className="px-4 py-2 text-sm border-t bg-amber-50 border-amber-100 text-amber-700">
-                                            Bloqueado por parentesco — {cliente.observaciones_parentesco || 'Relación sensible marcada para revisión.'}
-                                        </div>
-                                    )}
-                                    {!cliente.puede_solicitar_vale && !cliente.bloqueado_por_parentesco && cliente.saldo_pendiente > 0 && (
-                                        <div className="px-4 py-2 text-sm border-t bg-green-50 border-green-100 text-green-700">
-                                            Deuda vigente — Debe liquidar antes de solicitar un nuevo pre vale.
-                                        </div>
-                                    )}
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-gray-900 truncate">{cliente.nombre}</p>
+                                        <p className="text-xs text-gray-500 truncate">{cliente.codigo_cliente}</p>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    {cliente.saldo_pendiente > 0 && (
+                                        <span className="text-xs font-bold text-amber-600">{formatCurrency(cliente.saldo_pendiente)}</span>
+                                    )}
+                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                                        cliente.puede_solicitar_vale ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                                    }`}>
+                                        {cliente.puede_solicitar_vale ? '✓' : '✗'}
+                                    </span>
+                                </div>
+                            </div>
+                        ))
                     )}
-                </>
-            )}
+                </div>
+            </div>
         </DistribuidoraLayout>
     );
 }
