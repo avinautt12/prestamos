@@ -11,26 +11,64 @@ function ValeDetailModal({ vale, open, onClose }) {
     const [cancelando, setCancelando] = useState(false);
     const [tipoPago, setTipoPago] = useState('COMPLETO');
     const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+    const estaEnEstadoPagable = Boolean(vale) && ESTADOS_PAGABLES.includes(vale?.estado);
     const puedePagar = Boolean(vale?.puede_registrar_pago);
+    const pagoBloqueadoPorPeriodo = estaEnEstadoPagable && !puedePagar;
+
     const saldoActual = Number(vale?.saldo_actual || 0);
     const montoQuincenal = Number(vale?.monto_quincenal || 0);
     const acumuladoPeriodo = Number(vale?.acumulado_pagos_periodo || 0);
-    const montoCompleto = Math.min(Math.max(0, montoQuincenal - acumuladoPeriodo), saldoActual);
+    const faltanteQuincena = Math.max(0, Number((montoQuincenal - acumuladoPeriodo).toFixed(2)));
+    const montoCompleto = Math.min(faltanteQuincena, saldoActual);
+    const completoDisponible = montoCompleto > 0.009;
 
     const pagoForm = useForm({ monto: '', fecha_pago: today, notas: '' });
 
     useEffect(() => {
         if (!vale) return;
-        const tipo = montoCompleto > 0.009 ? 'COMPLETO' : 'LIQUIDAR';
-        setTipoPago(tipo);
-        pagoForm.setData({ monto: (tipo === 'COMPLETO' ? montoCompleto : saldoActual).toFixed(2), fecha_pago: today, notas: '' });
-    }, [vale?.id]);
+        const tipoInicial = completoDisponible ? 'COMPLETO' : 'LIQUIDAR';
+        setTipoPago(tipoInicial);
+        pagoForm.clearErrors();
+        pagoForm.setData({
+            monto: tipoInicial === 'COMPLETO' ? montoCompleto.toFixed(2) : saldoActual.toFixed(2),
+            fecha_pago: today,
+            notas: '',
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [vale?.id, vale?.saldo_actual, vale?.acumulado_pagos_periodo]);
+
+    const switchTipoPago = (nuevo) => {
+        setTipoPago(nuevo);
+        pagoForm.clearErrors('monto');
+        if (nuevo === 'COMPLETO') pagoForm.setData('monto', montoCompleto.toFixed(2));
+        else if (nuevo === 'LIQUIDAR') pagoForm.setData('monto', saldoActual.toFixed(2));
+        else pagoForm.setData('monto', '');
+    };
+
+    const montoNum = parseFloat(pagoForm.data.monto) || 0;
+    const saldoDespues = Math.max(0, Number((saldoActual - montoNum).toFixed(2)));
+    const acumuladoDespues = Number((acumuladoPeriodo + montoNum).toFixed(2));
+    const cierraQuincena = montoQuincenal > 0 && acumuladoDespues >= montoQuincenal - 0.009;
+
+    let estadoPrevisto;
+    if (saldoDespues <= 0.009) estadoPrevisto = 'LIQUIDADO';
+    else if (vale?.estado === 'MOROSO') estadoPrevisto = 'MOROSO';
+    else if (cierraQuincena) estadoPrevisto = 'PAGADO';
+    else estadoPrevisto = 'PAGO_PARCIAL';
+
+    const montoMaxPermitido = tipoPago === 'LIQUIDAR' ? saldoActual : montoCompleto;
+    const montoInvalido = !pagoForm.data.monto || montoNum <= 0 || montoNum > montoMaxPermitido + 0.009;
 
     const confirmarPago = (e) => {
         e?.preventDefault();
-        if (!puedePagar || !pagoForm.data.monto) return;
-        if (!window.confirm(`Registrar ${formatCurrency(pagoForm.data.monto)}?`)) return;
-        pagoForm.post(route('distribuidora.vales.pagos.store', vale.id), { preserveScroll: true });
+        if (!puedePagar || montoInvalido || pagoForm.processing) return;
+        const msg = `¿Registrar pago de ${formatCurrency(montoNum)} al vale ${vale.numero_vale}?`;
+        if (!window.confirm(msg)) return;
+        pagoForm.post(route('distribuidora.vales.pagos.store', vale.id), {
+            preserveScroll: true,
+            onSuccess: () => setTipoPago('COMPLETO'),
+        });
     };
 
     const cancelarVale = () => {
@@ -74,15 +112,88 @@ function ValeDetailModal({ vale, open, onClose }) {
                     </div>
                     <p className="text-xs text-gray-500">{formatNumber(vale.pagos_realizados)}/{formatNumber(vale.quincenas_totales)} pagos · Vence: {formatDate(vale.fecha_limite_pago)}</p>
 
+                    {pagoBloqueadoPorPeriodo && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                            <p className="text-xs font-bold text-amber-900">Pago bloqueado este corte</p>
+                            <p className="mt-1 text-[11px] text-amber-800">
+                                Ya se registró un pago que cubre o supera la quincena. Podrás registrar otro cuando se ejecute el próximo corte.
+                            </p>
+                        </div>
+                    )}
+
                     {puedePagar && (
                         <div className="p-3 bg-green-50 border border-green-100 rounded-xl space-y-3">
-                            <p className="text-xs font-bold text-green-700">Registrar pago</p>
-                            <div className="flex gap-1">
-                                <button onClick={() => setTipoPago('COMPLETO')} className={`flex-1 py-2 text-xs font-medium rounded-lg ${tipoPago === 'COMPLETO' ? 'bg-green-700 text-white' : 'bg-white text-gray-600'}`}>Quincena</button>
-                                <button onClick={() => setTipoPago('LIQUIDAR')} className={`flex-1 py-2 text-xs font-medium rounded-lg ${tipoPago === 'LIQUIDAR' ? 'bg-green-700 text-white' : 'bg-white text-gray-600'}`}>Liquidar</button>
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-bold text-green-700">Registrar pago</p>
+                                {acumuladoPeriodo > 0.009 && (
+                                    <p className="text-[10px] text-green-800">
+                                        Abonado este corte: <span className="font-bold">{formatCurrency(acumuladoPeriodo)}</span> / {formatCurrency(montoQuincenal)}
+                                    </p>
+                                )}
                             </div>
-                            <input type="number" step="0.01" value={pagoForm.data.monto} onChange={(e) => pagoForm.setData('monto', e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg" />
-                            <button onClick={confirmarPago} disabled={pagoForm.processing || !pagoForm.data.monto} className="w-full py-2.5 text-sm font-bold text-white bg-green-700 rounded-lg disabled:opacity-50">
+
+                            <div className={`grid gap-1 ${completoDisponible ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                                <button
+                                    type="button"
+                                    onClick={() => switchTipoPago('PARCIAL')}
+                                    className={`py-2 text-xs font-medium rounded-lg transition-colors ${tipoPago === 'PARCIAL' ? 'bg-green-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                >
+                                    Parcial
+                                </button>
+                                {completoDisponible && (
+                                    <button
+                                        type="button"
+                                        onClick={() => switchTipoPago('COMPLETO')}
+                                        className={`py-2 text-xs font-medium rounded-lg transition-colors ${tipoPago === 'COMPLETO' ? 'bg-green-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                    >
+                                        Completo
+                                        <span className="block text-[9px] font-normal opacity-80">({formatCurrency(montoCompleto)})</span>
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => switchTipoPago('LIQUIDAR')}
+                                    className={`py-2 text-xs font-medium rounded-lg transition-colors ${tipoPago === 'LIQUIDAR' ? 'bg-green-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                >
+                                    Liquidar
+                                    <span className="block text-[9px] font-normal opacity-80">({formatCurrency(saldoActual)})</span>
+                                </button>
+                            </div>
+
+                            <div>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    max={montoMaxPermitido.toFixed(2)}
+                                    value={pagoForm.data.monto}
+                                    onChange={(e) => pagoForm.setData('monto', e.target.value)}
+                                    disabled={tipoPago !== 'PARCIAL' || pagoForm.processing}
+                                    placeholder="0.00"
+                                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg disabled:bg-gray-100 disabled:text-gray-700"
+                                />
+                                {tipoPago === 'PARCIAL' && montoCompleto > 0 && (
+                                    <p className="mt-1 text-[10px] text-gray-500">Máx para esta quincena: {formatCurrency(montoCompleto)}</p>
+                                )}
+                                {pagoForm.errors.monto && <p className="mt-1 text-[10px] text-red-600">{pagoForm.errors.monto}</p>}
+                                {pagoForm.errors.general && <p className="mt-1 text-[10px] text-red-600">{pagoForm.errors.general}</p>}
+                            </div>
+
+                            <div className="p-2 bg-white border border-gray-100 rounded-lg text-[11px] text-gray-600 space-y-0.5">
+                                <p>Saldo actual: <span className="font-semibold text-gray-900">{formatCurrency(saldoActual)}</span></p>
+                                <p>Después del pago: <span className="font-semibold text-gray-900">{formatCurrency(saldoDespues)}</span></p>
+                                <p className="flex items-center gap-1">
+                                    Nuevo estado:
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${statusBadgeClass(estadoPrevisto).split(' ').slice(0, 2).join(' ')}`}>{estadoPrevisto}</span>
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={confirmarPago}
+                                disabled={montoInvalido || pagoForm.processing}
+                                className="w-full py-2.5 text-sm font-bold text-white bg-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
                                 {pagoForm.processing ? 'Registrando...' : 'Confirmar pago'}
                             </button>
                         </div>

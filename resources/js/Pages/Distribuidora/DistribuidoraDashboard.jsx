@@ -48,27 +48,26 @@ export default function DistribuidoraDashboard({
     }
 
     return (
-        <DistribuidoraLayout
-            title={distribuidora?.numero_distribuidora ? `#${distribuidora.numero_distribuidora}` : 'Mi Panel'}
-            subtitle={distribuidora?.nombre ? distribuidora.nombre : null}
-        >
+        <DistribuidoraLayout title="Dashboard">
             <Head title="Dashboard Distribuidora" />
 
             <div className="space-y-5">
-                {/* Estado cuenta */}
-                <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-200">
-                    <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 flex items-center justify-center rounded-xl ${hayAlerta ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                            <FontAwesomeIcon icon={hayAlerta ? faCircleExclamation : faCheck} className="w-5 h-5" />
+                {/* Datos de la distribuidora */}
+                <div className="p-4 bg-white rounded-xl border border-gray-200">
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <p className="text-[10px] uppercase tracking-wider text-gray-500">Estado</p>
+                            <p className="mt-1 text-sm font-semibold text-gray-900">{distribuidora.estado}</p>
                         </div>
                         <div>
-                            <p className="text-sm font-semibold text-gray-900">{distribuidora.estado}</p>
-                            <p className="text-xs text-gray-500">{distribuidora?.categoria?.nombre || 'Sin categoría'}</p>
+                            <p className="text-[10px] uppercase tracking-wider text-gray-500">Sucursal</p>
+                            <p className="mt-1 text-sm font-semibold text-gray-900">{distribuidora?.sucursal?.nombre || '—'}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] uppercase tracking-wider text-gray-500">Categoría</p>
+                            <p className="mt-1 text-sm font-semibold text-gray-900">{distribuidora?.categoria?.nombre || '—'}</p>
                         </div>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${statusBadgeClass(distribuidora.estado).split(' ').slice(0, 2).join(' ')}`}>
-                        {distribuidora.estado}
-                    </span>
                 </div>
 
                 {/* Stats principales */}

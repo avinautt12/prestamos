@@ -8,9 +8,22 @@ import { formatCurrency, formatDate, formatNumber, statusBadgeClass } from './ut
 export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, relaciones = { data: [] }, relacionSeleccionada = null, pagos = { data: [] }, cuentasEmpresa = [] }) {
     const [form, setForm] = useState({ estado: filtros.estado || 'TODAS', q: filtros.q || '' });
     const [modalPago, setModalPago] = useState(false);
+    const [detalleOpen, setDetalleOpen] = useState(Boolean(relacionSeleccionada));
     const [canjeInline, setCanjeInline] = useState({ abierto: false, puntos: '' });
     const [canjeando, setCanjeando] = useState(false);
     const { errors } = usePage().props;
+
+    React.useEffect(() => {
+        setDetalleOpen(Boolean(relacionSeleccionada));
+    }, [relacionSeleccionada?.id]);
+
+    React.useEffect(() => {
+        if (!detalleOpen) return;
+        const handle = (ev) => { if (ev.key === 'Escape') setDetalleOpen(false); };
+        window.addEventListener('keydown', handle);
+        document.body.style.overflow = 'hidden';
+        return () => { window.removeEventListener('keydown', handle); document.body.style.overflow = ''; };
+    }, [detalleOpen]);
 
     const valorPorPunto = distribuidora?.valor_punto || 2;
     const puntosDisponibles = distribuidora?.puntos_actuales || 0;
@@ -128,53 +141,143 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, rel
                     </div>
                 )}
 
-                {/* Detalle selección */}
-                {relacionSeleccionada && (
-                    <div className="p-4 bg-white border border-gray-200 rounded-xl">
-                        <div className="flex justify-between items-center mb-3">
-                            <p className="font-bold text-gray-900">#{relacionSeleccionada.numero_relacion}</p>
-                            <span className={`text-xs font-bold px-2 py-1 rounded ${statusBadgeClass(relacionSeleccionada.estado).split(' ').slice(0, 2).join(' ')}`}>
-                                {relacionSeleccionada.estado}
-                            </span>
-                        </div>
-                        <div className="text-sm space-y-1 mb-3">
-                            <div className="flex justify-between"><span className="text-gray-500">Total</span><span className="font-medium">{formatCurrency(relacionSeleccionada.total_a_pagar)}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-500">Límite</span><span>{formatDate(relacionSeleccionada.fecha_limite_pago)}</span></div>
-                            {relacionSeleccionada.referencia_pago && <div className="flex justify-between"><span className="text-gray-500">Ref.</span><span className="font-mono text-xs">{relacionSeleccionada.referencia_pago}</span></div>}
-                        </div>
+                {/* Modal detalle de corte (informativo) */}
+                {detalleOpen && relacionSeleccionada && (
+                    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={() => setDetalleOpen(false)}>
+                        <div className="w-full max-w-md bg-white rounded-t-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                            <div className="sticky top-0 bg-white p-4 border-b border-gray-100 flex justify-between items-center">
+                                <div>
+                                    <p className="text-xs text-gray-500">Corte</p>
+                                    <p className="text-base font-bold text-gray-900">#{relacionSeleccionada.numero_relacion}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${statusBadgeClass(relacionSeleccionada.estado).split(' ').slice(0, 2).join(' ')}`}>
+                                        {relacionSeleccionada.estado}
+                                    </span>
+                                    <button onClick={() => setDetalleOpen(false)} className="p-1 text-gray-400"><FontAwesomeIcon icon={faXmark} /></button>
+                                </div>
+                            </div>
 
-                        {/* Canje inline */}
-                        {puedeAplicarPuntos && puntosDisponibles >= 2 && (
-                            <div className="pt-3 border-t border-gray-100">
-                                {!canjeInline.abierto ? (
-                                    <button onClick={() => setCanjeInline({ abierto: true, puntos: '' })} className="w-full py-2 text-xs font-medium text-green-700 border border-green-200 rounded-lg">Aplicar puntos</button>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <input type="number" value={canjeInline.puntos} onChange={(e) => setCanjeInline((p) => ({ ...p, puntos: e.target.value }))} placeholder={`Máx ${Math.floor(relacionSeleccionada.total_a_pagar / valorPorPunto)}`} className="flex-1 px-2 py-2 text-sm border border-gray-200 rounded-lg" />
-                                        <button onClick={aplicarCanje} disabled={canjeando || puntosNum < 2} className="px-4 py-2 text-xs font-bold text-white bg-green-700 rounded-lg disabled:opacity-50">
-                                            {canjeando ? '...' : 'Aplicar'}
-                                        </button>
-                                        <button onClick={() => setCanjeInline({ abierto: false, puntos: '' })} className="px-2 py-2 text-gray-500">
-                                            <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
-                                        </button>
+                            <div className="p-4 space-y-4">
+                                {/* Resumen principal */}
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <p className="text-xs text-gray-500">Total a pagar</p>
+                                        <p className="font-bold text-gray-900">{formatCurrency(relacionSeleccionada.total_a_pagar)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Fecha límite</p>
+                                        <p className="font-bold text-amber-600">{formatDate(relacionSeleccionada.fecha_limite_pago)}</p>
+                                    </div>
+                                </div>
+
+                                {/* Referencia */}
+                                {relacionSeleccionada.referencia_pago && (
+                                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                                        <p className="text-[10px] uppercase tracking-wider text-blue-700">Referencia de pago</p>
+                                        <p className="mt-1 font-mono text-sm font-semibold text-gray-900 break-all">{relacionSeleccionada.referencia_pago}</p>
+                                        <p className="mt-1 text-[10px] text-blue-700">Usa esta referencia al transferir a la empresa.</p>
                                     </div>
                                 )}
-                            </div>
-                        )}
-                    </div>
-                )}
 
-                {/* Pagos de la relación */}
-                {pagos.data?.length > 0 && relacionSeleccionada && (
-                    <div>
-                        <p className="text-xs font-bold text-gray-500 mb-2">Pagos</p>
-                        <div className="space-y-1">
-                            {pagos.data.map((p) => (
-                                <div key={p.id} className="flex justify-between p-2 bg-gray-50 rounded-lg text-xs">
-                                    <span>{formatCurrency(p.monto)} · {formatDate(p.fecha_pago, true)}</span>
-                                    <span className={statusBadgeClass(p.estado)}>{p.estado}</span>
+                                {/* Ventanas de pago */}
+                                <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs space-y-1">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Anticipado</span>
+                                        <span className="text-gray-900">{formatDate(relacionSeleccionada.fecha_inicio_pago_anticipado)} – {formatDate(relacionSeleccionada.fecha_fin_pago_anticipado)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Límite</span>
+                                        <span className="text-gray-900">{formatDate(relacionSeleccionada.fecha_limite_pago)}</span>
+                                    </div>
                                 </div>
-                            ))}
+
+                                {/* Desglose */}
+                                <div>
+                                    <p className="text-xs font-bold text-gray-500 mb-2">Desglose</p>
+                                    <div className="p-3 bg-white border border-gray-100 rounded-xl text-xs space-y-1">
+                                        <div className="flex justify-between"><span className="text-gray-500">Pagos de vales</span><span className="font-medium">{formatCurrency(relacionSeleccionada.total_pago)}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Comisión</span><span className="font-medium">{formatCurrency(relacionSeleccionada.total_comision)}</span></div>
+                                        {Number(relacionSeleccionada.total_recargos) > 0 && (
+                                            <div className="flex justify-between"><span className="text-gray-500">Recargos</span><span className="font-medium text-red-600">{formatCurrency(relacionSeleccionada.total_recargos)}</span></div>
+                                        )}
+                                        <div className="flex justify-between pt-1 border-t border-gray-100">
+                                            <span className="font-bold text-gray-900">Total</span>
+                                            <span className="font-bold text-gray-900">{formatCurrency(relacionSeleccionada.total_a_pagar)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Partidas (vales del corte) */}
+                                {relacionSeleccionada.partidas?.length > 0 && (
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-500 mb-2">Vales del corte ({relacionSeleccionada.partidas.length})</p>
+                                        <div className="space-y-1">
+                                            {relacionSeleccionada.partidas.map((p) => (
+                                                <div key={p.id} className="p-2 bg-gray-50 rounded-lg text-xs">
+                                                    <div className="flex justify-between">
+                                                        <span className="font-medium text-gray-900">{p.nombre_producto_snapshot || 'Vale'}</span>
+                                                        <span className="font-bold text-gray-900">{formatCurrency(p.monto_total_linea)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between mt-0.5 text-gray-500">
+                                                        <span>{formatNumber(p.pagos_realizados)}/{formatNumber(p.pagos_totales)} pagos</span>
+                                                        <span>
+                                                            {formatCurrency(p.monto_pago)}
+                                                            {Number(p.monto_recargo) > 0 && <span className="text-red-600"> +{formatCurrency(p.monto_recargo)}</span>}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Pagos reportados */}
+                                {pagos.data?.length > 0 && (
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-500 mb-2">Pagos reportados</p>
+                                        <div className="space-y-1">
+                                            {pagos.data.map((p) => (
+                                                <div key={p.id} className="flex justify-between p-2 bg-gray-50 rounded-lg text-xs">
+                                                    <span>{formatCurrency(p.monto)} · {formatDate(p.fecha_pago, true)}</span>
+                                                    <span className={statusBadgeClass(p.estado)}>{p.estado}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Canje inline de puntos */}
+                                {puedeAplicarPuntos && puntosDisponibles >= 2 && (
+                                    <div className="p-3 bg-green-50 border border-green-100 rounded-xl">
+                                        <p className="text-xs font-bold text-green-700 mb-2">Aplicar puntos ({formatNumber(puntosDisponibles)} disponibles)</p>
+                                        {!canjeInline.abierto ? (
+                                            <button onClick={() => setCanjeInline({ abierto: true, puntos: '' })} className="w-full py-2 text-xs font-medium text-green-700 bg-white border border-green-200 rounded-lg">Aplicar puntos a este corte</button>
+                                        ) : (
+                                            <div className="flex gap-2">
+                                                <input type="number" value={canjeInline.puntos} onChange={(e) => setCanjeInline((p) => ({ ...p, puntos: e.target.value }))} placeholder={`Máx ${Math.floor(relacionSeleccionada.total_a_pagar / valorPorPunto)}`} className="flex-1 px-2 py-2 text-sm border border-gray-200 rounded-lg" />
+                                                <button onClick={aplicarCanje} disabled={canjeando || puntosNum < 2} className="px-4 py-2 text-xs font-bold text-white bg-green-700 rounded-lg disabled:opacity-50">
+                                                    {canjeando ? '...' : 'Aplicar'}
+                                                </button>
+                                                <button onClick={() => setCanjeInline({ abierto: false, puntos: '' })} className="px-2 py-2 text-gray-500">
+                                                    <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Botón reportar pago dentro del modal */}
+                                {puedoReportar && (
+                                    <button
+                                        onClick={() => { setDetalleOpen(false); setModalPago(true); }}
+                                        className="flex items-center justify-center gap-2 w-full py-3 bg-green-700 text-white rounded-xl font-medium"
+                                    >
+                                        <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />
+                                        Reportar pago
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
