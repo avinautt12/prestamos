@@ -4,18 +4,14 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 import NotificationCenter from '@/Components/NotificationCenter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-    faArrowRightArrowLeft,
     faBars,
     faBell,
-    faChartPie,
-    faFileInvoiceDollar,
-    faHouse,
-    faRightFromBracket,
-    faStar,
-    faTextHeight,
+    faHome,
     faUsers,
+    faFileAlt,
     faWallet,
-    faXmark,
+    faStar,
+    faExchangeAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function DistribuidoraLayout({ children, title = 'Mi Panel', subtitle = null }) {
@@ -23,18 +19,18 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
     const currentUrl = usePage().url;
     const [toasts, setToasts] = useState([]);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
-    const [friendlyMode, setFriendlyMode] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [notifOpen, setNotifOpen] = useState(false);
 
-    const navigation = useMemo(() => ([
-        { name: 'Dashboard', short: 'Inicio', href: route('distribuidora.dashboard'), icon: faHouse, current: 'distribuidora.dashboard' },
-        { name: 'Clientes', short: 'Clientes', href: route('distribuidora.clientes'), icon: faUsers, current: 'distribuidora.clientes' },
-        { name: 'Traspasos', short: 'Traspasos', href: route('distribuidora.traspasos.index'), icon: faArrowRightArrowLeft, current: 'distribuidora.traspasos.index' },
-        { name: 'Pre vale', short: 'Pre vale', href: route('distribuidora.vales.create'), icon: faChartPie, current: 'distribuidora.vales.create' },
-        { name: 'Vales', short: 'Vales', href: route('distribuidora.vales'), icon: faFileInvoiceDollar, current: 'distribuidora.vales' },
-        { name: 'Estado de Cuenta', short: 'Cuenta', href: route('distribuidora.estado-cuenta'), icon: faWallet, current: 'distribuidora.estado-cuenta' },
-        { name: 'Puntos', short: 'Puntos', href: route('distribuidora.puntos'), icon: faStar, current: 'distribuidora.puntos' },
-    ]), []);
+    const navigation = useMemo(() => [
+        { name: 'Dashboard', short: 'Inicio', href: route('distribuidora.dashboard'), icon: faHome },
+        { name: 'Clientes', short: 'Clientes', href: route('distribuidora.clientes'), icon: faUsers },
+        { name: 'Vales', short: 'Vales', href: route('distribuidora.vales'), icon: faFileAlt },
+        { name: 'Crear vale', short: 'Crear', href: route('distribuidora.vales.create'), icon: faFileAlt },
+        { name: 'Estado cuenta', short: 'Cuenta', href: route('distribuidora.estado-cuenta'), icon: faWallet },
+        { name: 'Puntos', short: 'Puntos', href: route('distribuidora.puntos'), icon: faStar },
+        { name: 'Traspasos', short: 'Traspasos', href: route('distribuidora.traspasos.index'), icon: faExchangeAlt },
+    ], []);
 
     const agregarToast = (titulo, mensaje) => {
         const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -83,20 +79,6 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
     }, [auth?.user?.id]);
 
     useEffect(() => {
-        const saved = window.localStorage.getItem('ui.friendly_mode');
-        if (saved === 'true') {
-            setFriendlyMode(true);
-        }
-    }, []);
-
-    useEffect(() => {
-        window.localStorage.setItem('ui.friendly_mode', friendlyMode ? 'true' : 'false');
-        window.dispatchEvent(new CustomEvent('ui:friendly-mode-change', {
-            detail: { enabled: friendlyMode },
-        }));
-    }, [friendlyMode]);
-
-    useEffect(() => {
         const handleUnreadCount = (event) => {
             const count = Number(event.detail?.count || 0);
             setUnreadNotifications(count);
@@ -125,11 +107,10 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'instant' });
 
-        // Mostrar toast de flash del servidor (success / message / error)
         const msg = flash?.success || flash?.message;
         const err = flash?.error;
-        if (msg) agregarToast('✅ Listo', msg);
-        if (err) agregarToast('⚠️ Atención', err);
+        if (msg) agregarToast('✓ Listo', msg);
+        if (err) agregarToast('⚠ Atención', err);
     }, [currentUrl]);
 
     const abrirNotificaciones = () => {
@@ -138,12 +119,8 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
         }));
     };
 
-    const toggleFriendlyMode = () => {
-        setFriendlyMode((prev) => !prev);
-    };
-
     return (
-        <div data-fin-a11y={friendlyMode ? 'on' : 'off'} className="fin-mobile-shell bg-[radial-gradient(circle_at_top_right,_#d1fae5_0%,_#f8fafc_40%,_#eef2ff_100%)]">
+        <div data-fin-a11y="on" className="fin-mobile-shell bg-[radial-gradient(circle_at_top_right,_#d1fae5_0%,_#f8fafc_40%,_#eef2ff_100%)]">
             <div className="fin-mobile-device">
                 <header className="fin-mobile-header border-b" style={{ borderColor: '#D1FAE5' }}>
                     <div className="flex items-center justify-between px-4 py-3">
@@ -163,22 +140,24 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
 
                         <button
                             type="button"
-                            onClick={toggleFriendlyMode}
-                            className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border ${friendlyMode ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-600'}`}
-                            aria-label="Activar o desactivar modo amigable"
+                            onClick={abrirNotificaciones}
+                            className="inline-flex items-center justify-center w-10 h-10 bg-white border border-gray-200 rounded-xl text-gray-600 active:bg-gray-50 transition-colors relative"
+                            aria-label="Notificaciones"
                         >
-                            <FontAwesomeIcon icon={faTextHeight} className="w-4 h-4" />
+                            <FontAwesomeIcon icon={faBell} className="w-5 h-5" />
+                            {unreadNotifications > 0 && (
+                                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1 text-[10px] font-bold text-white bg-red-600 rounded-full">
+                                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                                </span>
+                            )}
                         </button>
                     </div>
                 </header>
 
-                <main className="p-4 fin-mobile-main">
+                <main className="p-4 fin-mobile-main" style={{ paddingTop: '1rem' }}>
                     <div className="fin-mobile-page">
                         <div className="mb-4 fin-card bg-white/95 backdrop-blur">
                             <div className="flex items-start gap-3">
-                                <div className="inline-flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-xl bg-green-50 text-green-700">
-                                    <FontAwesomeIcon icon={faChartPie} />
-                                </div>
                                 <div>
                                     <h1 className="fin-title">{title}</h1>
                                     {subtitle && <p className="mt-1 fin-subtitle">{subtitle}</p>}
@@ -190,16 +169,13 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                     </div>
                 </main>
 
-                {/* El Sidebar (Drawer) */}
                 {sidebarOpen && (
                     <div className="fixed inset-0 z-[60] flex overflow-hidden">
-                        {/* Backdrop */}
                         <div
                             className="absolute inset-0 bg-black/45 backdrop-blur-sm transition-opacity"
                             onClick={() => setSidebarOpen(false)}
                         />
 
-                        {/* Contenido del Sidebar */}
                         <div className="relative flex flex-col w-full max-w-[280px] h-full bg-white shadow-2xl fin-enter-left">
                             <div className="flex items-center justify-between px-5 py-6 border-b border-green-50 bg-gradient-to-br from-green-50 to-white">
                                 <div>
@@ -213,7 +189,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                                     onClick={() => setSidebarOpen(false)}
                                     className="p-2 text-gray-400 hover:text-gray-600"
                                 >
-                                    <FontAwesomeIcon icon={faXmark} className="w-6 h-6" />
+                                    <FontAwesomeIcon icon={faBars} className="w-6 h-6" />
                                 </button>
                             </div>
 
@@ -268,7 +244,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                                     as="button"
                                     className="flex items-center justify-center w-full gap-2 py-4 text-sm font-bold text-red-600 bg-white border border-red-100 rounded-2xl hover:bg-red-50 transition-colors"
                                 >
-                                    <FontAwesomeIcon icon={faRightFromBracket} />
+                                    <FontAwesomeIcon icon={faHome} />
                                     Cerrar sesión
                                 </Link>
                             </div>
