@@ -49,6 +49,8 @@ Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->grou
     Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/calendario', [App\Http\Controllers\Admin\DashboardController::class, 'calendario'])->name('calendario');
     Route::get('/reportes', [App\Http\Controllers\Admin\DashboardController::class, 'reportes'])->name('reportes');
+    Route::get('/reportes/descargar', [App\Http\Controllers\Admin\ReporteController::class, 'descargar'])->name('reportes.descargar');
+    Route::post('/reportes/enviar', [App\Http\Controllers\Admin\ReporteController::class, 'enviar'])->name('reportes.enviar');
 
     Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
     Route::put('/configuraciones/sucursal', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarSucursal'])->name('configuraciones.sucursal.update');
@@ -77,6 +79,8 @@ Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->grou
 Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\Gerente\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/reportes', [App\Http\Controllers\Gerente\DashboardController::class, 'reportes'])->name('reportes');
+    Route::get('/reportes/descargar', [App\Http\Controllers\Gerente\ReporteController::class, 'descargar'])->name('reportes.descargar');
+    Route::post('/reportes/enviar', [App\Http\Controllers\Gerente\ReporteController::class, 'enviar'])->name('reportes.enviar');
     Route::get('/cortes', [App\Http\Controllers\Gerente\CorteController::class, 'index'])->name('cortes');
     Route::post('/cortes/{corte}/cerrar-manual', [App\Http\Controllers\Gerente\CorteController::class, 'cerrarManual'])
         ->middleware('gerente.secure-action')

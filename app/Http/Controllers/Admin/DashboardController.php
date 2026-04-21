@@ -102,6 +102,18 @@ class DashboardController extends Controller
             Vale::ESTADO_MOROSO,
         ])->sum('saldo_actual') ?? 0);
 
+        $cortesDisponibles = \App\Models\Corte::query()
+            ->with('sucursal:id,codigo,nombre')
+            ->orderByDesc('fecha_programada')
+            ->limit(50)
+            ->get(['id', 'sucursal_id', 'tipo_corte', 'estado', 'fecha_programada', 'fecha_ejecucion'])
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'label' => '#' . $c->id . ' — ' . ($c->sucursal?->codigo ?? 'N/A') . ' — ' . $c->tipo_corte
+                    . ' — ' . ($c->fecha_programada?->format('Y-m-d') ?? 'sin fecha') . ' (' . $c->estado . ')',
+                'sucursal_id' => $c->sucursal_id,
+            ]);
+
         return Inertia::render('Admin/Reportes', [
             'filtro' => [
                 'periodo' => $periodo,
@@ -109,6 +121,7 @@ class DashboardController extends Controller
                 'inicio' => $inicioPeriodo,
             ],
             'sucursales' => Sucursal::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            'cortesDisponibles' => $cortesDisponibles,
             'resumen' => [
                 'solicitudes_periodo' => $solicitudesPeriodo,
                 'solicitudes_aprobadas' => $solicitudesAprobadas,

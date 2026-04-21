@@ -9,7 +9,9 @@ use App\Models\Usuario;
 use App\Services\CorteService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -70,6 +72,20 @@ class CorteController extends Controller
         $mensaje = $relacionesGeneradas > 0
             ? "Corte cerrado. Se generaron {$relacionesGeneradas} relaciones de pago."
             : 'Corte cerrado. No había distribuidoras con vales activos para generar relaciones.';
+
+        // Disparar envío de reporte por correo a ADMINs y al gerente de la sucursal.
+        // Aislado en try/catch: si falla el correo, el corte sigue cerrado.
+        try {
+            Artisan::call('reportes:periodicos', [
+                '--tipo' => 'corte',
+                '--corte-id' => $corteCerrado->id,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo enviar el reporte por correo tras cerrar corte', [
+                'corte_id' => $corteCerrado->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return back()->with('success', $mensaje);
     }

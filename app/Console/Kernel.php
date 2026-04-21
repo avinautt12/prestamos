@@ -14,6 +14,14 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('traspasos:expirar-codigos')->everyTenMinutes()->withoutOverlapping();
         $schedule->command('app:detectar-distribuidoras-morosas')->daily()->at('00:05')->withoutOverlapping();
+
+        // Reportes ejecutivos
+        $schedule->command('reportes:periodicos', ['--tipo' => 'mensual'])
+            ->monthlyOn(1, '07:00')
+            ->withoutOverlapping();
+        $schedule->command('reportes:periodicos', ['--tipo' => 'anual'])
+            ->yearlyOn(1, 1, '07:00')
+            ->withoutOverlapping();
     }
 
     /**

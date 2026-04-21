@@ -316,8 +316,22 @@ class DashboardController extends Controller
 
         $proximoCorte = $sucursal ? $this->corteService->obtenerProximoCorte($sucursal) : null;
 
+        $cortesDisponibles = $sucursal
+            ? \App\Models\Corte::query()
+                ->where('sucursal_id', $sucursal->id)
+                ->orderByDesc('fecha_programada')
+                ->limit(50)
+                ->get(['id', 'tipo_corte', 'estado', 'fecha_programada', 'fecha_ejecucion'])
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'label' => '#' . $c->id . ' — ' . $c->tipo_corte
+                        . ' — ' . ($c->fecha_programada?->format('Y-m-d') ?? 'sin fecha') . ' (' . $c->estado . ')',
+                ])
+            : collect();
+
         return Inertia::render('Gerente/Reportes', [
             'sucursal' => $sucursal,
+            'cortesDisponibles' => $cortesDisponibles,
             'filtro' => [
                 'periodo' => $periodo,
                 'inicio' => $inicioPeriodo,
