@@ -43,8 +43,8 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
         setRolCambio({ usuarioId: null, rolId: '', sucursalId: '' });
     };
 
-    const iniciarCambioRol = (usuarioId, rolActualId) => {
-        setRolCambio({ usuarioId, rolId: rolActualId || '', sucursalId: '' });
+    const iniciarCambioRol = (usuarioId, rolActualId, sucursalActualId) => {
+        setRolCambio({ usuarioId, rolId: rolActualId || '', sucursalId: sucursalActualId || '' });
     };
 
     const cancelarCambioRol = () => {
@@ -117,7 +117,7 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
             )}
 
             {flash?.message && (
-                <div className="p-3 mb-4 text-sm border rounded-xl border-blue-200 bg-blue-50 text-blue-800">
+                <div className="p-3 mb-4 text-sm text-blue-800 border border-blue-200 rounded-xl bg-blue-50">
                     {flash.message}
                 </div>
             )}
@@ -131,7 +131,7 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
                         </p>
                     )}
                     <div className="flex flex-col gap-2 mt-2 md:flex-row md:items-center">
-                        <a href={flash.activation_link} target="_blank" rel="noreferrer" className="break-all text-blue-700 underline">
+                        <a href={flash.activation_link} target="_blank" rel="noreferrer" className="text-blue-700 underline break-all">
                             {flash.activation_link}
                         </a>
                         <button
@@ -191,8 +191,8 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 mt-4 p-4 border rounded-xl border-slate-200 bg-slate-50">
-                    <div className="md:col-span-2 pb-2">
+                <div className="grid grid-cols-1 gap-3 p-4 mt-4 border md:grid-cols-2 rounded-xl border-slate-200 bg-slate-50">
+                    <div className="pb-2 md:col-span-2">
                         <p className="text-sm font-semibold text-slate-700">Credenciales de acceso</p>
                     </div>
                     <Input
@@ -255,12 +255,13 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
                 <table className="min-w-full text-sm">
                     <thead className="text-slate-600 bg-slate-50">
                         <tr>
-                            <th className="px-3 py-2 text-left">Usuario</th>
-                            <th className="px-3 py-2 text-left">Nombre</th>
-                            <th className="px-3 py-2 text-left">Rol actual</th>
-                            <th className="px-3 py-2 text-left">Estado</th>
-                            <th className="px-3 py-2 text-left">Activación</th>
-                            <th className="px-3 py-2 text-left">Acciones</th>
+                            <th className="px-2 py-2 text-left">Usuario</th>
+                            <th className="px-2 py-2 text-left">Nombre</th>
+                            <th className="px-2 py-2 text-left">Rol</th>
+                            <th className="px-2 py-2 text-left">Sucursal</th>
+                            <th className="px-2 py-2 text-left">Estado</th>
+                            <th className="px-2 py-2 text-left">Activación</th>
+                            <th className="px-2 py-2 text-left">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -276,23 +277,32 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
 
                             return (
                                 <tr key={usuario.id} className="border-t border-slate-100">
-                                    <td className="px-3 py-2 font-medium text-slate-800">{usuario.nombre_usuario}</td>
-                                    <td className="px-3 py-2 text-slate-700">{usuario.persona?.primer_nombre} {usuario.persona?.apellido_paterno}</td>
-                                    <td className="px-3 py-2">
-                                        <span className="inline-flex px-2 py-1 text-xs font-semibold border rounded-lg bg-slate-50 border-slate-200 text-slate-700">
+                                    <td className="px-2 py-2 font-medium text-slate-800">{usuario.nombre_usuario}</td>
+                                    <td className="px-2 py-2 text-slate-700">{usuario.persona?.primer_nombre} {usuario.persona?.apellido_paterno}</td>
+                                    <td className="px-2 py-2">
+                                        <span className="inline-flex px-2 py-0.5 text-xs font-medium border rounded bg-slate-50 border-slate-200 text-slate-700">
                                             {rolActual?.nombre || 'Sin rol'}
                                         </span>
                                     </td>
-                                    <td className="px-3 py-2">
-                                        <span className={`inline-flex px-2 py-1 text-xs font-semibold border rounded-lg ${usuario.activo
+                                    <td className="px-2 py-2">
+                                        {rolActual?.codigo === 'ADMIN' ? (
+                                            <span className="text-xs text-slate-500">Todas</span>
+                                        ) : (
+                                            <span className="text-xs text-slate-700">
+                                                {usuario.sucursal_actual_nombre || 'Sin sucursal'}
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-2 py-2">
+                                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium border rounded ${usuario.activo
                                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                             : 'bg-rose-50 text-rose-700 border-rose-200'
                                             }`}>
                                             {usuario.activo ? 'Activo' : 'Inactivo'}
                                         </span>
                                     </td>
-                                    <td className="px-3 py-2">
-                                        <span className={`inline-flex px-2 py-1 text-xs font-semibold border rounded-lg ${badgeActivacion[estadoActivacion] || badgeActivacion.NO_REQUIERE}`}>
+                                    <td className="px-2 py-2">
+                                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium border rounded ${badgeActivacion[estadoActivacion] || badgeActivacion.NO_REQUIERE}`}>
                                             {estadoActivacion === 'ACTIVADA' ? 'Activada' : estadoActivacion === 'PENDIENTE' ? 'Pendiente' : estadoActivacion === 'EXPIRADA' ? 'Expirada' : 'No requerida'}
                                         </span>
                                         {usuario?.activacion_expira_en && estadoActivacion !== 'ACTIVADA' && (
@@ -302,27 +312,27 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
                                         )}
                                     </td>
                                     <td className="px-3 py-2">
-                                        <div className="flex flex-wrap gap-2">
-                                            <button type="button" className="fin-btn-secondary" onClick={() => cambiarEstado(usuario.id, usuario.activo)}>
+                                        <div className="flex flex-wrap gap-1">
+                                            <button type="button" className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200" onClick={() => cambiarEstado(usuario.id, usuario.activo)}>
                                                 {usuario.activo ? 'Desactivar' : 'Activar'}
                                             </button>
                                             {rolActual?.codigo === 'DISTRIBUIDORA' && (
                                                 <button
                                                     type="button"
-                                                    className="fin-btn-secondary"
+                                                    className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
                                                     onClick={() => reenviarActivacion(usuario.id)}
                                                 >
-                                                    {estadoActivacion === 'EXPIRADA' ? 'Regenerar enlace' : 'Reenviar activacion'}
+                                                    {estadoActivacion === 'EXPIRADA' ? 'Regen.' : 'Reenviar'}
                                                 </button>
                                             )}
                                             {rolCambio.usuarioId === usuario.id ? (
-                                                <div className="flex flex-wrap items-center gap-2">
+                                                <div className="flex flex-wrap items-center gap-1">
                                                     <select
-                                                        className="border rounded-lg border-slate-300"
+                                                        className="px-2 py-1 text-xs border rounded border-slate-300 w-28"
                                                         value={rolCambio.rolId}
                                                         onChange={(e) => setRolCambio(prev => ({ ...prev, rolId: e.target.value }))}
                                                     >
-                                                        <option value="">Selecciona rol</option>
+                                                        <option value="">Rol</option>
                                                         {roles.map((rol) => (
                                                             <option key={rol.id} value={rol.id}>{rol.nombre}</option>
                                                         ))}
@@ -330,29 +340,30 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
                                                     {(() => {
                                                         const nuevoRol = roles.find(r => String(r.id) === String(rolCambio.rolId));
                                                         const requiereSuc = nuevoRol && nuevoRol.codigo !== 'ADMIN';
+                                                        const tieneSucursalActual = rolCambio.sucursalId;
                                                         return requiereSuc ? (
                                                             <select
-                                                                className="border rounded-lg border-slate-300"
+                                                                className="px-2 py-1 text-xs border rounded border-slate-300 w-36"
                                                                 value={rolCambio.sucursalId}
                                                                 onChange={(e) => setRolCambio(prev => ({ ...prev, sucursalId: e.target.value }))}
                                                             >
-                                                                <option value="">Sucursal</option>
+                                                                {!tieneSucursalActual && <option value="">Sucursal</option>}
                                                                 {sucursales.map((s) => (
                                                                     <option key={s.id} value={s.id}>{s.nombre}</option>
                                                                 ))}
                                                             </select>
                                                         ) : null;
                                                     })()}
-                                                    <button type="button" className="fin-btn-primary" onClick={cambiarRol}>Guardar</button>
-                                                    <button type="button" className="fin-btn-secondary" onClick={cancelarCambioRol}>Cancelar</button>
+                                                    <button type="button" className="px-2 py-1 text-xs text-white rounded bg-emerald-600 hover:bg-emerald-700" onClick={cambiarRol}>OK</button>
+                                                    <button type="button" className="px-2 py-1 text-xs rounded bg-slate-200 text-slate-700 hover:bg-slate-300" onClick={cancelarCambioRol}>X</button>
                                                 </div>
                                             ) : (
                                                 <button
                                                     type="button"
-                                                    className="fin-btn-secondary"
-                                                    onClick={() => iniciarCambioRol(usuario.id, rolActual?.id)}
+                                                    className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                                                    onClick={() => iniciarCambioRol(usuario.id, rolActual?.id, usuario.sucursal_actual_id)}
                                                 >
-                                                    Cambiar rol
+                                                    Rol
                                                 </button>
                                             )}
                                         </div>
