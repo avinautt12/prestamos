@@ -89,12 +89,33 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
     Route::get('/productos', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('productos');
     Route::get('/distribuidoras', [App\Http\Controllers\Gerente\AprobacionController::class, 'index'])->name('distribuidoras');
     Route::get('/distribuidoras/rechazadas', [App\Http\Controllers\Gerente\AprobacionController::class, 'rechazadas'])->name('distribuidoras.rechazadas');
-    Route::get('/distribuidoras/{id}', [App\Http\Controllers\Gerente\AprobacionController::class, 'show'])->name('distribuidoras.show');
+    Route::get('/distribuidoras/credito', [App\Http\Controllers\Gerente\CreditoController::class, 'index'])->name('credito.index');
+    Route::get('/distribuidoras/credito/sugerencias', [App\Http\Controllers\Gerente\CreditoController::class, 'sugerencias'])->name('credito.sugerencias');
+    Route::post('/distribuidoras/credito/sugerencias/{id}/aprobar', [App\Http\Controllers\Gerente\CreditoController::class, 'aprobarSugerencia'])
+        ->middleware('gerente.secure-action')
+        ->where('id', '[0-9]+')
+        ->name('credito.sugerencias.aprobar');
+    Route::post('/distribuidoras/credito/sugerencias/{id}/rechazar', [App\Http\Controllers\Gerente\CreditoController::class, 'rechazarSugerencia'])
+        ->middleware('gerente.secure-action')
+        ->where('id', '[0-9]+')
+        ->name('credito.sugerencias.rechazar');
+    Route::get('/distribuidoras/credito/{id}', [App\Http\Controllers\Gerente\CreditoController::class, 'show'])->name('credito.show')
+        ->where('id', '[0-9]+');
+    Route::put('/distribuidoras/credito/{id}', [App\Http\Controllers\Gerente\CreditoController::class, 'update'])
+        ->middleware('gerente.secure-action')
+        ->where('id', '[0-9]+')
+        ->name('credito.update');
+    Route::get('/distribuidoras/credito/{id}/historial', [App\Http\Controllers\Gerente\CreditoController::class, 'historial'])->name('credito.historial')
+        ->where('id', '[0-9]+');
+    Route::get('/distribuidoras/{id}', [App\Http\Controllers\Gerente\AprobacionController::class, 'show'])->name('distribuidoras.show')
+        ->where('id', '[0-9]+');
     Route::post('/distribuidoras/{id}/aprobar', [App\Http\Controllers\Gerente\AprobacionController::class, 'aprobar'])
         ->middleware('gerente.secure-action')
+        ->where('id', '[0-9]+')
         ->name('distribuidoras.aprobar');
     Route::post('/distribuidoras/{id}/rechazar', [AprobacionController::class, 'rechazar'])
         ->middleware('gerente.secure-action')
+        ->where('id', '[0-9]+')
         ->name('distribuidoras.rechazar');
 });
 

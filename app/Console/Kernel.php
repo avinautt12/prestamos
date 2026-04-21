@@ -22,6 +22,9 @@ class Kernel extends ConsoleKernel
         $schedule->command('reportes:periodicos', ['--tipo' => 'anual'])
             ->yearlyOn(1, 1, '07:00')
             ->withoutOverlapping();
+
+        // Evaluación mensual de crédito automático
+        $schedule->command('credito:evaluar-mensual')->monthlyOn(1, '03:00')->withoutOverlapping();
     }
 
     /**
