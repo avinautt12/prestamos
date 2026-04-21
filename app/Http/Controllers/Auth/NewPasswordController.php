@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
+use App\Models\SolicitudPassword;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -36,34 +37,41 @@ class NewPasswordController extends Controller
     {
         $request->validate([
             'token' => 'required',
-            'email' => 'required|email',
+            'email' => 'required|string',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        // Here we will attempt to reset the user's password. If it is successful we
-        // will update the password on an actual user model and persist it to the
-        // database. Otherwise we will parse the error and return the response.
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user) use ($request) {
-                $user->forceFill([
-                    'password' => Hash::make($request->password),
-                    'remember_token' => Str::random(60),
-                ])->save();
+        $solicitud = SolicitudPassword::with('usuario')->where('token_generado', $request->token)
+            ->where('estado', 'APROBADA')
+            ->first();
 
-                event(new PasswordReset($user));
-            }
-        );
-
-        // If the password was successfully reset, we will redirect the user back to
-        // the application's home authenticated view. If there is an error we can
-        // redirect them back to where they came from with their error message.
-        if ($status == Password::PASSWORD_RESET) {
-            return redirect()->route('login')->with('status', __($status));
+        if (!$solicitud) {
+            throw ValidationException::withMessages([
+                'email' => 'El enlace de restablecimiento es inválido o el código no concuerda.',
+            ]);
         }
 
-        throw ValidationException::withMessages([
-            'email' => [trans($status)],
-        ]);
+        if ($solicitud->usuario->nombre_usuario !== $request->email) {
+            throw ValidationException::withMessages([
+                'email' => 'Este enlace no pertenece a este usuario.',
+            ]);
+        }
+
+        if (now()->greaterThan($solicitud->expira_en)) {
+            $solicitud->update(['estado' => 'EXPIRADA']);
+            throw ValidationException::withMessages([
+                'email' => 'El enlace ha caducado. El límite de tiempo era de 10 minutos.',
+            ]);
+        }
+
+        // Actualizar constraseña
+        $usuario = $solicitud->usuario;
+        $usuario->clave_hash = Hash::make($request->password);
+        $usuario->save();
+
+        // Expira inmediatamente la solicitud para evitar re-usos
+        $solicitud->update(['estado' => 'EXPIRADA']);
+
+        return redirect()->route('login')->with('status', 'Tu contraseña ha sido restablecida con éxito. Ya puedes iniciar sesión.');
     }
 }

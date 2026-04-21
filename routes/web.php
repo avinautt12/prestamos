@@ -50,6 +50,11 @@ Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->grou
     Route::get('/calendario', [App\Http\Controllers\Admin\DashboardController::class, 'calendario'])->name('calendario');
     Route::get('/reportes', [App\Http\Controllers\Admin\DashboardController::class, 'reportes'])->name('reportes');
 
+    Route::get('/solicitudes-password', [\App\Http\Controllers\PasswordAuthorizationController::class, 'index'])->name('solicitudes_password');
+    Route::post('/solicitudes-password/aprobar-todas', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobarTodas'])->name('solicitudes_password.aprobar_todas');
+    Route::post('/solicitudes-password/{id}/aprobar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobar'])->name('solicitudes_password.aprobar');
+    Route::post('/solicitudes-password/{id}/rechazar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'rechazar'])->name('solicitudes_password.rechazar');
+
     Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
     Route::put('/configuraciones/sucursal', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarSucursal'])->name('configuraciones.sucursal.update');
     Route::post('/configuraciones/categorias', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearCategoria'])->name('configuraciones.categorias.store');
@@ -81,6 +86,11 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
     Route::post('/cortes/{corte}/cerrar-manual', [App\Http\Controllers\Gerente\CorteController::class, 'cerrarManual'])
         ->middleware('gerente.secure-action')
         ->name('cortes.cerrar-manual');
+
+    Route::get('/solicitudes-password', [\App\Http\Controllers\PasswordAuthorizationController::class, 'index'])->name('solicitudes_password');
+    Route::post('/solicitudes-password/aprobar-todas', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobarTodas'])->name('solicitudes_password.aprobar_todas');
+    Route::post('/solicitudes-password/{id}/aprobar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobar'])->name('solicitudes_password.aprobar');
+    Route::post('/solicitudes-password/{id}/rechazar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'rechazar'])->name('solicitudes_password.rechazar');
     Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
     Route::get('/productos', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('productos');
     Route::get('/distribuidoras', [App\Http\Controllers\Gerente\AprobacionController::class, 'index'])->name('distribuidoras');

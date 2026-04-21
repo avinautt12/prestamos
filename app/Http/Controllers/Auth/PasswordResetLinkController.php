@@ -7,6 +7,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use App\Models\Usuario;
+use App\Models\SolicitudPassword;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -30,22 +32,33 @@ class PasswordResetLinkController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'email' => 'required|email',
+            'nombre_usuario' => 'required|string',
         ]);
 
-        // We will send the password reset link to this user. Once we have attempted
-        // to send the link, we will examine the response then see the message we
-        // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        $usuario = Usuario::where('nombre_usuario', $request->nombre_usuario)->first();
 
-        if ($status == Password::RESET_LINK_SENT) {
-            return back()->with('status', __($status));
+        if (!$usuario) {
+            throw ValidationException::withMessages([
+                'nombre_usuario' => 'No encontramos ningún usuario con ese nombre en el sistema.',
+            ]);
         }
 
-        throw ValidationException::withMessages([
-            'email' => [trans($status)],
+        // Check if there is already a pending request
+        $pending = SolicitudPassword::where('usuario_id', $usuario->id)
+            ->where('estado', 'PENDIENTE')
+            ->first();
+
+        if ($pending) {
+            throw ValidationException::withMessages([
+                'nombre_usuario' => 'Por favor, espera un correo con la confirmación de tu solicitud.',
+            ]);
+        }
+
+        SolicitudPassword::create([
+            'usuario_id' => $usuario->id,
+            'estado' => 'PENDIENTE'
         ]);
+
+        return back()->with('status', 'Tu solicitud ha sido enviada. Un gerente debe aprobarla. Una vez aprobada, recibirás un correo electrónico con el enlace.');
     }
 }
