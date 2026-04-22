@@ -1009,6 +1009,7 @@ class DashboardController extends Controller
                 'c.codigo_cliente',
                 'c.estado as estado_cliente',
                 'cd.estado_relacion',
+                'cd.prevale_aprobado',
                 'cd.bloqueado_por_parentesco',
                 'cd.observaciones_parentesco',
                 'cd.vinculado_en',
@@ -1022,13 +1023,35 @@ class DashboardController extends Controller
             ])
             ->get()
             ->map(function ($cliente) use ($distribuidora) {
-                $puedeSolicitar = $cliente->estado_relacion === 'ACTIVA'
-                    && $cliente->estado_cliente === Cliente::ESTADO_ACTIVO
-                    && !(bool) $cliente->bloqueado_por_parentesco
-                    && (int) $cliente->vales_abiertos === 0
-                    && (float) $cliente->saldo_pendiente <= 0
-                    && $distribuidora->estado === Distribuidora::ESTADO_ACTIVA
-                    && (bool) $distribuidora->puede_emitir_vales;
+                $motivos = [];
+
+                if ($distribuidora->estado !== Distribuidora::ESTADO_ACTIVA) {
+                    $motivos[] = 'Tu distribuidora no esta activa.';
+                }
+
+                if (!(bool) $distribuidora->puede_emitir_vales) {
+                    $motivos[] = 'La emision esta deshabilitada para tu cuenta.';
+                }
+
+                if ($cliente->estado_relacion !== 'ACTIVA') {
+                    $motivos[] = 'La relacion con el cliente no esta activa.';
+                }
+
+                if (!(bool) $cliente->prevale_aprobado) {
+                    $motivos[] = 'El cliente todavia no ha pasado prevale con esta distribuidora.';
+                }
+
+                if ($cliente->estado_cliente !== Cliente::ESTADO_ACTIVO) {
+                    $motivos[] = 'El cliente no esta en estado ACTIVO.';
+                }
+
+                if ((bool) $cliente->bloqueado_por_parentesco) {
+                    $motivos[] = $cliente->observaciones_parentesco ?: 'Cliente bloqueado por parentesco.';
+                }
+
+                if ((int) $cliente->vales_abiertos > 0 || (float) $cliente->saldo_pendiente > 0) {
+                    $motivos[] = 'El cliente todavia tiene deuda abierta con esta distribuidora.';
+                }
 
                 return [
                     'id' => $cliente->id,
@@ -1041,13 +1064,15 @@ class DashboardController extends Controller
                     ),
                     'estado_cliente' => $cliente->estado_cliente,
                     'estado_relacion' => $cliente->estado_relacion,
+                    'prevale_aprobado' => (bool) $cliente->prevale_aprobado,
                     'bloqueado_por_parentesco' => (bool) $cliente->bloqueado_por_parentesco,
                     'observaciones_parentesco' => $cliente->observaciones_parentesco,
                     'vinculado_en' => $cliente->vinculado_en,
                     'vales_abiertos' => (int) $cliente->vales_abiertos,
                     'saldo_pendiente' => (float) $cliente->saldo_pendiente,
                     'siguiente_vencimiento' => $cliente->siguiente_vencimiento,
-                    'puede_solicitar_vale' => $puedeSolicitar,
+                    'puede_solicitar_vale' => empty($motivos),
+                    'motivos' => $motivos,
                 ];
             })
             ->filter(function (array $cliente) use ($filtros) {

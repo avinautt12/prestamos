@@ -25,6 +25,16 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, rel
         return () => { window.removeEventListener('keydown', handle); document.body.style.overflow = ''; };
     }, [detalleOpen]);
 
+    // Cerrar modales al navegar (click en barra de navegación u otros links)
+    React.useEffect(() => {
+        const unsubscribe = router.on('start', () => {
+            setDetalleOpen(false);
+            setModalPago(false);
+            setCanjeInline({ abierto: false, puntos: '' });
+        });
+        return unsubscribe;
+    }, []);
+
     const valorPorPunto = distribuidora?.valor_punto || 2;
     const puntosDisponibles = distribuidora?.puntos_actuales || 0;
     const puntosNum = parseInt(canjeInline.puntos, 10) || 0;

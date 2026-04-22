@@ -67,6 +67,15 @@ export default function Create({
     const [formTouched, setFormTouched] = useState({});
     const [clienteStep, setClienteStep] = useState(1);
 
+    // Cerrar modales al navegar (click en barra de navegación u otros links)
+    useEffect(() => {
+        const unsubscribe = router.on('start', () => {
+            setModalCliente(false);
+            setScannerOpen(false);
+        });
+        return unsubscribe;
+    }, []);
+
     // Validación client-side de datos del cliente nuevo
     const CURP_REGEX = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
     const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

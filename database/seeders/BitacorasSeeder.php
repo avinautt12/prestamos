@@ -120,8 +120,8 @@ class BitacorasSeeder extends Seeder
                 'actualizado_por_usuario_id' => $gerenteCentro->id,
                 'tipo_evento'                => 'PRODUCTO',
                 'referencia_id'              => null,
-                'cambios_antes_json'         => ['codigo' => 'PRESTAMO-8/12000', 'porcentaje_interes_quincenal' => 2.0000],
-                'cambios_despues_json'       => ['codigo' => 'PRESTAMO-8/12000', 'porcentaje_interes_quincenal' => 1.8000],
+                'cambios_antes_json'         => ['codigo' => 'PRESTAMO-8/12', 'porcentaje_interes_quincenal' => 2.0000],
+                'cambios_despues_json'       => ['codigo' => 'PRESTAMO-8/12', 'porcentaje_interes_quincenal' => 1.8000],
                 'creado_en'                  => now()->subDays(4),
                 'actualizado_en'             => now()->subDays(4),
             ]);

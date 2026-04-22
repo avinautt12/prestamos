@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -10,6 +10,12 @@ export default function Puntos({ distribuidora, resumen, relacionesPendientes = 
     const [modalCanje, setModalCanje] = useState(false);
     const [canje, setCanje] = useState({ relacion_corte_id: '', puntos_a_canjear: '' });
     const [canjeando, setCanjeando] = useState(false);
+
+    // Cerrar modal al navegar (click en barra de navegación u otros links)
+    useEffect(() => {
+        const unsubscribe = router.on('start', () => setModalCanje(false));
+        return unsubscribe;
+    }, []);
 
     const valorPorPunto = resumen.valor_estimado || 2;
     const puedeCanjear = resumen.saldo_actual >= 2 && relacionesPendientes.length > 0;

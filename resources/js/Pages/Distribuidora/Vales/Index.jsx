@@ -230,6 +230,12 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
 
     useEffect(() => setModalOpen(Boolean(valeSeleccionado)), [valeSeleccionado]);
 
+    // Cerrar modal al navegar (click en barra de navegación u otros links)
+    useEffect(() => {
+        const unsubscribe = router.on('start', () => setModalOpen(false));
+        return unsubscribe;
+    }, []);
+
     const applyFilters = () => router.get(route('distribuidora.vales'), { ...form, seleccionado: '' }, { preserveState: true });
     const clearFilters = () => { setForm({ q: '', estado: 'TODOS', seleccionado: '' }); router.get(route('distribuidora.vales'), { q: '', estado: 'TODOS' }, { preserveState: true }); };
 
