@@ -51,7 +51,7 @@ class PreSolicitudRequest extends FormRequest
                 'regex:/^[A-Z]{4}\d{6}[A-Z0-9]{3}$/',
                 Rule::unique('personas', 'rfc')->ignore($personaId),
             ],
-            'telefono_personal' => 'required|string|max:30',
+            'telefono_personal' => 'nullable|string|max:30',
             'telefono_celular' => 'required|string|max:30',
             'correo_electronico' => 'nullable|email|max:150',
 

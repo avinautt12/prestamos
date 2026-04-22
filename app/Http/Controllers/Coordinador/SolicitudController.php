@@ -244,20 +244,27 @@ class SolicitudController extends Controller
             })
             ->firstOrFail();
 
-        $solicitud->datos_familiares = $solicitud->datos_familiares_json;
-        $solicitud->afiliaciones     = $solicitud->afiliaciones_externas_json;
-        $solicitud->vehiculos        = $solicitud->vehiculos_json;
+        // Convertir el modelo a array base para enviar todos los campos esperados por la vista
+        $solicitudArray = $solicitud->toArray();
 
-        if ($solicitud->verificacion) {
-            $solicitudArray['verificacion']['foto_fachada_url'] = $this->generarUrlEvidencia($solicitud->verificacion->foto_fachada);
-            $solicitudArray['verificacion']['foto_ine_con_persona_url'] = $this->generarUrlEvidencia($solicitud->verificacion->foto_ine_con_persona);
-            $solicitudArray['verificacion']['foto_comprobante_url'] = $this->generarUrlEvidencia($solicitud->verificacion->foto_comprobante);
-        }
+        // Mapear campos JSON ya decodificados para la vista (mantener compatibilidad)
+        $solicitudArray['datos_familiares'] = $solicitud->datos_familiares_json;
+        $solicitudArray['afiliaciones']     = $solicitud->afiliaciones_externas_json;
+        $solicitudArray['vehiculos']        = $solicitud->vehiculos_json;
 
+        // Añadir URLs de evidencias/documentos si existen
         $solicitudArray['ine_frente_url'] = $this->generarUrlEvidencia($solicitud->ine_frente_path);
         $solicitudArray['ine_reverso_url'] = $this->generarUrlEvidencia($solicitud->ine_reverso_path);
         $solicitudArray['comprobante_domicilio_url'] = $this->generarUrlEvidencia($solicitud->comprobante_domicilio_path);
         $solicitudArray['reporte_buro_url'] = $this->generarUrlEvidencia($solicitud->reporte_buro_path);
+
+        if ($solicitud->verificacion) {
+            $ver = $solicitud->verificacion->toArray();
+            $ver['foto_fachada_url'] = $this->generarUrlEvidencia($solicitud->verificacion->foto_fachada);
+            $ver['foto_ine_con_persona_url'] = $this->generarUrlEvidencia($solicitud->verificacion->foto_ine_con_persona);
+            $ver['foto_comprobante_url'] = $this->generarUrlEvidencia($solicitud->verificacion->foto_comprobante);
+            $solicitudArray['verificacion'] = $ver;
+        }
 
         return Inertia::render('Coordinador/Solicitudes/Show', [
             'solicitud' => $solicitudArray,

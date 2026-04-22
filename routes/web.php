@@ -134,6 +134,7 @@ Route::middleware(['auth', 'role:COORDINADOR'])->prefix('coordinador')->name('co
     // Gestión de clientes y distribuidoras
     Route::get('/clientes', [App\Http\Controllers\Coordinador\DashboardController::class, 'clientes'])->name('clientes');
     Route::get('/mis-distribuidoras', [App\Http\Controllers\Coordinador\DashboardController::class, 'misDistribuidoras'])->name('mis-distribuidoras');
+    Route::get('/mis-distribuidoras/{id}', [App\Http\Controllers\Coordinador\DashboardController::class, 'showDistribuidora'])->name('mis-distribuidoras.show');
     Route::get('/traspasos', [App\Http\Controllers\Coordinador\TraspasoClienteController::class, 'index'])->name('traspasos.index');
     Route::post('/traspasos/{traspaso}/aprobar', [App\Http\Controllers\Coordinador\TraspasoClienteController::class, 'aprobar'])->name('traspasos.aprobar');
     Route::post('/traspasos/{traspaso}/rechazar', [App\Http\Controllers\Coordinador\TraspasoClienteController::class, 'rechazar'])->name('traspasos.rechazar');

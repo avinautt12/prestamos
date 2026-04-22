@@ -66,10 +66,10 @@ export default function Show({ solicitud }) {
                     setUbicacionActual(ubicacion);
 
                     // Calcular distancia si hay coordenadas del domicilio
-                    if (persona.latitud && persona.longitud) {
+                    if (domicilioLat !== null && domicilioLng !== null) {
                         const dist = calcularDistancia(
-                            persona.latitud,
-                            persona.longitud,
+                            domicilioLat,
+                            domicilioLng,
                             ubicacion.lat,
                             ubicacion.lng
                         );

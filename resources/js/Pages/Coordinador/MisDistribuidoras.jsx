@@ -173,12 +173,15 @@ export default function MisDistribuidoras({ distribuidoras, estadisticas, filter
                                         <p className="font-medium text-blue-700">${Number(dist.credito_disponible ?? 0).toLocaleString('es-MX')}</p>
                                     </div>
                                     <div className="flex items-center mt-2 md:justify-end md:mt-0">
-                                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200">
-                                            Ver relación
+                                        <Link
+                                            href={route('coordinador.mis-distribuidoras.show', dist.id)}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200"
+                                        >
+                                            Ver datos
                                             <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                             </svg>
-                                        </div>
+                                        </Link>
                                     </div>
                                 </div>
                             </div>

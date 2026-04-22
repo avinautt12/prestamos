@@ -354,4 +354,28 @@ class DashboardController extends Controller
             'filters' => $request->only(['search', 'estado']),
         ]);
     }
+
+    public function showDistribuidora(int $id)
+    {
+        /** @var \App\Models\Usuario $usuario */
+        $usuario = Auth::user();
+        $sucursal = $this->obtenerSucursalActivaCoordinador($usuario);
+        $sucursalId = $sucursal?->id;
+
+        $distribuidora = Distribuidora::with(['persona', 'categoria', 'cuentaBancaria'])
+            ->where(function ($query) use ($usuario, $sucursalId) {
+                $query->where('coordinador_usuario_id', $usuario->id);
+
+                if ($sucursalId) {
+                    $query->orWhere('sucursal_id', $sucursalId);
+                }
+            })
+            ->findOrFail($id);
+
+        $distribuidoraArray = $distribuidora->toArray();
+
+        return Inertia::render('Coordinador/DistribuidoraShow', [
+            'distribuidora' => $distribuidoraArray,
+        ]);
+    }
 }
