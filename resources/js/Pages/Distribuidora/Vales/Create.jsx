@@ -316,7 +316,7 @@ export default function Create({
                                             <option value="">Selecciona un cliente</option>
                                             {(clientes.elegibles || []).map((c) => (
                                                 <option key={c.id} value={c.id}>
-                                                    {c.codigo_cliente ? `${c.codigo_cliente} · ` : ''}{c.nombre}
+                                                    {c.nombre}
                                                 </option>
                                             ))}
                                         </select>

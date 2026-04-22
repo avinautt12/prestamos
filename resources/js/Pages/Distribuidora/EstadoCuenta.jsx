@@ -39,6 +39,7 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, rel
     };
 
     const selectRelacion = (relacionId) => {
+        setDetalleOpen(true);
         router.get(route('distribuidora.estado-cuenta'), { ...form, relacion_id: relacionId }, { preserveState: true, preserveScroll: true });
     };
 
@@ -87,14 +88,6 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, rel
                         <p className="text-[10px] text-gray-500 uppercase">Pendiente</p>
                     </div>
                 </div>
-
-                {/* Botón reportar */}
-                {puedoReportar && (
-                    <button onClick={() => setModalPago(true)} className="flex items-center justify-center gap-2 w-full py-3 bg-green-700 text-white rounded-xl font-medium">
-                        <FontAwesomeIcon icon={faPlus} className="w-5 h-5" />
-                        Reportar pago
-                    </button>
-                )}
 
                 {/* Buscador */}
                 <div className="flex gap-2">
@@ -208,6 +201,27 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, rel
                                     </div>
                                 </div>
 
+                                {/* Estado del reporte */}
+                                {(relacionSeleccionada.monto_reportado_acumulado > 0 || relacionSeleccionada.reporte_completo) && (
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-500 mb-2">Estado del reporte</p>
+                                        <div className={`p-3 border rounded-xl text-xs space-y-1 ${relacionSeleccionada.reporte_completo ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Reportado</span>
+                                                <span className="font-semibold text-gray-900">{formatCurrency(relacionSeleccionada.monto_reportado_acumulado)} / {formatCurrency(relacionSeleccionada.total_a_pagar)}</span>
+                                            </div>
+                                            {relacionSeleccionada.reporte_completo ? (
+                                                <p className="font-bold text-green-700">✓ Reportado completo, pendiente conciliación</p>
+                                            ) : (
+                                                <div className="flex justify-between">
+                                                    <span className="text-amber-700 font-medium">Falta por reportar</span>
+                                                    <span className="font-bold text-amber-700">{formatCurrency(relacionSeleccionada.monto_pendiente_reportar)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Partidas (vales del corte) */}
                                 {relacionSeleccionada.partidas?.length > 0 && (
                                     <div>
@@ -268,9 +282,17 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, rel
                                 )}
 
                                 {/* Botón reportar pago dentro del modal */}
-                                {puedoReportar && (
+                                {puedoReportar && !relacionSeleccionada.reporte_completo && (
                                     <button
-                                        onClick={() => { setDetalleOpen(false); setModalPago(true); }}
+                                        onClick={() => {
+                                            setPagoForm((p) => ({
+                                                ...p,
+                                                monto: Number(relacionSeleccionada.monto_pendiente_reportar || 0).toFixed(2),
+                                                referencia_reportada: relacionSeleccionada.referencia_pago || '',
+                                            }));
+                                            setDetalleOpen(false);
+                                            setModalPago(true);
+                                        }}
                                         className="flex items-center justify-center gap-2 w-full py-3 bg-green-700 text-white rounded-xl font-medium"
                                     >
                                         <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />
@@ -286,12 +308,21 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, rel
                 {modalPago && (
                     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={() => setModalPago(false)}>
                         <div className="w-full max-w-md bg-white rounded-t-2xl p-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                            <p className="text-base font-bold text-gray-900 mb-4">Reportar pago</p>
+                            <p className="text-base font-bold text-gray-900 mb-2">Reportar pago</p>
+                            {relacionSeleccionada && (
+                                <div className="p-2 mb-3 bg-gray-50 border border-gray-100 rounded-lg text-xs">
+                                    <div className="flex justify-between"><span className="text-gray-500">Total del corte</span><span className="font-semibold text-gray-900">{formatCurrency(relacionSeleccionada.total_a_pagar)}</span></div>
+                                    {relacionSeleccionada.monto_reportado_acumulado > 0 && (
+                                        <div className="flex justify-between"><span className="text-gray-500">Ya reportado</span><span className="font-semibold text-gray-900">{formatCurrency(relacionSeleccionada.monto_reportado_acumulado)}</span></div>
+                                    )}
+                                    <div className="flex justify-between pt-1 border-t border-gray-100 mt-1"><span className="font-bold text-amber-700">Pendiente por reportar</span><span className="font-bold text-amber-700">{formatCurrency(relacionSeleccionada.monto_pendiente_reportar)}</span></div>
+                                </div>
+                            )}
                             {errors?.general && <p className="text-xs text-red-600 mb-2">{errors.general}</p>}
                             <div className="space-y-3">
                                 <div>
-                                    <label className="text-xs text-gray-500 mb-1 block">Monto</label>
-                                    <input type="number" step="0.01" value={pagoForm.monto} onChange={(e) => setPagoForm((p) => ({ ...p, monto: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg" placeholder="0.00" />
+                                    <label className="text-xs text-gray-500 mb-1 block">Monto (máx {formatCurrency(relacionSeleccionada?.monto_pendiente_reportar || 0)})</label>
+                                    <input type="number" step="0.01" min="0.01" max={relacionSeleccionada?.monto_pendiente_reportar || undefined} value={pagoForm.monto} onChange={(e) => setPagoForm((p) => ({ ...p, monto: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg" placeholder="0.00" />
                                 </div>
                                 <div>
                                     <label className="text-xs text-gray-500 mb-1 block">Método</label>
