@@ -230,8 +230,6 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                     <p className="text-xs font-bold text-gray-500 mb-2">Datos</p>
                                     <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs space-y-1">
                                         <div className="flex justify-between"><span className="text-gray-500">Estado</span><span className="font-medium">{clienteSel.estado_cliente}</span></div>
-                                        <div className="flex justify-between"><span className="text-gray-500">Relación</span><span className="font-medium">{clienteSel.estado_relacion}</span></div>
-                                        <div className="flex justify-between"><span className="text-gray-500">Prevale</span><span className={`font-medium ${clienteSel.prevale_aprobado ? 'text-green-700' : 'text-amber-700'}`}>{clienteSel.prevale_aprobado ? 'Aprobado' : 'Pendiente'}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Vales abiertos</span><span className="font-medium">{formatNumber(clienteSel.vales_abiertos)}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Saldo pendiente</span><span className={`font-medium ${clienteSel.saldo_pendiente > 0 ? 'text-amber-700' : ''}`}>{formatCurrency(clienteSel.saldo_pendiente)}</span></div>
                                         {clienteSel.siguiente_vencimiento && (
