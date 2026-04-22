@@ -47,31 +47,6 @@ export default function Clientes({ clientes, estadisticas, filters }) {
                             <h1 className="text-xl font-bold text-gray-900">Clientes</h1>
                             <p className="text-sm text-gray-500">Vista compacta de cartera para seguimiento rápido en tablet.</p>
                         </div>
-                        <Link
-                            href={route('coordinador.solicitudes.create')}
-                            className="px-4 py-3 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 min-h-[44px]"
-                        >
-                            + Nueva Solicitud
-                        </Link>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 mt-4 md:grid-cols-4">
-                        <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                            <p className="text-xs text-gray-500">Total</p>
-                            <p className="text-lg font-semibold text-gray-900">{totalRegistros}</p>
-                        </div>
-                        <div className="p-3 border border-emerald-200 rounded-lg bg-emerald-50">
-                            <p className="text-xs text-emerald-700">Activos</p>
-                            <p className="text-lg font-semibold text-emerald-900">{activosEnVista}</p>
-                        </div>
-                        <div className="p-3 border border-rose-200 rounded-lg bg-rose-50">
-                            <p className="text-xs text-rose-700">Morosos</p>
-                            <p className="text-lg font-semibold text-rose-900">{estadisticas?.morosos ?? 0}</p>
-                        </div>
-                        <div className="p-3 border border-blue-200 rounded-lg bg-blue-50">
-                            <p className="text-xs text-blue-700">En pantalla</p>
-                            <p className="text-lg font-semibold text-blue-900">{enVista}</p>
-                        </div>
                     </div>
                 </div>
 
@@ -86,21 +61,6 @@ export default function Clientes({ clientes, estadisticas, filters }) {
                                 placeholder="Nombre, CURP o código cliente"
                                 className="fin-input"
                             />
-                        </div>
-
-                        <div>
-                            <label className="block mb-1 text-sm font-medium text-gray-700">Estado</label>
-                            <select
-                                value={estado}
-                                onChange={(e) => setEstado(e.target.value)}
-                                className="fin-input"
-                            >
-                                <option value="">Todos los estados</option>
-                                <option value="ACTIVO">ACTIVO</option>
-                                <option value="MOROSO">MOROSO</option>
-                                <option value="BLOQUEADO">BLOQUEADO</option>
-                                <option value="INACTIVO">INACTIVO</option>
-                            </select>
                         </div>
 
                         <div className="flex gap-2 md:justify-end">
@@ -152,10 +112,6 @@ export default function Clientes({ clientes, estadisticas, filters }) {
                                                 ? distribuidoras.map((item) => item.numero_distribuidora || `#${item.id}`).join(', ')
                                                 : 'Sin vinculación'}
                                         </p>
-                                    </div>
-                                    <div>
-                                        <span className="text-gray-500">Acción:</span>
-                                        <p className="font-medium text-blue-700">Revisar cartera</p>
                                     </div>
                                 </div>
                             </div>

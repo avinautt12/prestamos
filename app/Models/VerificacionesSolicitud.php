@@ -21,10 +21,12 @@ class VerificacionesSolicitud extends Model
         'longitud_verificacion',
         'fecha_visita',
         'checklist_json',
+        'justificaciones_json',
         'foto_fachada',
         'foto_ine_con_persona',
         'foto_comprobante',
         'distancia_metros',
+        'evidencias_extras_json',
     ];
 
     protected $casts = [
