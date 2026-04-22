@@ -292,44 +292,28 @@ class ConciliacionController extends Controller
      * Genera un archivo Excel simulando un extracto bancario con los pagos
      * que las distribuidoras han REPORTADO y aún no están conciliados.
      *
-     * Respeta las ventanas de corte definidas por Charly (ver calcularEstadoVentanaCorte).
+     *Sin restricciones de fechas - siempre retorna todos los pagos reportados.
      */
     public function simularArchivoBancario(Request $request): StreamedResponse|RedirectResponse
     {
-        $estado = $this->calcularEstadoVentanaCorte();
-
-        if ($estado['ventana'] === 'FUERA') {
-            return back()->withErrors(['general' => $estado['mensaje']]);
-        }
-
         $query = PagoDistribuidora::query()
             ->with([
-                'relacionCorte:id,numero_relacion,referencia_pago',
+                'relacionCorte:id,numero_relacion,referencia_pago,corte_id',
+                'relacionCorte.corte:id,fecha_programada',
                 'distribuidora.persona:id,primer_nombre,segundo_nombre,apellido_paterno,apellido_materno',
             ])
             ->where('estado', PagoDistribuidora::ESTADO_REPORTADO);
 
-        if ($estado['ventana'] === 'PRINCIPAL') {
-            // Pagos con fecha <= fecha de corte (no hasta el fin de ventana)
-            $query->whereDate('fecha_pago', '<=', $estado['fecha_corte']);
-        } else {
-            // TARDIOS: pagos del día siguiente al corte hasta corte + 5
-            $query->whereDate('fecha_pago', '>=', $estado['desde'])
-                ->whereDate('fecha_pago', '<=', $estado['hasta']);
-        }
-
         $pagosReportados = $query->orderBy('fecha_pago')->get();
 
         $timestamp = now()->format('Ymd_His');
-        $ventanaLabel = $estado['ventana'] === 'PRINCIPAL' ? 'principal' : 'tardios';
-        $filename = "simulacion_banco_{$ventanaLabel}_{$timestamp}.xlsx";
+        $filename = "simulacion_banco_{$timestamp}.xlsx";
 
         return response()->streamDownload(function () use ($pagosReportados) {
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('Simulacion Banco');
 
-            // Headers (mismas columnas que espera el importador)
             $sheet->fromArray([
                 'referencia',
                 'folio',
@@ -339,6 +323,10 @@ class ConciliacionController extends Controller
                 'tipo_pago',
                 'nombre_pagador',
                 'concepto',
+                'ciclo',
+                'tipo',
+                'fecha_limite',
+                'dias_atraso',
             ], null, 'A1');
 
             $fila = 2;
@@ -351,11 +339,23 @@ class ConciliacionController extends Controller
                     $persona?->apellido_materno,
                 ]))) ?: ('DIST-' . $pago->distribuidora_id);
 
-                $fechaPago = $pago->fecha_pago instanceof Carbon ? $pago->fecha_pago : Carbon::parse($pago->fecha_pago);
+                $fechaPago = $pago->fecha_pago instanceof Carbon
+                    ? $pago->fecha_pago
+                    : Carbon::parse($pago->fecha_pago);
                 $referencia = $pago->referencia_reportada
                     ?? $pago->relacionCorte?->referencia_pago
                     ?? ('SIM-' . $pago->id);
                 $numeroRelacion = $pago->relacionCorte?->numero_relacion ?? 'N/A';
+
+                $clasificacion = $this->clasificarPago($pago);
+                $datosCiclo = $pago->relacionCorte
+                    ? $this->obtenerDatosCiclo($pago->relacionCorte)
+                    : null;
+
+                $cicloLabel = $datosCiclo['ciclo_numero'] ?? 1;
+                $fechaLimite = $datosCiclo['fecha_limite_pago'] ?? null;
+                $diasAtraso = $datosCiclo['dias_restantes'] ?? 0;
+                $diasAtraso = $diasAtraso < 0 ? abs($diasAtraso) : 0;
 
                 $sheet->fromArray([
                     $referencia,
@@ -366,11 +366,14 @@ class ConciliacionController extends Controller
                     $pago->metodo_pago ?: 'TRANSFERENCIA',
                     $nombreDist,
                     "Pago simulado relacion {$numeroRelacion}",
+                    'CICLO_' . $cicloLabel,
+                    $clasificacion,
+                    $fechaLimite?->toDateString(),
+                    $diasAtraso,
                 ], null, "A{$fila}");
                 $fila++;
             }
 
-            // Si no hay pagos reportados en la ventana, agregar fila demo para que el archivo no esté vacío
             if ($pagosReportados->isEmpty()) {
                 $sheet->fromArray([
                     'SIN-PAGOS-REPORTADOS',
@@ -380,7 +383,11 @@ class ConciliacionController extends Controller
                     now()->format('H:i:s'),
                     'TRANSFERENCIA',
                     'Sin distribuidoras',
-                    'No hay pagos reportados dentro de la ventana actual',
+                    'No hay pagos reportados',
+                    'CICLO_1',
+                    'PUNTUAL',
+                    now()->toDateString(),
+                    0,
                 ], null, 'A2');
             }
 
@@ -1322,5 +1329,143 @@ class ConciliacionController extends Controller
         }
 
         return false;
+    }
+
+    public function obtenerDatosCiclo(RelacionCorte $relacion): array
+    {
+        $corte = $relacion->corte;
+        $fechaCorte = $corte?->fecha_programada;
+
+        if (!$fechaCorte) {
+            return [
+                'ciclo_numero' => 1,
+                'fecha_limite_original' => null,
+                'fecha_limite_pago' => null,
+                'dias_restantes' => 0,
+                'estado_ciclo' => 'ACTIVO',
+                'es_puntual' => false,
+                'proximo_corte' => null,
+            ];
+        }
+
+        $fechaCorte = $fechaCorte instanceof Carbon
+            ? $fechaCorte->startOfDay()
+            : Carbon::parse($fechaCorte)->startOfDay();
+
+        $fechaLimitePago = $fechaCorte->copy()->addDays(15);
+        $hoy = now()->startOfDay();
+        $diasRestantes = (int) $hoy->diffInDays($fechaLimitePago, false);
+
+        $cicloNumero = $this->determinarCicloNumero($fechaCorte, $relacion);
+        $estadoCiclo = $this->determinarEstadoCiclo($fechaLimitePago, $diasRestantes);
+        $proximoCorte = $this->calcularProximoCorte($fechaCorte);
+
+        return [
+            'ciclo_numero' => $cicloNumero,
+            'fecha_limite_original' => $fechaCorte->copy(),
+            'fecha_limite_pago' => $fechaLimitePago,
+            'dias_restantes' => $diasRestantes,
+            'estado_ciclo' => $estadoCiclo,
+            'es_puntual' => $diasRestantes >= 0,
+            'proximo_corte' => $proximoCorte,
+        ];
+    }
+
+    private function determinarCicloNumero(Carbon $fechaCorte, RelacionCorte $relacion): int
+    {
+        $corteOriginal = $fechaCorte->copy();
+        $fechaPago = $relacion->fecha_limite_pago instanceof Carbon
+            ? $relacion->fecha_limite_pago->startOfDay()
+            : null;
+
+        if (!$fechaPago) {
+            return 1;
+        }
+
+        if ($fechaPago->greaterThan($corteOriginal->addDays(15))) {
+            return 2;
+        }
+
+        return 1;
+    }
+
+    private function determinarEstadoCiclo(Carbon $fechaLimitePago, int $diasRestantes): string
+    {
+        if ($diasRestantes < 0) {
+            return 'TARDÍO';
+        }
+
+        if ($diasRestantes === 0) {
+            return 'VENCE_HOY';
+        }
+
+        return 'ACTIVO';
+    }
+
+    private function calcularProximoCorte(Carbon $fechaCorteActual): ?Carbon
+    {
+        return $fechaCorteActual->copy()->addDays(15);
+    }
+
+    public function clasificarPago(PagoDistribuidora $pago): string
+    {
+        $relacion = $pago->relacionCorte;
+
+        if (!$relacion) {
+            return 'TARDÍO';
+        }
+
+        $datosCiclo = $this->obtenerDatosCiclo($relacion);
+        $fechaLimitePago = $datosCiclo['fecha_limite_pago'];
+
+        if (!$fechaLimitePago) {
+            return 'TARDÍO';
+        }
+
+        $fechaPago = $pago->fecha_pago instanceof Carbon
+            ? $pago->fecha_pago->startOfDay()
+            : Carbon::parse($pago->fecha_pago)->startOfDay();
+
+        if (!$fechaPago) {
+            return 'TARDÍO';
+        }
+
+        if ($fechaPago->lessThanOrEqualTo($fechaLimitePago)) {
+            return 'PUNTUAL';
+        }
+
+        return 'TARDÍO';
+    }
+
+    public function calcularCiclosActivos(): array
+    {
+        /** @var \App\Models\Usuario|null $usuario */
+        $usuario = auth()->user();
+        $sucursal = $usuario?->sucursales()->first() ?? Sucursal::first();
+        $config = $sucursal ? SucursalConfiguracion::where('sucursal_id', $sucursal->id)->first() : null;
+        $diaCorte = (int) ($config?->dia_corte ?? 15);
+
+        $hoy = now()->startOfDay();
+        $anio = (int) $hoy->year;
+        $mes = (int) $hoy->month;
+        $diasMes = $hoy->copy()->endOfMonth()->day;
+        $diaCorteAjustado = min($diaCorte, $diasMes);
+
+        $primerCorte = Carbon::create($anio, $mes, $diaCorteAjustado)->startOfDay();
+        $segundoCorte = $primerCorte->copy()->addDays(15);
+
+        return [
+            'ciclo_actual' => [
+                'ciclo_numero' => $hoy->lessThanOrEqualTo($segundoCorte) ? 1 : 2,
+                'fecha_corte' => $hoy->lessThanOrEqualTo($segundoCorte) ? $primerCorte : $segundoCorte,
+                'fecha_limite_pago' => ($hoy->lessThanOrEqualTo($segundoCorte) ? $primerCorte : $segundoCorte)->copy()->addDays(15),
+                'estado' => 'ACTIVO',
+            ],
+            'proximo_ciclo' => [
+                'ciclo_numero' => $hoy->lessThanOrEqualTo($segundoCorte) ? 2 : 1,
+                'fecha_corte' => $segundoCorte,
+                'fecha_limite_pago' => $segundoCorte->copy()->addDays(15),
+            ],
+        ];
     }
 }

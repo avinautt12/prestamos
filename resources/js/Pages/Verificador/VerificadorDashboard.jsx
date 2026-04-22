@@ -100,8 +100,18 @@ export default function VerificadorDashboard({ stats, usuario, solicitudesDispon
             <Head title="Dashboard Verificador" />
             <div className="fin-page">
 
+                {/* Welcome Message */}
+                <div className="fin-info">
+                    <p className="text-sm font-medium">
+                        Bienvenido {nombreVerificador}. Hoy es {fechaFormateada}
+                    </p>
+                    <p className="mt-1 text-xs" style={{ color: '#1E40AF' }}>
+                        Tienes {stats?.solicitudes_pendientes ?? 0} solicitudes pendientes de verificación en campo.
+                    </p>
+                </div>
+
                 {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-2 gap-4 p-3 mb-6">
                     {statCards.map((stat, index) => (
                         <Link
                             key={index}
@@ -156,16 +166,6 @@ export default function VerificadorDashboard({ stats, usuario, solicitudesDispon
                             </Link>
                         ))}
                     </div>
-                </div>
-
-                {/* Welcome Message */}
-                <div className="fin-info">
-                    <p className="text-sm font-medium">
-                        Bienvenido {nombreVerificador}. Hoy es {fechaFormateada}
-                    </p>
-                    <p className="mt-1 text-xs" style={{ color: '#1E40AF' }}>
-                        Tienes {stats?.solicitudes_pendientes ?? 0} solicitudes pendientes de verificación en campo.
-                    </p>
                 </div>
             </div>
         </TabletLayout>

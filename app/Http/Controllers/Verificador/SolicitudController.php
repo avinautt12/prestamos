@@ -130,7 +130,7 @@ class SolicitudController extends Controller
             'coordinador.persona',
             'verificacion'
         ])
-            ->where('estado', 'EN_REVISION')
+            ->whereIn('estado', ['EN_REVISION', 'VERIFICADA', 'RECHAZADA'])
             ->findOrFail($id);
 
         $sucursal = $usuario->sucursales()->first();
@@ -138,22 +138,37 @@ class SolicitudController extends Controller
             abort(403, 'No tienes permiso para verificar esta solicitud');
         }
 
-        if ($solicitud->verificador_asignado_id && $solicitud->verificador_asignado_id !== $usuario->id) {
+        if ($solicitud->estado === 'EN_REVISION' && $solicitud->verificador_asignado_id && $solicitud->verificador_asignado_id !== $usuario->id) {
             abort(403, 'Esta solicitud ya fue asignada a otro verificador');
         }
 
-        $solicitud->datos_familiares = $solicitud->datos_familiares_json ? json_decode($solicitud->datos_familiares_json, true) : null;
-        $solicitud->afiliaciones = $solicitud->afiliaciones_externas_json ? json_decode($solicitud->afiliaciones_externas_json, true) : null;
-        $solicitud->vehiculos = $solicitud->vehiculos_json ? json_decode($solicitud->vehiculos_json, true) : null;
+        $solicitud->datos_familiares = $solicitud->getAttribute('datos_familiares_json') ? json_decode($solicitud->getAttribute('datos_familiares_json'), true) : null;
+        $solicitud->afiliaciones = $solicitud->getAttribute('afiliaciones_externas_json') ? json_decode($solicitud->getAttribute('afiliaciones_externas_json'), true) : null;
+        $solicitud->vehiculos = $solicitud->getAttribute('vehiculos_json') ? json_decode($solicitud->getAttribute('vehiculos_json'), true) : null;
 
         if ($solicitud->verificacion && $solicitud->verificacion->checklist_json) {
             $solicitud->verificacion->checklist = json_decode($solicitud->verificacion->checklist_json, true);
+        }
+
+        if ($solicitud->verificacion && $solicitud->verificacion->justificaciones_json) {
+            $solicitud->verificacion->justificaciones = json_decode($solicitud->verificacion->justificaciones_json, true);
         }
 
         if ($solicitud->verificacion) {
             $solicitud->verificacion->foto_fachada_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_fachada);
             $solicitud->verificacion->foto_ine_con_persona_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_ine_con_persona);
             $solicitud->verificacion->foto_comprobante_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_comprobante);
+
+            if ($solicitud->verificacion->evidencias_extras_json) {
+                $evidenciasExtras = json_decode($solicitud->verificacion->evidencias_extras_json, true);
+                $solicitud->verificacion->evidencias_extras = array_map(function ($ev) {
+                    return [
+                        'ruta' => $ev['ruta'],
+                        'descripcion' => $ev['descripcion'] ?? '',
+                        'url' => $this->generarUrlEvidencia($ev['ruta']),
+                    ];
+                }, $evidenciasExtras ?? []);
+            }
         }
 
         return Inertia::render('Verificador/Solicitudes/Show', [
@@ -196,18 +211,29 @@ class SolicitudController extends Controller
             }
 
             $checklist = (array) $request->input('checklist', []);
-            $tieneIncumplimientos = in_array(false, [
-                (bool) ($checklist['domicilio_correcto'] ?? false),
-                (bool) ($checklist['persona_identificada'] ?? false),
-                (bool) ($checklist['vehiculos_visibles'] ?? false),
-                (bool) ($checklist['documentos_validos'] ?? false),
-            ], true);
+            $justificaciones = (array) $request->input('justificaciones', []);
 
-            if ($request->resultado === 'VERIFICADA' && $tieneIncumplimientos) {
-                DB::rollBack();
-                return back()->withErrors([
-                    'error' => 'No puedes marcar como VERIFICADA una solicitud con puntos negativos en el checklist. Usa resultado RECHAZADA y agrega observaciones.'
-                ]);
+            $normalizar = function ($val) {
+                if ($val === 'false' || $val === '0' || $val === false || $val === 0) return false;
+                if ($val === 'true' || $val === '1' || $val === true || $val === 1) return true;
+                return null;
+            };
+
+            $checklistNormalizado = [];
+            $itemsMarcadosNo = [];
+            foreach ($checklist as $key => $val) {
+                $valor = $normalizar($val);
+                $checklistNormalizado[$key] = $valor;
+                if ($valor === false) {
+                    $itemsMarcadosNo[$key] = $key;
+                    $justificacion = $justificaciones[$key] ?? null;
+                    if (empty(trim($justificacion ?? ''))) {
+                        DB::rollBack();
+                        return back()->withErrors([
+                            "justificacion_{$key}" => "Indica por qué marcaste 'No' en: {$key}"
+                        ]);
+                    }
+                }
             }
 
             $verificacionExistente = $solicitud->verificacion;
@@ -224,6 +250,19 @@ class SolicitudController extends Controller
                 ? $request->file('foto_comprobante')->store('verificaciones/comprobante', 'spaces')
                 : $verificacionExistente?->foto_comprobante;
 
+            $evidenciasExtras = [];
+            foreach (range(1, 10) as $i) {
+                $campoArchivo = "evidencia_extra_{$i}";
+                $campoDesc = "evidencia_extra_{$i}_descripcion";
+                if ($request->hasFile($campoArchivo)) {
+                    $path = $request->file($campoArchivo)->store('verificaciones/extras', 'spaces');
+                    $evidenciasExtras[] = [
+                        'ruta' => $path,
+                        'descripcion' => $request->input($campoDesc, ''),
+                    ];
+                }
+            }
+
             VerificacionesSolicitud::updateOrCreate(
                 ['solicitud_id' => $solicitud->id],
                 [
@@ -233,11 +272,13 @@ class SolicitudController extends Controller
                     'latitud_verificacion' => $request->latitud_verificacion,
                     'longitud_verificacion' => $request->longitud_verificacion,
                     'fecha_visita' => now(),
-                    'checklist_json' => json_encode($checklist),
+                    'checklist_json' => json_encode($checklistNormalizado),
+                    'justificaciones_json' => json_encode($request->justificaciones ?? []),
                     'foto_fachada' => $fotoFachadaPath,
                     'foto_ine_con_persona' => $fotoIneConPersonaPath,
                     'foto_comprobante' => $fotoComprobantePath,
                     'distancia_metros' => $distancia,
+                    'evidencias_extras_json' => !empty($evidenciasExtras) ? json_encode($evidenciasExtras) : null,
                 ]
             );
 

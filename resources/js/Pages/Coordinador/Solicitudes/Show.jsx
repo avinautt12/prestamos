@@ -35,34 +35,6 @@ export default function Show({ solicitud, edit_url }) {
     const estadoInfo = estadoConfig[solicitud.estado] || { label: solicitud.estado, color: 'bg-gray-100 text-gray-800', icon: faClipboard };
     const persona = solicitud.persona || {};
 
-    const parseJson = (value) => {
-        if (!value) return null;
-        if (typeof value === 'object') return value;
-        try {
-            return JSON.parse(value);
-        } catch {
-            return null;
-        }
-    };
-
-    const normalizeToArray = (v) => {
-        const parsed = parseJson(v);
-        return Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? Object.values(parsed) : []);
-    };
-    const afiliacionesList = normalizeToArray(solicitud.afiliaciones);
-    const vehiculosList = normalizeToArray(solicitud.vehiculos);
-    const datosFamiliaresRaw = parseJson(solicitud.datos_familiares);
-    const datosFamiliares = datosFamiliaresRaw && typeof datosFamiliaresRaw === 'object'
-        ? datosFamiliaresRaw
-        : { conyuge: { nombre: '', telefono: '', ocupacion: '' }, padres: { madre: {}, padre: {} }, hijos: [] };
-
-    const documentos = [
-        { label: 'INE Frente', url: solicitud.ine_frente_url },
-        { label: 'INE Reverso', url: solicitud.ine_reverso_url },
-        { label: 'Comprobante de Domicilio', url: solicitud.comprobante_domicilio_url },
-        { label: 'Reporte Buró', url: solicitud.reporte_buro_url, esPdf: true },
-    ].filter(doc => doc.url);
-
     const handleEnviarVerificacion = () => {
         if (confirm('¿Estás seguro de enviar esta solicitud a verificación? No podrás modificarla después.')) {
             setEnviando(true);
@@ -143,64 +115,87 @@ export default function Show({ solicitud, edit_url }) {
                     <span className="font-medium">Estado: {estadoInfo.label}</span>
                 </div>
                 {solicitud.verificacion?.observaciones && solicitud.estado === 'RECHAZADA' && (
-                    <div className="p-4 mb-4 bg-white rounded-lg shadow">
-                        <h2 className="flex items-center gap-2 mb-3 text-lg font-semibold">
-                            <FontAwesomeIcon icon={faUsers} className="text-gray-700" />
-                            Datos Familiares
-                            <span className="ml-2 text-xs text-gray-500">({(datosFamiliares.hijos?.length || 0)} hijos)</span>
-                        </h2>
-
-                        {/* Cónyuge */}
-                        <div className="mb-3">
-                            <h3 className="font-medium text-gray-700">Cónyuge/Pareja</h3>
-                            <div className="grid grid-cols-2 gap-2 mt-1 text-sm">
-                                <p><span className="text-gray-500">Nombre:</span> {datosFamiliares.conyuge?.nombre || 'No registrado'}</p>
-                                <p><span className="text-gray-500">Teléfono:</span> {datosFamiliares.conyuge?.telefono || 'N/A'}</p>
-                                <p className="col-span-2"><span className="text-gray-500">Ocupación:</span> {datosFamiliares.conyuge?.ocupacion || 'N/A'}</p>
-                            </div>
-                        </div>
-
-                        {/* Padres */}
-                        <div className="mb-3">
-                            <h3 className="font-medium text-gray-700">Padres</h3>
-                            <div className="grid grid-cols-2 gap-2 mt-1 text-sm">
-                                <div>
-                                    <span className="text-gray-500">Madre:</span>
-                                    <p>{datosFamiliares.padres?.madre?.nombre || 'No registrado'}</p>
-                                    {datosFamiliares.padres?.madre?.telefono && (
-                                        <p className="text-xs text-gray-500">Tel: {datosFamiliares.padres.madre.telefono}</p>
-                                    )}
-                                </div>
-                                <div>
-                                    <span className="text-gray-500">Padre:</span>
-                                    <p>{datosFamiliares.padres?.padre?.nombre || 'No registrado'}</p>
-                                    {datosFamiliares.padres?.padre?.telefono && (
-                                        <p className="text-xs text-gray-500">Tel: {datosFamiliares.padres.padre.telefono}</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Hijos */}
-                        <div>
-                            <h3 className="font-medium text-gray-700">Hijos</h3>
-                            {datosFamiliares.hijos && datosFamiliares.hijos.length > 0 ? (
-                                <div className="mt-1 space-y-2">
-                                    {datosFamiliares.hijos.map((hijo, index) => (
-                                        <div key={index} className="pl-2 text-sm border-l-2 border-blue-200">
-                                            <p><span className="text-gray-500">Nombre:</span> {hijo.nombre || 'No registrado'}</p>
-                                            <p><span className="text-gray-500">Edad:</span> {hijo.edad || 'N/A'} años</p>
-                                            {hijo.telefono && <p><span className="text-gray-500">Teléfono:</span> {hijo.telefono}</p>}
-                                            {hijo.ocupacion && <p><span className="text-gray-500">Ocupación:</span> {hijo.ocupacion}</p>}
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-gray-500 mt-1">No hay datos familiares registrados.</p>
-                            )}
-                        </div>
+                    <div className="p-2 mt-2 bg-red-100 rounded">
+                        <p className="text-sm font-medium text-red-800">Motivo del rechazo:</p>
+                        <p className="text-sm text-red-700">{solicitud.verificacion.observaciones}</p>
                     </div>
                 )}
+            </div>
+
+            {verificacion && (
+                <div className="p-4 mb-4 bg-white border border-gray-200 shadow-sm rounded-xl">
+                    <h2 className="flex items-center gap-2 mb-3 text-lg font-semibold text-gray-900">
+                        <FontAwesomeIcon icon={faClipboard} className="text-gray-700" />
+                        Evidencia de Verificación
+                    </h2>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        {[
+                            { label: 'Fachada', url: verificacion.foto_fachada_url },
+                            { label: 'INE con persona', url: verificacion.foto_ine_con_persona_url },
+                            { label: 'Comprobante de domicilio', url: verificacion.foto_comprobante_url },
+                        ].map((evidencia) => (
+                            <div key={evidencia.label} className="overflow-hidden border border-gray-200 rounded-lg">
+                                <div className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50">
+                                    {evidencia.label}
+                                </div>
+                                {evidencia.url ? (
+                                    <a href={evidencia.url} target="_blank" rel="noreferrer">
+                                        <img src={evidencia.url} alt={evidencia.label} className="object-cover w-full h-56" />
+                                    </a>
+                                ) : (
+                                    <div className="flex items-center justify-center h-56 text-sm text-gray-400">
+                                        Sin evidencia cargada
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="p-4 mb-4 bg-white border border-gray-200 shadow-sm rounded-xl">
+                <h2 className="flex items-center gap-2 mb-3 text-lg font-semibold text-gray-900">
+                    <FontAwesomeIcon icon={faClipboard} className="text-gray-700" />
+                    Documentos de Pre-solicitud
+                </h2>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {[
+                        { label: 'INE frente', url: solicitud.ine_frente_url },
+                        { label: 'INE reverso', url: solicitud.ine_reverso_url },
+                        { label: 'Comprobante de domicilio', url: solicitud.comprobante_domicilio_url },
+                        { label: 'Reporte de buró', url: solicitud.reporte_buro_url },
+                    ].map((doc) => {
+                        const esPdf = (doc.url || '').toLowerCase().includes('.pdf');
+
+                        return (
+                            <div key={doc.label} className="overflow-hidden border border-gray-200 rounded-lg">
+                                <div className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50">
+                                    {doc.label}
+                                </div>
+
+                                {!doc.url && (
+                                    <div className="flex items-center justify-center h-48 text-sm text-gray-400">
+                                        Sin documento cargado
+                                    </div>
+                                )}
+
+                                {doc.url && esPdf && (
+                                    <div className="flex items-center justify-center h-48">
+                                        <a href={doc.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800">
+                                            Abrir PDF
+                                        </a>
+                                    </div>
+                                )}
+
+                                {doc.url && !esPdf && (
+                                    <a href={doc.url} target="_blank" rel="noreferrer">
+                                        <img src={doc.url} alt={doc.label} className="object-cover w-full h-48" />
+                                    </a>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Datos Personales */}
@@ -254,7 +249,7 @@ export default function Show({ solicitud, edit_url }) {
             </div>
 
             {/* Datos Familiares */}
-            {datosFamiliares && (
+            {solicitud.datos_familiares && (
                 <div className="p-4 mb-4 bg-white rounded-lg shadow">
                     <h2 className="flex items-center gap-2 mb-3 text-lg font-semibold">
                         <FontAwesomeIcon icon={faUsers} className="text-gray-700" />
@@ -262,37 +257,37 @@ export default function Show({ solicitud, edit_url }) {
                     </h2>
 
                     {/* Cónyuge */}
-                    {(datosFamiliares.conyuge && (datosFamiliares.conyuge.nombre || datosFamiliares.conyuge.telefono || datosFamiliares.conyuge.ocupacion)) && (
+                    {solicitud.datos_familiares.conyuge?.nombre && (
                         <div className="mb-3">
                             <h3 className="font-medium text-gray-700">Cónyuge/Pareja</h3>
                             <div className="grid grid-cols-2 gap-2 mt-1 text-sm">
-                                <p><span className="text-gray-500">Nombre:</span> {datosFamiliares.conyuge.nombre || 'No registrado'}</p>
-                                <p><span className="text-gray-500">Teléfono:</span> {datosFamiliares.conyuge.telefono || 'N/A'}</p>
-                                <p className="col-span-2"><span className="text-gray-500">Ocupación:</span> {datosFamiliares.conyuge.ocupacion || 'N/A'}</p>
+                                <p><span className="text-gray-500">Nombre:</span> {solicitud.datos_familiares.conyuge.nombre}</p>
+                                <p><span className="text-gray-500">Teléfono:</span> {solicitud.datos_familiares.conyuge.telefono || 'N/A'}</p>
+                                <p className="col-span-2"><span className="text-gray-500">Ocupación:</span> {solicitud.datos_familiares.conyuge.ocupacion || 'N/A'}</p>
                             </div>
                         </div>
                     )}
 
                     {/* Padres */}
-                    {((datosFamiliares.padres?.madre?.nombre) || (datosFamiliares.padres?.padre?.nombre)) && (
+                    {(solicitud.datos_familiares.padres?.madre?.nombre || solicitud.datos_familiares.padres?.padre?.nombre) && (
                         <div className="mb-3">
                             <h3 className="font-medium text-gray-700">Padres</h3>
                             <div className="grid grid-cols-2 gap-2 mt-1 text-sm">
-                                {datosFamiliares.padres.madre?.nombre && (
+                                {solicitud.datos_familiares.padres.madre?.nombre && (
                                     <div>
                                         <span className="text-gray-500">Madre:</span>
-                                        <p>{datosFamiliares.padres.madre.nombre || 'No registrado'}</p>
-                                        {datosFamiliares.padres.madre.telefono && (
-                                            <p className="text-xs text-gray-500">Tel: {datosFamiliares.padres.madre.telefono}</p>
+                                        <p>{solicitud.datos_familiares.padres.madre.nombre}</p>
+                                        {solicitud.datos_familiares.padres.madre.telefono && (
+                                            <p className="text-xs text-gray-500">Tel: {solicitud.datos_familiares.padres.madre.telefono}</p>
                                         )}
                                     </div>
                                 )}
-                                {datosFamiliares.padres.padre?.nombre && (
+                                {solicitud.datos_familiares.padres.padre?.nombre && (
                                     <div>
                                         <span className="text-gray-500">Padre:</span>
-                                        <p>{datosFamiliares.padres.padre.nombre || 'No registrado'}</p>
-                                        {datosFamiliares.padres.padre.telefono && (
-                                            <p className="text-xs text-gray-500">Tel: {datosFamiliares.padres.padre.telefono}</p>
+                                        <p>{solicitud.datos_familiares.padres.padre.nombre}</p>
+                                        {solicitud.datos_familiares.padres.padre.telefono && (
+                                            <p className="text-xs text-gray-500">Tel: {solicitud.datos_familiares.padres.padre.telefono}</p>
                                         )}
                                     </div>
                                 )}
@@ -301,14 +296,14 @@ export default function Show({ solicitud, edit_url }) {
                     )}
 
                     {/* Hijos */}
-                    {(datosFamiliares.hijos && datosFamiliares.hijos.length > 0) && (
+                    {solicitud.datos_familiares.hijos?.length > 0 && (
                         <div>
-                            <h3 className="font-medium text-gray-700">Hijos ({datosFamiliares.hijos.length})</h3>
+                            <h3 className="font-medium text-gray-700">Hijos ({solicitud.datos_familiares.hijos.length})</h3>
                             <div className="mt-1 space-y-2">
-                                {datosFamiliares.hijos.map((hijo, index) => (
+                                {solicitud.datos_familiares.hijos.map((hijo, index) => (
                                     <div key={index} className="pl-2 text-sm border-l-2 border-blue-200">
-                                        <p><span className="text-gray-500">Nombre:</span> {hijo.nombre || 'No registrado'}</p>
-                                        <p><span className="text-gray-500">Edad:</span> {hijo.edad || 'N/A'} años</p>
+                                        <p><span className="text-gray-500">Nombre:</span> {hijo.nombre}</p>
+                                        <p><span className="text-gray-500">Edad:</span> {hijo.edad} años</p>
                                         {hijo.telefono && <p><span className="text-gray-500">Teléfono:</span> {hijo.telefono}</p>}
                                         {hijo.ocupacion && <p><span className="text-gray-500">Ocupación:</span> {hijo.ocupacion}</p>}
                                     </div>
@@ -352,95 +347,45 @@ export default function Show({ solicitud, edit_url }) {
                 </div>
             </div>
 
-            {/* Evidencias/Documentos */}
-            {documentos.length > 0 && (
-                <div className="p-4 mb-4 bg-white rounded-lg shadow">
-                    <h2 className="flex items-center gap-2 mb-3 text-lg font-semibold">
-                        <FontAwesomeIcon icon={faFileLines} className="text-gray-700" />
-                        Documentos Adjuntos
-                    </h2>
-                    <div className="grid grid-cols-2 gap-3">
-                        {documentos.map((doc, index) => {
-                            const esPdf = doc.label.toLowerCase().includes('pdf') || doc.label.toLowerCase().includes('reporte');
-                            return (
-                                <div key={index} className="overflow-hidden border border-gray-200 rounded-lg">
-                                    <div className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50">
-                                        {doc.label}
-                                    </div>
-                                    {doc.url ? (
-                                        esPdf ? (
-                                            <div className="flex items-center justify-center h-48">
-                                                <a href={doc.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800">
-                                                    Abrir PDF
-                                                </a>
-                                            </div>
-                                        ) : (
-                                            <a href={doc.url} target="_blank" rel="noreferrer">
-                                                <img src={doc.url} alt={doc.label} className="object-cover w-full h-48" />
-                                            </a>
-                                        )
-                                    ) : (
-                                        <div className="flex items-center justify-center h-48 text-sm text-gray-400">
-                                            No disponible
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
             {/* Referencias Laborales */}
-            {afiliacionesList && afiliacionesList.length > 0 && (
+            {solicitud.afiliaciones && solicitud.afiliaciones.length > 0 && (
                 <div className="p-4 mb-4 bg-white rounded-lg shadow">
                     <h2 className="flex items-center gap-2 mb-3 text-lg font-semibold">
                         <FontAwesomeIcon icon={faBriefcase} className="text-gray-700" />
                         Referencias Laborales
                     </h2>
                     <div className="space-y-2">
-                        {afiliacionesList.map((ref, index) => {
-                            const empresa = ref?.empresa || 'No registrado';
-                            const antiguedad = ref?.antiguedad ? `${ref.antiguedad} meses` : 'N/A';
-                            const limite = ref?.limite_credito ? Number(ref.limite_credito).toLocaleString() : '0';
-                            return (
-                                <div key={index} className="pb-2 border-b border-gray-100">
-                                    <p className="font-medium">{empresa}</p>
-                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                        <p><span className="text-gray-500">Antigüedad:</span> {antiguedad}</p>
-                                        <p><span className="text-gray-500">Límite de crédito:</span> ${limite}</p>
-                                    </div>
+                        {solicitud.afiliaciones.map((ref, index) => (
+                            <div key={index} className="pb-2 border-b border-gray-100">
+                                <p className="font-medium">{ref.empresa}</p>
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <p><span className="text-gray-500">Antigüedad:</span> {ref.antiguedad} meses</p>
+                                    <p><span className="text-gray-500">Límite de crédito:</span> ${ref.limite_credito?.toLocaleString()}</p>
                                 </div>
-                            );
-                        })}
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
 
             {/* Vehículos */}
-            {vehiculosList && vehiculosList.length > 0 && (
+            {solicitud.vehiculos && solicitud.vehiculos.length > 0 && (
                 <div className="p-4 mb-4 bg-white rounded-lg shadow">
                     <h2 className="flex items-center gap-2 mb-3 text-lg font-semibold">
                         <FontAwesomeIcon icon={faCarSide} className="text-gray-700" />
                         Vehículos
                     </h2>
                     <div className="space-y-2">
-                        {vehiculosList.map((vehiculo, index) => {
-                            const marca = vehiculo?.marca || '—';
-                            const modelo = vehiculo?.modelo || '—';
-                            const placas = vehiculo?.placas || '—';
-                            const anio = vehiculo?.anio || '—';
-                            return (
-                                <div key={index} className="pb-2 border-b border-gray-100">
-                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                        <p><span className="text-gray-500">Marca:</span> {marca}</p>
-                                        <p><span className="text-gray-500">Modelo:</span> {modelo}</p>
-                                        <p><span className="text-gray-500">Placas:</span> {placas}</p>
-                                        <p><span className="text-gray-500">Año:</span> {anio}</p>
-                                    </div>
+                        {solicitud.vehiculos.map((vehiculo, index) => (
+                            <div key={index} className="pb-2 border-b border-gray-100">
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <p><span className="text-gray-500">Marca:</span> {vehiculo.marca}</p>
+                                    <p><span className="text-gray-500">Modelo:</span> {vehiculo.modelo}</p>
+                                    <p><span className="text-gray-500">Placas:</span> {vehiculo.placas}</p>
+                                    {vehiculo.anio && <p><span className="text-gray-500">Año:</span> {vehiculo.anio}</p>}
                                 </div>
-                            );
-                        })}
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

@@ -133,16 +133,16 @@ export default function MapaRuta({ solicitudes }) {
 
             {/* Estado del GPS */}
             {cargandoGPS && (
-                <div className="p-3 mb-4 text-sm text-blue-800 bg-blue-50 rounded-lg">
+                <div className="p-3 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50">
                     <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 border-2 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
                         <span>Obteniendo tu ubicación...</span>
                     </div>
                 </div>
             )}
 
             {errorGPS && (
-                <div className="p-3 mb-4 text-sm text-yellow-800 bg-yellow-50 rounded-lg">
+                <div className="p-3 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50">
                     <span className="inline-flex items-center gap-2">
                         <FontAwesomeIcon icon={faTriangleExclamation} />
                         {errorGPS}
@@ -151,7 +151,7 @@ export default function MapaRuta({ solicitudes }) {
             )}
 
             {ubicacionActual && !errorGPS && !cargandoGPS && (
-                <div className="p-3 mb-4 text-sm text-green-800 bg-green-50 rounded-lg">
+                <div className="p-3 mb-4 text-sm text-green-800 rounded-lg bg-green-50">
                     <span className="inline-flex items-center gap-2">
                         <FontAwesomeIcon icon={faLocationDot} />
                         Tu ubicación actual está marcada en el mapa con el pin verde
@@ -261,7 +261,7 @@ export default function MapaRuta({ solicitudes }) {
                         Haz clic en una solicitud para centrar el mapa en ese domicilio.
                     </div>
 
-                    <div className="overflow-hidden bg-white border border-gray-300 rounded-xl shadow-lg">
+                    <div className="overflow-hidden bg-white border border-gray-300 shadow-lg rounded-xl">
                         <div className="aspect-[4/5] sm:aspect-[5/4] lg:aspect-[6/5]">
                             <GoogleMap
                                 mapContainerStyle={{ width: '100%', height: '100%' }}

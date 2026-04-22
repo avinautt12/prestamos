@@ -131,19 +131,60 @@ class AprobacionController extends Controller
             ->where('sucursal_id', $sucursalId)
             ->findOrFail($id);
 
-        // Los campos JSON ya están decodificados por los casts del modelo
-        $solicitud->datos_familiares = $solicitud->datos_familiares_json ?? null;
-        $solicitud->afiliaciones = $solicitud->afiliaciones_externas_json ?? null;
-        $solicitud->vehiculos = $solicitud->vehiculos_json ?? null;
+        $datosFamiliaresJson = $solicitud->datos_familiares_json;
+        $solicitud->datos_familiares = $datosFamiliaresJson ? json_decode($datosFamiliaresJson, true) : [];
+
+        $afiliacionesJson = $solicitud->afiliaciones_externas_json;
+        $solicitud->afiliaciones = $afiliacionesJson ? json_decode($afiliacionesJson, true) : [];
+
+        $vehiculosJson = $solicitud->vehiculos_json;
+        $solicitud->vehiculos = $vehiculosJson ? json_decode($vehiculosJson, true) : [];
+
+        $solicitud->ine_frente_url = $solicitud->ine_frente_path 
+            ? $this->generarUrlEvidencia($solicitud->ine_frente_path) 
+            : null;
+        $solicitud->ine_reverso_url = $solicitud->ine_reverso_path 
+            ? $this->generarUrlEvidencia($solicitud->ine_reverso_path) 
+            : null;
+        $solicitud->comprobante_domicilio_url = $solicitud->comprobante_domicilio_path 
+            ? $this->generarUrlEvidencia($solicitud->comprobante_domicilio_path) 
+            : null;
+        $solicitud->reporte_buro_url = $solicitud->reporte_buro_path 
+            ? $this->generarUrlEvidencia($solicitud->reporte_buro_path) 
+            : null;
 
         if ($solicitud->verificacion) {
-            $solicitud->verificacion->checklist = $solicitud->verificacion->checklist_json ?? null;
-        }
+            $verificacion = $solicitud->verificacion;
 
-        if ($solicitud->verificacion) {
-            $solicitud->verificacion->foto_fachada_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_fachada);
-            $solicitud->verificacion->foto_ine_con_persona_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_ine_con_persona);
-            $solicitud->verificacion->foto_comprobante_url = $this->generarUrlEvidencia($solicitud->verificacion->foto_comprobante);
+            $checklistJson = $verificacion->getAttribute('checklist_json');
+            $verificacion->checklist = $checklistJson ? json_decode($checklistJson, true) : null;
+
+            $justificacionesJson = $verificacion->getAttribute('justificaciones_json');
+            $verificacion->justificaciones = $justificacionesJson ? json_decode($justificacionesJson, true) : null;
+
+            $evidenciasExtrasJson = $verificacion->getAttribute('evidencias_extras_json');
+            $evidenciasExtras = $evidenciasExtrasJson ? json_decode($evidenciasExtrasJson, true) : [];
+
+            $verificacion->foto_fachada_url = $verificacion->foto_fachada 
+                ? $this->generarUrlEvidencia($verificacion->foto_fachada) 
+                : null;
+            $verificacion->foto_ine_con_persona_url = $verificacion->foto_ine_con_persona 
+                ? $this->generarUrlEvidencia($verificacion->foto_ine_con_persona) 
+                : null;
+            $verificacion->foto_comprobante_url = $verificacion->foto_comprobante 
+                ? $this->generarUrlEvidencia($verificacion->foto_comprobante) 
+                : null;
+
+            if (is_array($evidenciasExtras)) {
+                $verificacion->evidencias_extras_urls = array_map(function ($evidencia) {
+                    return [
+                        'descripcion' => $evidencia['descripcion'] ?? '',
+                        'url' => $this->generarUrlEvidencia($evidencia['ruta'] ?? null),
+                    ];
+                }, $evidenciasExtras);
+            } else {
+                $verificacion->evidencias_extras_urls = [];
+            }
         }
 
         $configuracionSucursal = SucursalConfiguracion::query()
