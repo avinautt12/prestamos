@@ -33,9 +33,9 @@ class ValesSeeder extends Seeder
             return;
         }
 
-        $producto = ProductoFinanciero::where('codigo', 'PRESTAMO-8/12000')->first();
+        $producto = ProductoFinanciero::where('codigo', 'PRESTAMO-8/12')->first();
         if (!$producto) {
-            $this->command?->warn('Producto PRESTAMO-8/12000 no encontrado. Corre ProductosFinancierosSeeder primero.');
+            $this->command?->warn('Producto PRESTAMO-8/12 no encontrado. Corre ProductosFinancierosSeeder primero.');
             return;
         }
 

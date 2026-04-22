@@ -1,13 +1,32 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faFilter, faPlus, faUser as faUserIcon } from '@fortawesome/free-solid-svg-icons';
-import { formatCurrency, formatNumber, statusBadgeClass } from './utils';
+import { faSearch, faFilter, faPlus, faXmark, faCircleCheck, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { formatCurrency, formatDate, formatNumber } from './utils';
 
 export default function MisClientes({ distribuidora, resumen, clientes = [], filtros = {} }) {
     const [form, setForm] = useState({ q: filtros.q || '', estado_relacion: filtros.estado_relacion || 'TODOS', elegibilidad: filtros.elegibilidad || 'TODOS' });
     const [showFilters, setShowFilters] = useState(false);
+    const [clienteSel, setClienteSel] = useState(null);
+
+    // Cerrar modal al navegar (click en barra de navegación, links, router.visit)
+    useEffect(() => {
+        const unsubscribe = router.on('start', () => {
+            setClienteSel(null);
+            setShowFilters(false);
+        });
+        return unsubscribe;
+    }, []);
+
+    // Cerrar modal con tecla Escape + bloquear scroll de fondo
+    useEffect(() => {
+        if (!clienteSel) return;
+        const handle = (ev) => { if (ev.key === 'Escape') setClienteSel(null); };
+        window.addEventListener('keydown', handle);
+        document.body.style.overflow = 'hidden';
+        return () => { window.removeEventListener('keydown', handle); document.body.style.overflow = ''; };
+    }, [clienteSel]);
 
     const iniciales = (nombre) => {
         if (!nombre) return '?';
@@ -111,7 +130,12 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                         <div className="p-8 text-center text-gray-400 text-sm">Sin clientes.</div>
                     ) : (
                         clientes.map((cliente) => (
-                            <div key={cliente.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl">
+                            <button
+                                key={cliente.id}
+                                type="button"
+                                onClick={() => setClienteSel(cliente)}
+                                className="flex items-center justify-between w-full p-3 text-left bg-white border border-gray-200 rounded-xl hover:bg-gray-50 active:bg-gray-100"
+                            >
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
                                     <div className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-sm font-bold ${
                                         cliente.puede_solicitar_vale
@@ -137,10 +161,100 @@ export default function MisClientes({ distribuidora, resumen, clientes = [], fil
                                         {cliente.puede_solicitar_vale ? '✓' : '✗'}
                                     </span>
                                 </div>
-                            </div>
+                            </button>
                         ))
                     )}
                 </div>
+
+                {/* Modal detalle del cliente */}
+                {clienteSel && (
+                    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={() => setClienteSel(null)}>
+                        <div className="w-full max-w-md bg-white rounded-t-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                            <div className="sticky top-0 bg-white p-4 border-b border-gray-100 flex justify-between items-center">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-sm font-bold ${
+                                        clienteSel.puede_solicitar_vale
+                                            ? 'bg-green-100 text-green-700'
+                                            : clienteSel.bloqueado_por_parentesco
+                                            ? 'bg-red-100 text-red-700'
+                                            : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                        {iniciales(clienteSel.nombre)}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-gray-900 truncate">{clienteSel.nombre}</p>
+                                        <p className="text-xs text-gray-500 truncate">{clienteSel.codigo_cliente}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setClienteSel(null)} className="p-1 text-gray-400">
+                                    <FontAwesomeIcon icon={faXmark} />
+                                </button>
+                            </div>
+
+                            <div className="p-4 space-y-4">
+                                {/* Estado general */}
+                                <div className={`p-3 border rounded-xl flex items-center gap-3 ${
+                                    clienteSel.puede_solicitar_vale ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+                                }`}>
+                                    <FontAwesomeIcon
+                                        icon={clienteSel.puede_solicitar_vale ? faCircleCheck : faTriangleExclamation}
+                                        className={`w-6 h-6 flex-shrink-0 ${clienteSel.puede_solicitar_vale ? 'text-green-600' : 'text-amber-600'}`}
+                                    />
+                                    <div>
+                                        <p className={`text-sm font-bold ${clienteSel.puede_solicitar_vale ? 'text-green-800' : 'text-amber-800'}`}>
+                                            {clienteSel.puede_solicitar_vale ? 'Elegible para nuevo vale' : 'No elegible para nuevo vale'}
+                                        </p>
+                                        <p className="text-[11px] text-gray-600">
+                                            {clienteSel.puede_solicitar_vale ? 'Cumple con todas las reglas.' : 'Revisa los motivos abajo.'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Motivos de no elegibilidad */}
+                                {!clienteSel.puede_solicitar_vale && clienteSel.motivos?.length > 0 && (
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-500 mb-2">Motivos</p>
+                                        <ul className="space-y-1">
+                                            {clienteSel.motivos.map((motivo, i) => (
+                                                <li key={i} className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-900">
+                                                    <span className="text-amber-600 flex-shrink-0">•</span>
+                                                    <span>{motivo}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {/* Datos operativos */}
+                                <div>
+                                    <p className="text-xs font-bold text-gray-500 mb-2">Datos</p>
+                                    <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs space-y-1">
+                                        <div className="flex justify-between"><span className="text-gray-500">Estado</span><span className="font-medium">{clienteSel.estado_cliente}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Vales abiertos</span><span className="font-medium">{formatNumber(clienteSel.vales_abiertos)}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Saldo pendiente</span><span className={`font-medium ${clienteSel.saldo_pendiente > 0 ? 'text-amber-700' : ''}`}>{formatCurrency(clienteSel.saldo_pendiente)}</span></div>
+                                        {clienteSel.siguiente_vencimiento && (
+                                            <div className="flex justify-between"><span className="text-gray-500">Próximo vencimiento</span><span className="font-medium">{formatDate(clienteSel.siguiente_vencimiento)}</span></div>
+                                        )}
+                                        {clienteSel.vinculado_en && (
+                                            <div className="flex justify-between"><span className="text-gray-500">Vinculado desde</span><span className="font-medium">{formatDate(clienteSel.vinculado_en)}</span></div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Acción principal */}
+                                {clienteSel.puede_solicitar_vale && (
+                                    <Link
+                                        href={route('distribuidora.vales.create', { cliente_id: clienteSel.id })}
+                                        className="flex items-center justify-center gap-2 w-full py-3 bg-green-700 text-white rounded-xl font-medium"
+                                    >
+                                        <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />
+                                        Crear vale para este cliente
+                                    </Link>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </DistribuidoraLayout>
     );

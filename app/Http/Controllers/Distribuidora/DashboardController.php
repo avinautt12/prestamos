@@ -695,20 +695,51 @@ class DashboardController extends Controller
         }
 
         try {
-            PagoDistribuidora::create([
-                'relacion_corte_id'       => $relacion->id,
-                'distribuidora_id'        => $distribuidora->id,
-                'cuenta_banco_empresa_id' => null,
-                'monto'                   => $montoSolicitado,
-                'metodo_pago'             => $request->metodo_pago,
-                'referencia_reportada'    => $request->referencia_reportada,
-                'fecha_pago'              => $request->fecha_pago ?? now(),
-                'estado'                  => PagoDistribuidora::ESTADO_REPORTADO,
-                'observaciones'           => $request->observaciones ?: 'Reportado por la distribuidora',
-                'desglose_vales'          => $request->input('desglose', []),
-            ]);
+            $totalReportado = $montoReportadoAcumulado + $montoSolicitado;
+            $cubierto = $totalReportado >= ((float) $relacion->total_a_pagar - 0.009);
 
-            return back()->with('success', "Pago reportado para la relación {$relacion->numero_relacion}. La cajera lo conciliará al recibir el archivo bancario.");
+            DB::transaction(function () use ($relacion, $distribuidora, $montoSolicitado, $request, $cubierto) {
+                $relacionBloqueada = RelacionCorte::where('id', $relacion->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                PagoDistribuidora::create([
+                    'relacion_corte_id'       => $relacionBloqueada->id,
+                    'distribuidora_id'        => $distribuidora->id,
+                    'cuenta_banco_empresa_id' => null,
+                    'monto'                   => $montoSolicitado,
+                    'metodo_pago'             => $request->metodo_pago,
+                    'referencia_reportada'    => $request->referencia_reportada,
+                    'fecha_pago'              => $request->fecha_pago ?? now(),
+                    'estado'                  => PagoDistribuidora::ESTADO_REPORTADO,
+                    'observaciones'           => $request->observaciones ?: 'Reportado por la distribuidora',
+                    'desglose_vales'          => $request->input('desglose', []),
+                ]);
+
+                // Transiciones de estado de la RelacionCorte segun cobertura del reporte:
+                //  - Si el total reportado acumulado cubre el total -> PAGADA
+                //  - Si es parcial y estaba en GENERADA -> PARCIAL
+                //  - Si estaba en PARCIAL y sigue parcial -> queda igual
+                //  - Si estaba en VENCIDA y el reporte es parcial -> queda VENCIDA (no se pierde info de mora)
+                // Nota: PAGADA tambien es el estado final que usa la cajera al conciliar; mientras no se concilie,
+                // la relacion se queda en PAGADA pero visualmente indicamos "pendiente conciliacion" en el frontend.
+                if ($cubierto) {
+                    $relacionBloqueada->update(['estado' => RelacionCorte::ESTADO_PAGADA]);
+                } elseif ($relacionBloqueada->estado === RelacionCorte::ESTADO_GENERADA) {
+                    $relacionBloqueada->update(['estado' => RelacionCorte::ESTADO_PARCIAL]);
+                }
+            });
+
+            $mensaje = $cubierto
+                ? "Pago reportado completo para la relacion {$relacion->numero_relacion}. Marcada como PAGADA, pendiente de conciliacion por la cajera."
+                : sprintf(
+                    'Pago parcial reportado para la relacion %s. Reportado acumulado: $%s. Pendiente por reportar: $%s.',
+                    $relacion->numero_relacion,
+                    number_format($totalReportado, 2),
+                    number_format((float) $relacion->total_a_pagar - $totalReportado, 2)
+                );
+
+            return back()->with('success', $mensaje);
         } catch (\Exception $e) {
             return back()->withErrors(['general' => 'Error al reportar el pago. Intenta de nuevo.']);
         }
@@ -978,6 +1009,7 @@ class DashboardController extends Controller
                 'c.codigo_cliente',
                 'c.estado as estado_cliente',
                 'cd.estado_relacion',
+                'cd.prevale_aprobado',
                 'cd.bloqueado_por_parentesco',
                 'cd.observaciones_parentesco',
                 'cd.vinculado_en',
@@ -991,13 +1023,35 @@ class DashboardController extends Controller
             ])
             ->get()
             ->map(function ($cliente) use ($distribuidora) {
-                $puedeSolicitar = $cliente->estado_relacion === 'ACTIVA'
-                    && $cliente->estado_cliente === Cliente::ESTADO_ACTIVO
-                    && !(bool) $cliente->bloqueado_por_parentesco
-                    && (int) $cliente->vales_abiertos === 0
-                    && (float) $cliente->saldo_pendiente <= 0
-                    && $distribuidora->estado === Distribuidora::ESTADO_ACTIVA
-                    && (bool) $distribuidora->puede_emitir_vales;
+                $motivos = [];
+
+                if ($distribuidora->estado !== Distribuidora::ESTADO_ACTIVA) {
+                    $motivos[] = 'Tu distribuidora no esta activa.';
+                }
+
+                if (!(bool) $distribuidora->puede_emitir_vales) {
+                    $motivos[] = 'La emision esta deshabilitada para tu cuenta.';
+                }
+
+                if ($cliente->estado_relacion !== 'ACTIVA') {
+                    $motivos[] = 'La relacion con el cliente no esta activa.';
+                }
+
+                if (!(bool) $cliente->prevale_aprobado) {
+                    $motivos[] = 'El cliente todavia no ha pasado prevale con esta distribuidora.';
+                }
+
+                if ($cliente->estado_cliente !== Cliente::ESTADO_ACTIVO) {
+                    $motivos[] = 'El cliente no esta en estado ACTIVO.';
+                }
+
+                if ((bool) $cliente->bloqueado_por_parentesco) {
+                    $motivos[] = $cliente->observaciones_parentesco ?: 'Cliente bloqueado por parentesco.';
+                }
+
+                if ((int) $cliente->vales_abiertos > 0 || (float) $cliente->saldo_pendiente > 0) {
+                    $motivos[] = 'El cliente todavia tiene deuda abierta con esta distribuidora.';
+                }
 
                 return [
                     'id' => $cliente->id,
@@ -1010,13 +1064,15 @@ class DashboardController extends Controller
                     ),
                     'estado_cliente' => $cliente->estado_cliente,
                     'estado_relacion' => $cliente->estado_relacion,
+                    'prevale_aprobado' => (bool) $cliente->prevale_aprobado,
                     'bloqueado_por_parentesco' => (bool) $cliente->bloqueado_por_parentesco,
                     'observaciones_parentesco' => $cliente->observaciones_parentesco,
                     'vinculado_en' => $cliente->vinculado_en,
                     'vales_abiertos' => (int) $cliente->vales_abiertos,
                     'saldo_pendiente' => (float) $cliente->saldo_pendiente,
                     'siguiente_vencimiento' => $cliente->siguiente_vencimiento,
-                    'puede_solicitar_vale' => $puedeSolicitar,
+                    'puede_solicitar_vale' => empty($motivos),
+                    'motivos' => $motivos,
                 ];
             })
             ->filter(function (array $cliente) use ($filtros) {
@@ -1138,8 +1194,9 @@ class DashboardController extends Controller
             ->map(fn(RelacionCorte $relacion) => $this->transformarRelacion($relacion, true))
             ->values();
 
-        $relacionSeleccionada = $relacionesTransformadas->firstWhere('id', (int) $filtros['relacion_id'])
-            ?: $relacionesTransformadas->first();
+        $relacionSeleccionada = ! empty($filtros['relacion_id'])
+            ? $relacionesTransformadas->firstWhere('id', (int) $filtros['relacion_id'])
+            : null;
 
         $pagosQuery = PagoDistribuidora::query()
             ->with(['relacionCorte:id,numero_relacion,estado', 'conciliacion'])
@@ -1594,6 +1651,17 @@ class DashboardController extends Controller
             PagoDistribuidora::ESTADO_DETECTADO,
         ], true));
 
+        $pagosVigentes = $relacion->pagosDistribuidora->filter(fn(PagoDistribuidora $p) => in_array($p->estado, [
+            PagoDistribuidora::ESTADO_REPORTADO,
+            PagoDistribuidora::ESTADO_DETECTADO,
+            PagoDistribuidora::ESTADO_CONCILIADO,
+        ], true));
+
+        $montoReportadoAcumulado = (float) $pagosVigentes->sum('monto');
+        $totalAPagar = (float) $relacion->total_a_pagar;
+        $montoPendienteReportar = max(0, round($totalAPagar - $montoReportadoAcumulado, 2));
+        $reporteCompleto = $montoReportadoAcumulado >= ($totalAPagar - 0.009);
+
         return [
             'id' => $relacion->id,
             'numero_relacion' => $relacion->numero_relacion,
@@ -1602,7 +1670,7 @@ class DashboardController extends Controller
             'fecha_inicio_pago_anticipado' => optional($relacion->fecha_inicio_pago_anticipado)->toDateString(),
             'fecha_fin_pago_anticipado' => optional($relacion->fecha_fin_pago_anticipado)->toDateString(),
             'total_comision' => (float) $relacion->total_comision,
-            'total_a_pagar' => (float) $relacion->total_a_pagar,
+            'total_a_pagar' => $totalAPagar,
             'total_pago' => (float) $relacion->total_pago,
             'total_recargos' => (float) $relacion->total_recargos,
             'limite_credito_snapshot' => (float) $relacion->limite_credito_snapshot,
@@ -1613,6 +1681,9 @@ class DashboardController extends Controller
             'pagos_count' => $relacion->pagosDistribuidora->count(),
             'pagos_en_revision_count' => $pagosEnRevision->count(),
             'pagos_en_revision_total' => (float) $pagosEnRevision->sum('monto'),
+            'monto_reportado_acumulado' => $montoReportadoAcumulado,
+            'monto_pendiente_reportar' => $montoPendienteReportar,
+            'reporte_completo' => $reporteCompleto,
             'partidas_count' => $relacion->partidas_count ?? $relacion->partidas->count(),
             'pagos' => $relacion->pagosDistribuidora
                 ->map(fn(PagoDistribuidora $pago) => $this->transformarPagoDistribuidora($pago))

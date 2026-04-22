@@ -1,30 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import DistribuidoraLayout from '@/Layouts/DistribuidoraLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGift, faPlus, faMinus, faSearch } from '@fortawesome/free-solid-svg-icons';
-import { formatCurrency, formatDate, formatNumber, signedPoints } from './utils';
+import { faGift } from '@fortawesome/free-solid-svg-icons';
+import { formatCurrency, formatNumber } from './utils';
 
-export default function Puntos({ distribuidora, resumen, filtros = {}, opciones = {}, movimientos = [], relacionesPendientes = [] }) {
-    const [form, setForm] = useState({ tipo: filtros.tipo || 'TODOS', q: filtros.q || '' });
+export default function Puntos({ distribuidora, resumen, relacionesPendientes = [] }) {
     const { errors } = usePage().props;
     const [modalCanje, setModalCanje] = useState(false);
     const [canje, setCanje] = useState({ relacion_corte_id: '', puntos_a_canjear: '' });
     const [canjeando, setCanjeando] = useState(false);
 
+    // Cerrar modal al navegar (click en barra de navegación u otros links)
+    useEffect(() => {
+        const unsubscribe = router.on('start', () => setModalCanje(false));
+        return unsubscribe;
+    }, []);
+
     const valorPorPunto = resumen.valor_estimado || 2;
     const puedeCanjear = resumen.saldo_actual >= 2 && relacionesPendientes.length > 0;
     const puntosNum = parseInt(canje.puntos_a_canjear, 10) || 0;
-
-    const submitFilters = (e) => {
-        e?.preventDefault();
-        router.get(route('distribuidora.puntos'), form, { preserveState: true, preserveScroll: true, replace: true });
-    };
-
-    const clearFilters = () => {
-        setForm({ tipo: 'TODOS', q: '' });
-        router.get(route('distribuidora.puntos'), { tipo: 'TODOS', q: '' }, { preserveState: true });
-    };
 
     const confirmarCanje = () => {
         if (canjeando || !canje.relacion_corte_id || puntosNum < 2) return;
@@ -56,18 +51,6 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                     <p className="text-sm text-green-100 mt-1">= {formatCurrency(resumen.saldo_actual * valorPorPunto)}</p>
                 </div>
 
-                {/* Stats adicionales */}
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="p-3 bg-white border border-gray-200 rounded-xl flex justify-between items-center">
-                        <span className="text-xs text-gray-500">Ganados</span>
-                        <span className="text-base font-bold text-green-600">+{formatNumber(resumen.positivos)}</span>
-                    </div>
-                    <div className="p-3 bg-white border border-gray-200 rounded-xl flex justify-between items-center">
-                        <span className="text-xs text-gray-500">Usados</span>
-                        <span className="text-base font-bold text-red-600">-{formatNumber(resumen.negativos)}</span>
-                    </div>
-                </div>
-
                 {/* Botón canjear */}
                 {puedeCanjear ? (
                     <button onClick={() => setModalCanje(true)} className="flex items-center justify-center gap-2 w-full py-3 bg-green-700 text-white rounded-xl font-medium">
@@ -86,38 +69,6 @@ export default function Puntos({ distribuidora, resumen, filtros = {}, opciones 
                         {errors.general || errors.puntos_a_canjear}
                     </div>
                 )}
-
-                {/* Buscador */}
-                <div className="flex gap-2">
-                    <input type="text" value={form.q} onChange={(e) => setForm((p) => ({ ...p, q: e.target.value }))} className="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl" placeholder="Buscar..." onKeyDown={(e) => e.key === 'Enter' && submitFilters(e)} />
-                    <button onClick={submitFilters} className="px-4 py-2.5 bg-green-700 text-white rounded-xl">
-                        <FontAwesomeIcon icon={faSearch} className="w-4 h-4" />
-                    </button>
-                </div>
-
-                {/* Lista movimientos */}
-                <div className="space-y-1">
-                    {!movimientos.length ? (
-                        <div className="p-8 text-center text-gray-400 text-sm">Sin movimientos.</div>
-                    ) : (
-                        movimientos.map((mov) => (
-                            <div key={mov.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl">
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <div className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full text-sm font-bold ${mov.puntos >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                        <FontAwesomeIcon icon={mov.puntos >= 0 ? faPlus : faMinus} className="w-3 h-3" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-xs font-medium text-gray-900 truncate">{mov.motivo || mov.tipo_movimiento}</p>
-                                        <p className="text-[10px] text-gray-500">{formatDate(mov.fecha_movimiento, true)}</p>
-                                    </div>
-                                </div>
-                                <span className={`text-sm font-bold ${mov.puntos >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {signedPoints(mov.puntos)} pts
-                                </span>
-                            </div>
-                        ))
-                    )}
-                </div>
 
                 {/* Modal canje */}
                 {modalCanje && (

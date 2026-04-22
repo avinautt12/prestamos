@@ -230,6 +230,12 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
 
     useEffect(() => setModalOpen(Boolean(valeSeleccionado)), [valeSeleccionado]);
 
+    // Cerrar modal al navegar (click en barra de navegación u otros links)
+    useEffect(() => {
+        const unsubscribe = router.on('start', () => setModalOpen(false));
+        return unsubscribe;
+    }, []);
+
     const applyFilters = () => router.get(route('distribuidora.vales'), { ...form, seleccionado: '' }, { preserveState: true });
     const clearFilters = () => { setForm({ q: '', estado: 'TODOS', seleccionado: '' }); router.get(route('distribuidora.vales'), { q: '', estado: 'TODOS' }, { preserveState: true }); };
 
@@ -260,10 +266,16 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
                     <Link href={route('distribuidora.vales.create')} className="px-4 py-2.5 bg-green-700 text-white rounded-xl font-medium">+</Link>
                 </div>
 
-                <div className="flex gap-1 overflow-x-auto pb-1">
-                    {['TODOS', 'ACTIVO', 'PAGO_PARCIAL', 'MOROSO', 'LIQUIDADO'].map((est) => (
-                        <button key={est} onClick={() => { setForm((p) => ({ ...p, estado: est })); router.get(route('distribuidora.vales'), { ...form, estado: est }, { preserveState: true }); }} className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap ${form.estado === est ? 'bg-green-700 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                            {est === 'TODOS' ? 'Todos' : est.replace(/_/g, ' ')}
+                <div className="grid grid-cols-5 gap-1">
+                    {[
+                        { value: 'TODOS', label: 'TODOS' },
+                        { value: 'ACTIVO', label: 'ACTIVO' },
+                        { value: 'PAGO_PARCIAL', label: 'PARCIAL' },
+                        { value: 'MOROSO', label: 'MOROSO' },
+                        { value: 'LIQUIDADO', label: 'LIQUIDADO' },
+                    ].map(({ value, label }) => (
+                        <button key={value} onClick={() => { setForm((p) => ({ ...p, estado: value })); router.get(route('distribuidora.vales'), { ...form, estado: value }, { preserveState: true }); }} className={`px-1 py-1.5 text-[11px] font-medium rounded-full ${form.estado === value ? 'bg-green-700 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                            {label}
                         </button>
                     ))}
                 </div>
