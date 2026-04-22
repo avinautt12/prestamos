@@ -25,6 +25,9 @@ class Kernel extends ConsoleKernel
 
         // Evaluación mensual de crédito automático
         $schedule->command('credito:evaluar-mensual')->monthlyOn(1, '03:00')->withoutOverlapping();
+
+        // Evaluación mensual de categoría automática
+        $schedule->command('categoria:evaluar-mensual')->monthlyOn(1, '04:00')->withoutOverlapping();
     }
 
     /**

@@ -107,6 +107,18 @@ class Usuario extends Authenticatable
         return 'App.Models.Usuario.' . $this->getKey();
     }
 
+    /**
+     * Fuerza que Usuario y User (User extends Usuario) resuelvan al mismo morphClass.
+     * El guard web usa App\Models\User, pero los services que consultan notificaciones
+     * cargan instancias de App\Models\Usuario. Sin este override, las notificaciones
+     * se guardaban con notifiable_type='App\Models\Usuario' y se consultaban con
+     * notifiable_type='App\Models\User', quedando invisibles para el usuario logueado.
+     */
+    public function getMorphClass(): string
+    {
+        return 'App\\Models\\User';
+    }
+
     // Relaciones
     public function persona(): BelongsTo
     {

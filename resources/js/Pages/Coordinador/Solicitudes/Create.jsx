@@ -90,7 +90,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         vehiculos: 4,
         ine_frente: 5, ine_reverso: 5, comprobante_domicilio: 5, reporte_buro: 5,
     }), []);
-    
+
     const comprimirImagen = (file, maxDimension = 1600, quality = 0.82) => new Promise((resolve) => {
         if (!file || !file.type?.startsWith('image/')) return resolve(file);
         const reader = new FileReader();
@@ -170,11 +170,14 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         _method: isEditing ? 'PUT' : 'POST'
     });
 
+    const normalizeErrorKey = (k) => String(k || '').replace(/\[(\d+)\]/g, '.$1');
+
     const tabsWithErrors = useMemo(() => {
         const result = new Set();
         Object.keys(errors).forEach(key => {
-            const rootKey = key.split('.')[0];
-            const tabNumber = fieldTabMap[key] ?? fieldTabMap[rootKey];
+            const nk = normalizeErrorKey(key);
+            const rootKey = nk.split('.')[0];
+            const tabNumber = fieldTabMap[nk] ?? fieldTabMap[rootKey];
             if (typeof tabNumber === 'number') {
                 result.add(tabNumber);
             }
@@ -199,6 +202,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
     // VALIDACIÓN ESTRICTA (Regex y Lógica de Negocio)
     // ============================================
     const validateForm = () => {
+        console.log('[Debug] validateForm start', { data });
         clearErrors();
         const newErrors = {};
 
@@ -288,14 +292,27 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         }
 
         if (Object.keys(newErrors).length > 0) {
+            console.log('[Debug] validateForm found errors', newErrors);
             setError(newErrors);
 
-            // Lógica inteligente para saltar a la pestaña correcta
-            const firstErrorKey = Object.keys(newErrors)[0];
+            // Lógica inteligente para saltar a la pestaña correcta (soporta notación con corchetes)
+            const firstErrorKeyRaw = Object.keys(newErrors)[0];
+            const firstErrorKey = normalizeErrorKey(firstErrorKeyRaw);
             const rootKey = firstErrorKey.split('.')[0]; // Ej. "familiares.hijos.0" -> "familiares"
-            const errorTab = fieldTabMap[firstErrorKey] ?? fieldTabMap[rootKey];
 
-            if (typeof errorTab === 'number') setActiveTab(errorTab);
+            let errorTab = fieldTabMap[firstErrorKey] ?? fieldTabMap[rootKey];
+            if (typeof errorTab !== 'number') {
+                // Intento más robusto: buscar un mapping cuyo prefijo coincida
+                for (const [k, v] of Object.entries(fieldTabMap)) {
+                    if (firstErrorKey.startsWith(k) && typeof v === 'number') { errorTab = v; break; }
+                }
+            }
+
+            if (typeof errorTab === 'number') {
+                console.log('[Debug] will navigate to tab', errorTab, 'for key', firstErrorKeyRaw);
+                // Aseguramos que el cambio de pestaña ocurra después de que React procese setError
+                setTimeout(() => { console.log('[Debug] navigating to tab', errorTab); setActiveTab(errorTab); }, 0);
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return false;
         }
@@ -305,7 +322,10 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
     const handleSubmit = (e) => {
         if (e) e.preventDefault();
 
-        if (!validateForm()) return;
+        console.log('[Debug] handleSubmit start');
+        if (!validateForm()) { console.log('[Debug] handleSubmit aborted: validation failed'); return; }
+
+        console.log('[Debug] validateForm passed, preparing to post');
 
         const routeName = isEditing ? 'coordinador.solicitudes.update' : 'coordinador.solicitudes.store';
         const routeParam = isEditing ? solicitud.id : undefined;
@@ -314,16 +334,31 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         if (!tieneConyuge) dataToSend.familiares.conyuge = { nombre: '', telefono: '', ocupacion: '' };
         if (!tieneHijos) dataToSend.familiares.hijos = [];
 
+        console.log('[Debug] posting data', { routeName, routeParam, dataPreview: { curp: dataToSend.curp, telefono: dataToSend.telefono_celular } });
         post(route(routeName, routeParam), {
             data: dataToSend,
             forceFormData: true,
             onError: (submitErrors) => {
-                const firstErrorKey = Object.keys(submitErrors || {})[0];
+                console.log('[Debug] submit onError', submitErrors);
+                const firstErrorKeyRaw = Object.keys(submitErrors || {})[0];
+                if (!firstErrorKeyRaw) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    return;
+                }
+                const firstErrorKey = normalizeErrorKey(firstErrorKeyRaw);
                 const rootKey = firstErrorKey.split('.')[0];
-                const errorTab = fieldTabMap[firstErrorKey] ?? fieldTabMap[rootKey];
-                if (typeof errorTab === 'number') setActiveTab(errorTab);
+                let errorTab = fieldTabMap[firstErrorKey] ?? fieldTabMap[rootKey];
+                if (typeof errorTab !== 'number') {
+                    for (const [k, v] of Object.entries(fieldTabMap)) {
+                        if (firstErrorKey.startsWith(k) && typeof v === 'number') { errorTab = v; break; }
+                    }
+                }
+                console.log('[Debug] submit mapped to tab', errorTab, 'for key', firstErrorKeyRaw);
+                if (typeof errorTab === 'number') setTimeout(() => { console.log('[Debug] navigating to tab (submit error)', errorTab); setActiveTab(errorTab); }, 0);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
+            },
+            onSuccess: () => { console.log('[Debug] submit success'); },
+            onFinish: () => { console.log('[Debug] submit finish'); }
         });
     };
 
@@ -446,7 +481,7 @@ function DatosPersonalesTab({ data, setData, errors }) {
     const minFecha = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 100); return d.toISOString().split('T')[0]; })();
 
     const curpRegex = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$/;
-    const rfcRegex  = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/;
+    const rfcRegex = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/;
 
     return (
         <div className="p-4 space-y-4">
@@ -541,6 +576,13 @@ function DatosPersonalesTab({ data, setData, errors }) {
                         if (v.length !== 10) return `Debe tener 10 dígitos (${v.length}/10)`;
                         return null;
                     }}
+                />
+                <FormInput
+                    type="tel" label="Teléfono Casa" maxLength={10}
+                    error={errors.telefono_personal}
+                    value={data.telefono_personal}
+                    onChange={e => setData('telefono_personal', formatPhone(e.target.value))}
+                    validate={v => v && v.length !== 10 ? `Debe tener 10 dígitos (${v.length}/10)` : null}
                 />
                 <FormInput
                     type="email" label="Correo Electrónico"
@@ -942,12 +984,12 @@ const DocumentCard = ({ id, label, accept, fieldName, error, path, file, isEditi
         <div className={`p-4 rounded-xl border transition-colors ${error ? 'border-red-500 bg-red-50' : 'border-blue-100 bg-blue-50/30'}`}>
             <label className="block mb-3 text-sm font-semibold text-gray-800">{label} <span className="text-red-600">*</span></label>
             <div className="flex flex-col gap-2">
-                <label htmlFor={`${id}_camera`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
+                <label htmlFor={`${id}_camera`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50">
                     <FontAwesomeIcon icon={faCamera} className="text-lg" /> Tomar Foto
                 </label>
                 <input id={`${id}_camera`} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onFileChange(fieldName, e.target.files?.[0]); e.target.value = ''; }} />
 
-                <label htmlFor={`${id}_file`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 text-gray-700">
+                <label htmlFor={`${id}_file`} className="flex items-center justify-center w-full gap-2 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50">
                     <FontAwesomeIcon icon={faFileUpload} className="text-lg" /> Subir archivo
                 </label>
                 <input id={`${id}_file`} type="file" accept={accept} className="hidden" onChange={(e) => { onFileChange(fieldName, e.target.files?.[0]); e.target.value = ''; }} />
@@ -1000,13 +1042,6 @@ function FinalizarTab({ data, setData, errors, handleDocumentoChange, isEditing 
             <div>
                 <label className="block text-sm font-medium text-gray-700">Observaciones adicionales</label>
                 <textarea rows="4" value={data.observaciones} onChange={e => setData('observaciones', e.target.value)} placeholder="Agrega cualquier observación..." className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500" />
-            </div>
-
-            <div className="p-3 border border-yellow-200 rounded-lg bg-yellow-50">
-                <p className="flex items-start gap-2 text-sm text-yellow-800">
-                    <FontAwesomeIcon icon={faTriangleExclamation} className="mt-0.5" />
-                    <span>Al finalizar, el sistema validará que los campos y las imágenes (JPG/PNG) estén correctos antes de enviarla.</span>
-                </p>
             </div>
         </div>
     );
