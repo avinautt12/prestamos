@@ -68,20 +68,10 @@ export default function Dashboard({ resumen }) {
             <div className="p-6 mb-6 bg-white border shadow-sm border-slate-200 rounded-2xl">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div>
-                        <p className="text-xs font-semibold tracking-[0.18em] text-emerald-600 uppercase">Gobierno central</p>
                         <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Dirección ejecutiva del sistema</h2>
                         <p className="mt-2 text-sm text-slate-500 max-w-3xl">
                             Vista de control para el dueño: usuarios, roles, configuraciones globales, catálogo de productos y métricas consolidadas.
                         </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                        <span className="inline-flex items-center px-3 py-2 text-xs font-semibold border rounded-full border-emerald-200 bg-emerald-50 text-emerald-700">
-                            Admin global
-                        </span>
-                        <span className="inline-flex items-center px-3 py-2 text-xs font-semibold border rounded-full border-slate-200 bg-slate-50 text-slate-700">
-                            Multi-sucursal
-                        </span>
                     </div>
                 </div>
 
