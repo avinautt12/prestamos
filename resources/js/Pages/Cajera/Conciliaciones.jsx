@@ -347,49 +347,24 @@ export default function Conciliaciones({ resumen, alertas, filtros, movimientosP
                             Lo que no coincida de forma exacta pasa a revisión manual.
                         </p>
 
-                        {/* Simular archivo bancario - ventanas de corte de Charly */}
-                        {(() => {
-                            const fueraDeVentana = ventanaCorte?.ventana === 'FUERA';
-                            const bgClass = fueraDeVentana ? 'border-gray-300 bg-gray-50' : 'border-amber-200 bg-amber-50';
-                            const titleClass = fueraDeVentana ? 'text-gray-700' : 'text-amber-900';
-                            const subClass = fueraDeVentana ? 'text-gray-500' : 'text-amber-700';
-                            const badgeLabel = ventanaCorte?.ventana === 'PRINCIPAL' ? 'Ventana principal'
-                                : ventanaCorte?.ventana === 'TARDIOS' ? 'Ventana tardíos'
-                                : 'Fuera de ventana';
-                            const badgeClass = ventanaCorte?.ventana === 'PRINCIPAL' ? 'bg-green-100 text-green-800'
-                                : ventanaCorte?.ventana === 'TARDIOS' ? 'bg-orange-100 text-orange-800'
-                                : 'bg-gray-200 text-gray-700';
-
-                            return (
-                                <div className={`flex items-center justify-between gap-3 p-3 mb-4 border rounded-lg ${bgClass}`}>
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <p className={`text-sm font-semibold ${titleClass}`}>¿Sin archivo del banco?</p>
-                                            <span className={`px-2 py-0.5 text-xs font-bold rounded ${badgeClass}`}>{badgeLabel}</span>
-                                        </div>
-                                        <p className={`text-xs ${subClass} mt-1`}>
-                                            {ventanaCorte?.mensaje || 'Genera un Excel simulado con los pagos reportados para probar la conciliación.'}
-                                        </p>
-                                    </div>
-                                    {fueraDeVentana ? (
-                                        <button
-                                            type="button"
-                                            disabled
-                                            className="px-4 py-2 text-xs font-semibold text-white bg-gray-400 rounded-lg cursor-not-allowed whitespace-nowrap"
-                                        >
-                                            Descarga no disponible
-                                        </button>
-                                    ) : (
-                                        <a
-                                            href={route('cajera.conciliaciones.simular-archivo')}
-                                            className="px-4 py-2 text-xs font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition whitespace-nowrap"
-                                        >
-                                            Descargar Excel
-                                        </a>
-                                    )}
+                        {/* Simular archivo bancario - sin restricciones de ventanas */}
+                        <div className="flex items-center justify-between gap-3 p-3 mb-4 border rounded-lg border-emerald-200 bg-emerald-50">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <p className="text-sm font-semibold text-emerald-900">¿Sin archivo del banco?</p>
+                                    <span className="px-2 py-0.5 text-xs font-bold rounded bg-emerald-100 text-emerald-800">Siempre disponible</span>
                                 </div>
-                            );
-                        })()}
+                                <p className="text-xs text-emerald-700 mt-1">
+                                    Genera un Excel con todos los pagos reportados.
+                                </p>
+                            </div>
+                            <a
+                                href={route('cajera.conciliaciones.simular-archivo')}
+                                className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition whitespace-nowrap"
+                            >
+                                Descargar Excel
+                            </a>
+                        </div>
 
                         <form onSubmit={handleUpload} className="space-y-3">
                             <div className="flex flex-col gap-3 md:flex-row md:items-end">
