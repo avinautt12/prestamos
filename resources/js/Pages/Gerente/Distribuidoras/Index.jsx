@@ -8,6 +8,7 @@ import {
     faMagnifyingGlass,
     faArrowRight,
     faCircleInfo,
+    faShieldHalved,
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function Index({ solicitudes, filters, securityPolicy }) {
@@ -128,11 +129,6 @@ export default function Index({ solicitudes, filters, securityPolicy }) {
                     </div>
                 </div>
 
-                {securityPolicy?.requires_vpn && (
-                    <div className="mt-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-800">
-                        Las acciones de aprobar y rechazar están protegidas por política de seguridad VPN (WireGuard / nodo S3).
-                    </div>
-                )}
 
                 {ultimaSolicitudEnTiempoReal?.solicitud_id && (
                     <div className="mt-4 p-3 rounded-lg border border-emerald-200 bg-emerald-50 text-sm text-emerald-800">
@@ -204,26 +200,38 @@ export default function Index({ solicitudes, filters, securityPolicy }) {
                                 </div>
 
                                 <div className="flex justify-start lg:justify-end">
-                                    <Link
-                                        href={route('gerente.distribuidoras.show', solicitud.id)}
-                                        className="fin-btn-secondary"
-                                    >
-                                        <span className="inline-flex items-center gap-2">
-                                            Revisar expediente
-                                            <FontAwesomeIcon icon={faArrowRight} />
-                                        </span>
-                                    </Link>
+                                    {securityPolicy?.requires_vpn ? (
+                                        <button
+                                            disabled
+                                            className="fin-btn-secondary opacity-50 cursor-not-allowed"
+                                            title="Requiere conexión VPN WireGuard"
+                                        >
+                                            <span className="inline-flex items-center gap-2">
+                                                Revisar expediente
+                                                <FontAwesomeIcon icon={faArrowRight} />
+                                            </span>
+                                        </button>
+                                    ) : (
+                                        <Link
+                                            href={route('gerente.distribuidoras.show', solicitud.id)}
+                                            className="fin-btn-secondary"
+                                        >
+                                            <span className="inline-flex items-center gap-2">
+                                                Revisar expediente
+                                                <FontAwesomeIcon icon={faArrowRight} />
+                                            </span>
+                                        </Link>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     ))}
                 </div>
             )}
-
-            <div className="fin-info mt-4">
-                <p className="text-sm inline-flex items-center gap-2">
+            <div className="mt-4 fin-info">
+                <p className="inline-flex items-center gap-2 text-sm">
                     <FontAwesomeIcon icon={faCircleInfo} />
-                    Las decisiones de aprobación/rechazo se registran con impacto financiero sobre capital colocado.
+                    Las decisiones de aprobación/rechazo se registran con impacto financiero sobre el capital colocado.
                 </p>
             </div>
         </AdminLayout>

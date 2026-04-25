@@ -215,7 +215,7 @@ class ConfiguracionController extends Controller
         $despues = [
             'dia_corte' => $data['dia_corte'] ?? null,
             'plazo_pago_dias' => (int) $data['plazo_pago_dias'],
-            'hora_corte' => CorteService::HORA_CORTE_FIJA,
+            'hora_corte' => $data['hora_corte'] . ':00',
             // Campos globales (se guardan en puntos_conf):
             'factor_divisor_puntos' => (int) $data['factor_divisor_puntos'],
             'multiplicador_puntos' => (int) $data['multiplicador_puntos'],

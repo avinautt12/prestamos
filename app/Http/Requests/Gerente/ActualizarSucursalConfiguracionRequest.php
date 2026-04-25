@@ -19,7 +19,7 @@ class ActualizarSucursalConfiguracionRequest extends FormRequest
         return [
             'dia_corte' => ['required', 'integer', 'between:1,31'],
             'plazo_pago_dias' => ['required', 'integer', 'between:1,31'],
-            'hora_corte' => ['prohibited'],
+            'hora_corte' => ['required', 'date_format:H:i'],
             // Campos globales (se guardan en puntos_conf, no en sucursal_configuraciones).
             'factor_divisor_puntos' => ['required', 'integer', 'min:1', 'max:999999'],
             'multiplicador_puntos' => ['required', 'integer', 'min:1', 'max:999999'],

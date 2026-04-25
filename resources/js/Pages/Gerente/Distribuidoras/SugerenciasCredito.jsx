@@ -8,10 +8,12 @@ import {
     faXmark,
     faClock,
     faArrowUp,
+    faShieldHalved,
 } from '@fortawesome/free-solid-svg-icons';
 
-export default function SugerenciasCredito({ sugerencias, filters }) {
+export default function SugerenciasCredito({ sugerencias, filters, securityPolicy = {} }) {
     const { flash = {} } = usePage().props;
+    const requiresVpn = securityPolicy?.requires_vpn ?? false;
 
     const runFilter = (next = {}) => {
         router.get(route('gerente.credito.sugerencias'), {
@@ -96,6 +98,15 @@ export default function SugerenciasCredito({ sugerencias, filters }) {
                         {flash.success}
                     </div>
                 )}
+
+                {requiresVpn && (
+                    <div className="mt-4 p-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800">
+                        <p>
+                            <FontAwesomeIcon icon={faShieldHalved} className="mr-1" />
+                            <strong>VPN requerida:</strong> Aprobar o rechazar sugerencias requiere conexión VPN WireGuard.
+                        </p>
+                    </div>
+                )}
             </div>
 
             {sugerencias.data.length === 0 ? (
@@ -136,19 +147,23 @@ export default function SugerenciasCredito({ sugerencias, filters }) {
                                     </span>
                                 </div>
 
-                                <div className="flex justify-end gap-2">
+<div className="flex justify-end gap-2">
                                     {sug.estado === 'PENDIENTE' && (
                                         <>
                                             <button
                                                 onClick={() => aprobar(sug.id)}
-                                                className="fin-btn-primary text-sm py-1 px-3 flex items-center gap-1"
+                                                disabled={requiresVpn}
+                                                className={`fin-btn-primary text-sm py-1 px-3 flex items-center gap-1 ${requiresVpn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                title={requiresVpn ? "Requiere conexión VPN WireGuard" : "Aprobar incremento"}
                                             >
                                                 <FontAwesomeIcon icon={faCheck} />
                                                 Aprobar
                                             </button>
                                             <button
-                                                onClick={() => rechazar(sug.id)}
-                                                className="fin-btn-danger text-sm py-1 px-3 flex items-center gap-1"
+                                                onClick={() => rejectar(sug.id)}
+                                                disabled={requiresVpn}
+                                                className={`fin-btn-danger text-sm py-1 px-3 flex items-center gap-1 ${requiresVpn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                title={requiresVpn ? "Requiere conexión VPN WireGuard" : "Rechazar incremento"}
                                             >
                                                 <FontAwesomeIcon icon={faXmark} />
                                                 Rechazar

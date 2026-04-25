@@ -73,9 +73,16 @@ export default function DistribuidoraDashboard({
                 {/* Stats principales */}
                 <div className="grid grid-cols-2 gap-3">
                     <div className="p-4 bg-gradient-to-br from-green-600 to-green-700 text-white rounded-xl">
-                        <p className="text-[10px] uppercase tracking-wider text-green-100">Crédito</p>
-                        <p className="text-xl font-bold mt-1">{formatCurrency(stats.credito_disponible)}</p>
-                        <p className="text-[10px] text-green-200 mt-1">disponible</p>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="text-[10px] uppercase tracking-wider text-green-100">Crédito Disponible</p>
+                                <p className="text-xl font-bold mt-1">{formatCurrency(stats.credito_disponible)}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] uppercase tracking-wider text-green-200">Límite Autorizado</p>
+                                <p className="text-sm font-semibold mt-1 text-green-100">{distribuidora.sin_limite ? 'Sin límite' : formatCurrency(distribuidora.limite_credito)}</p>
+                            </div>
+                        </div>
                     </div>
                     <div className="p-4 bg-white border border-gray-200 rounded-xl">
                         <p className="text-[10px] uppercase tracking-wider text-gray-500">Clientes</p>

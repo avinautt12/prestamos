@@ -13,10 +13,12 @@ import {
     faChartLine,
     faEdit,
     faLayerGroup,
+    faShieldHalved,
 } from '@fortawesome/free-solid-svg-icons';
 
-export default function GestionCredito({ distribuidoras, filters, configuracion, categorias = [] }) {
+export default function GestionCredito({ distribuidoras, filters, configuracion, categorias = [], securityPolicy = {} }) {
     const { flash = {} } = usePage().props;
+    const requiresVpn = securityPolicy?.requires_vpn ?? false;
     const [showModal, setShowModal] = useState(false);
     const [selectedId, setSelectedId] = useState(null);
     const [form, setForm] = useState({ limite_credito: '', justificacion: '' });
@@ -127,9 +129,18 @@ export default function GestionCredito({ distribuidoras, filters, configuracion,
                             <option value="">Todos</option>
                             <option value="ACTIVA">Activa</option>
                             <option value="MOROSA">Morosa</option>
-                        </select>
+</select>
                     </div>
                 </div>
+
+                {requiresVpn && (
+                    <div className="p-3 mt-4 text-sm text-red-800 border border-red-200 rounded-lg bg-red-50">
+                        <p>
+                            <FontAwesomeIcon icon={faShieldHalved} className="mr-1" />
+                            <strong>VPN requerida:</strong> Los cambios de límite de crédito y categoría están bloqueados. Conéctate a la VPN WireGuard para continuar.
+                        </p>
+                    </div>
+                )}
 
                 {configuracion?.umbral_incremento_auto && (
                     <div className="p-3 mt-4 text-sm text-blue-800 border border-blue-200 rounded-lg bg-blue-50">
@@ -189,16 +200,18 @@ export default function GestionCredito({ distribuidoras, filters, configuracion,
                                     <div className="flex items-center gap-1">
                                         <button
                                             onClick={() => openModal(dist)}
-                                            className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-                                            title="Modificar límite de crédito"
+                                            disabled={requiresVpn}
+                                            className={`px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 ${requiresVpn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            title={requiresVpn ? "Requiere conexión VPN WireGuard" : "Modificar límite de crédito"}
                                         >
                                             <FontAwesomeIcon icon={faEdit} className="mr-1" />
                                             Crédito
                                         </button>
                                         <button
                                             onClick={() => openCategoriaModal(dist)}
-                                            className="px-2 py-1 text-xs border rounded bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
-                                            title="Cambiar categoría (aumento/bajada)"
+                                            disabled={requiresVpn}
+                                            className={`px-2 py-1 text-xs border rounded bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 ${requiresVpn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            title={requiresVpn ? "Requiere conexión VPN WireGuard" : "Cambiar categoría (aumento/bajada)"}
                                         >
                                             <FontAwesomeIcon icon={faLayerGroup} className="mr-1" />
                                             Categoría

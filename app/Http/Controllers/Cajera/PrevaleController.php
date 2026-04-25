@@ -62,6 +62,10 @@ class PrevaleController extends Controller
             $cliente->selfie_url = $cliente->foto_selfie_ine
                 ? $spacesDisk->url($cliente->foto_selfie_ine)
                 : null;
+
+            $cliente->comprobante_url = $cliente->foto_comprobante_domicilio
+                ? $spacesDisk->url($cliente->foto_comprobante_domicilio)
+                : null;
         }
 
         return Inertia::render('Cajera/Prevale/Show', [

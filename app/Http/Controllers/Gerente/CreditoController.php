@@ -73,6 +73,9 @@ class CreditoController extends Controller
             'filters' => $request->only(['search', 'estado']),
             'configuracion' => $configuracion,
             'categorias' => $categorias,
+            'securityPolicy' => [
+                'requires_vpn' => (bool) config('security.gerente.require_vpn', false),
+            ],
         ]);
     }
 
@@ -187,6 +190,9 @@ class CreditoController extends Controller
         return Inertia::render('Gerente/Distribuidoras/SugerenciasCredito', [
             'sugerencias' => $sugerencias,
             'filters' => $request->only(['estado']),
+            'securityPolicy' => [
+                'requires_vpn' => (bool) config('security.gerente.require_vpn', false),
+            ],
         ]);
     }
 

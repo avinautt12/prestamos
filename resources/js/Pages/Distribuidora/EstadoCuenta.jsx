@@ -154,6 +154,12 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, rel
                                     <p className="text-base font-bold text-gray-900">#{relacionSeleccionada.numero_relacion}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    <a
+                                        href={route('distribuidora.relaciones.pdf', relacionSeleccionada.id)}
+                                        className="px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded hover:bg-emerald-100"
+                                    >
+                                        Descargar PDF
+                                    </a>
                                     <span className={`text-[10px] font-bold px-2 py-1 rounded ${statusBadgeClass(relacionSeleccionada.estado).split(' ').slice(0, 2).join(' ')}`}>
                                         {relacionSeleccionada.estado}
                                     </span>

@@ -421,6 +421,7 @@ class DashboardController extends Controller
                     $fotoIneFrente = $request->file('foto_ine_frente')?->store('clientes/ine_frente', 'spaces');
                     $fotoIneReverso = $request->file('foto_ine_reverso')?->store('clientes/ine_reverso', 'spaces');
                     $fotoSelfieIne = $request->file('foto_selfie_ine')?->store('clientes/selfie_ine', 'spaces');
+                    $fotoComprobante = $request->file('foto_comprobante_domicilio')?->store('clientes/comprobante_domicilio', 'spaces');
 
                     $cliente = Cliente::create([
                         'persona_id'       => $persona->id,
@@ -429,6 +430,7 @@ class DashboardController extends Controller
                         'foto_ine_frente'  => $fotoIneFrente,
                         'foto_ine_reverso' => $fotoIneReverso,
                         'foto_selfie_ine'  => $fotoSelfieIne,
+                        'foto_comprobante_domicilio' => $fotoComprobante,
                         'cuenta_banco'     => $request->cuenta_banco,
                         'cuenta_clabe'     => $request->cuenta_clabe,
                         'cuenta_titular'   => $request->cuenta_titular,
@@ -494,7 +496,9 @@ class DashboardController extends Controller
                     'referencia_transferencia'         => $requierePrevale ? null : $referenciaTransferencia,
                 ]);
 
-                $distribuidora->decrement('credito_disponible', $montoPrincipal);
+                if (!$requierePrevale) {
+                    $distribuidora->decrement('credito_disponible', $montoPrincipal);
+                }
 
                 if (!$requierePrevale) {
                     EgresoEmpresaSimulado::updateOrCreate(
@@ -574,7 +578,6 @@ class DashboardController extends Controller
             'cancelado_en' => now(),
         ]);
 
-        $distribuidora->increment('credito_disponible', (float) $vale->monto);
 
         return redirect()
             ->route('distribuidora.vales')
@@ -1287,6 +1290,47 @@ class DashboardController extends Controller
                     'convenio' => $c->convenio,
                 ])->values(),
         ]);
+    }
+
+    public function descargarRelacionPDF(int $relacionId)
+    {
+        $distribuidora = $this->obtenerDistribuidoraActual();
+        if (!$distribuidora) {
+            abort(403, 'No tienes acceso a esta información.');
+        }
+
+        $relacion = \App\Models\RelacionCorte::query()
+            ->with([
+                'partidas.vale.cliente.persona',
+                'partidas.vale.productoFinanciero',
+                'pagosDistribuidora'
+            ])
+            ->where('id', $relacionId)
+            ->where('distribuidora_id', $distribuidora->id)
+            ->firstOrFail();
+
+        $pagosVigentes = $relacion->pagosDistribuidora->filter(fn($p) => in_array($p->estado, [
+            \App\Models\PagoDistribuidora::ESTADO_REPORTADO,
+            \App\Models\PagoDistribuidora::ESTADO_DETECTADO,
+            \App\Models\PagoDistribuidora::ESTADO_CONCILIADO,
+        ], true));
+
+        $montoReportadoAcumulado = (float) $pagosVigentes->sum('monto');
+        $saldoPendiente = max(0, round((float)$relacion->total_a_pagar - $montoReportadoAcumulado, 2));
+
+        $cuentasEmpresa = \App\Models\CuentaBancaria::where('tipo_propietario', \App\Models\CuentaBancaria::TIPO_EMPRESA)
+            ->orderByDesc('es_principal')
+            ->get();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.relacion_corte', [
+            'distribuidora' => $distribuidora,
+            'relacion' => $relacion,
+            'montoReportadoAcumulado' => $montoReportadoAcumulado,
+            'saldoPendiente' => $saldoPendiente,
+            'cuentasEmpresa' => $cuentasEmpresa
+        ]);
+
+        return $pdf->download("estado_cuenta_corte_{$relacion->numero_relacion}.pdf");
     }
 
     private function obtenerDistribuidoraActual()

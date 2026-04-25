@@ -248,7 +248,7 @@ export default function Show({ vale }) {
                             <FontAwesomeIcon icon={faIdCard} className="text-gray-600" />
                             <h3 className="font-bold text-gray-800">Evidencia Fotográfica</h3>
                         </div>
-                        <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                             <div className="group">
                                 <p className="text-xs text-gray-500 mb-2 font-bold uppercase text-center">INE Frente</p>
                                 <div className="h-48 flex items-center justify-center bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 overflow-hidden">
@@ -276,6 +276,16 @@ export default function Show({ vale }) {
                                         <img src={cliente.selfie_url} alt="Selfie" className="w-full h-full object-cover" />
                                     ) : (
                                         <span className="text-sm font-medium text-blue-400">Sin Selfie</span>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="group">
+                                <p className="text-xs text-gray-500 mb-2 font-bold uppercase text-center">Comp. Domicilio</p>
+                                <div className="h-48 flex items-center justify-center bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 overflow-hidden">
+                                    {cliente.comprobante_url ? (
+                                        <img src={cliente.comprobante_url} alt="Comprobante" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span className="text-sm font-medium text-gray-400">Sin Imagen</span>
                                     )}
                                 </div>
                             </div>

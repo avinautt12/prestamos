@@ -16,7 +16,8 @@ import {
     faBriefcase,
 } from '@fortawesome/free-solid-svg-icons';
 
-export default function Show({ solicitud, categorias, configuracionSucursal }) {
+export default function Show({ solicitud, categorias, configuracionSucursal, securityPolicy = {} }) {
+    const requiereVpn = securityPolicy?.requires_vpn ?? false;
     const afiliacionesArray = Array.isArray(solicitud.afiliaciones) ? solicitud.afiliaciones : [];
     const vehiculosArray = Array.isArray(solicitud.vehiculos) ? solicitud.vehiculos : [];
     const limiteSugerido = solicitud.limite_credito_solicitado
@@ -167,8 +168,14 @@ export default function Show({ solicitud, categorias, configuracionSucursal }) {
                                                     {hijo.ocupacion && <p><span className="text-gray-500">Ocupación:</span> {hijo.ocupacion}</p>}
                                                 </div>
                                             ))}
-                                        </div>
-                                    </div>
+</div>
+
+                    {requiereVpn && (
+                        <div className="p-3 mt-4 text-sm text-red-800 border border-red-200 rounded-lg bg-red-50">
+                            <strong>VPN requerida:</strong> Aprobar o rechazar distribuidoras requiere conexión VPN WireGuard.
+                        </div>
+                    )}
+                </div>
                                 )}
                             </div>
                         </div>
@@ -381,7 +388,12 @@ export default function Show({ solicitud, categorias, configuracionSucursal }) {
                             {aprobarForm.errors.general && <p className="text-xs text-red-600">{aprobarForm.errors.general}</p>}
                             {aprobarForm.errors.security && <p className="text-xs text-red-600">{aprobarForm.errors.security}</p>}
 
-                            <button type="submit" disabled={aprobarForm.processing} className="w-full fin-btn-primary">
+                            <button 
+                                type="submit" 
+                                disabled={aprobarForm.processing || requiereVpn} 
+                                className={`w-full fin-btn-primary ${requiereVpn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                title={requiereVpn ? "Requiere conexión VPN WireGuard" : "Aprobar solicitud"}
+                            >
                                 {aprobarForm.processing ? 'Aprobando...' : 'Aprobar solicitud'}
                             </button>
                         </form>
@@ -407,7 +419,12 @@ export default function Show({ solicitud, categorias, configuracionSucursal }) {
                                 {rechazarForm.errors.security && <p className="mt-1 text-xs text-red-600">{rechazarForm.errors.security}</p>}
                             </div>
 
-                            <button type="submit" disabled={rechazarForm.processing} className="inline-flex items-center justify-center w-full gap-2 px-4 py-3 font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">
+                            <button 
+                                type="submit" 
+                                disabled={rechazarForm.processing || requiereVpn} 
+                                className={`inline-flex items-center justify-center w-full gap-2 px-4 py-3 font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 ${requiereVpn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                title={requiereVpn ? "Requiere conexión VPN WireGuard" : "Rechazar solicitud"}
+                            >
                                 {rechazarForm.processing ? 'Rechazando...' : 'Rechazar solicitud'}
                             </button>
                         </form>

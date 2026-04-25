@@ -51,6 +51,8 @@ Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->grou
     Route::get('/reportes', [App\Http\Controllers\Admin\DashboardController::class, 'reportes'])->name('reportes');
     Route::get('/reportes/descargar', [App\Http\Controllers\Admin\ReporteController::class, 'descargar'])->name('reportes.descargar');
     Route::post('/reportes/enviar', [App\Http\Controllers\Admin\ReporteController::class, 'enviar'])->name('reportes.enviar');
+    
+    Route::get('/auditorias', [App\Http\Controllers\Admin\AuditoriaController::class, 'index'])->name('auditorias');
 
     Route::get('/solicitudes-password', [\App\Http\Controllers\PasswordAuthorizationController::class, 'index'])->name('solicitudes_password');
     Route::post('/solicitudes-password/aprobar-todas', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobarTodas'])->name('solicitudes_password.aprobar_todas');
@@ -92,9 +94,15 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
         ->name('cortes.cerrar-manual');
 
     Route::get('/solicitudes-password', [\App\Http\Controllers\PasswordAuthorizationController::class, 'index'])->name('solicitudes_password');
-    Route::post('/solicitudes-password/aprobar-todas', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobarTodas'])->name('solicitudes_password.aprobar_todas');
-    Route::post('/solicitudes-password/{id}/aprobar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobar'])->name('solicitudes_password.aprobar');
-    Route::post('/solicitudes-password/{id}/rechazar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'rechazar'])->name('solicitudes_password.rechazar');
+    Route::post('/solicitudes-password/aprobar-todas', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobarTodas'])
+        ->middleware('gerente.secure-action')
+        ->name('solicitudes_password.aprobar_todas');
+    Route::post('/solicitudes-password/{id}/aprobar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobar'])
+        ->middleware('gerente.secure-action')
+        ->name('solicitudes_password.aprobar');
+    Route::post('/solicitudes-password/{id}/rechazar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'rechazar'])
+        ->middleware('gerente.secure-action')
+        ->name('solicitudes_password.rechazar');
     Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
     Route::get('/productos', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('productos');
     Route::get('/distribuidoras', [App\Http\Controllers\Gerente\AprobacionController::class, 'index'])->name('distribuidoras');
@@ -225,6 +233,7 @@ Route::middleware(['auth', 'role:DISTRIBUIDORA'])->prefix('distribuidora')->name
     Route::post('/traspasos/{traspaso}/confirmar', [App\Http\Controllers\Distribuidora\TraspasoClienteController::class, 'confirmar'])->name('traspasos.confirmar');
     Route::post('/traspasos/{traspaso}/cancelar', [App\Http\Controllers\Distribuidora\TraspasoClienteController::class, 'cancelar'])->name('traspasos.cancelar');
     Route::get('/estado-cuenta', [App\Http\Controllers\Distribuidora\DashboardController::class, 'estadoCuenta'])->name('estado-cuenta');
+    Route::get('/relaciones/{relacion}/pdf', [App\Http\Controllers\Distribuidora\DashboardController::class, 'descargarRelacionPDF'])->name('relaciones.pdf');
     Route::post('/relaciones/{relacion}/reportar-pago', [App\Http\Controllers\Distribuidora\DashboardController::class, 'reportarPago'])->name('relaciones.reportar-pago');
 });
 

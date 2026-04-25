@@ -26,7 +26,7 @@ class CorteService
     public function sincronizarProximoCorteProgramado(Sucursal $sucursal, SucursalConfiguracion $configuracion): ?Corte
     {
         $diaCorte = $configuracion->dia_corte;
-        $horaCorte = self::HORA_CORTE_FIJA;
+        $horaCorte = $configuracion->hora_corte ?? self::HORA_CORTE_FIJA;
 
         if (!$diaCorte) {
             return null;

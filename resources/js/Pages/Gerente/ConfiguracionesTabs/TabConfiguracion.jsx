@@ -53,9 +53,16 @@ export default function TabConfiguracion({
 
                 <div>
                     <label className="text-sm text-gray-700">Hora de corte</label>
-                    <div className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                        Fija para todas las sucursales: <span className="font-semibold">18:00</span>
-                    </div>
+                    <input
+                        type="time"
+                        className="mt-1 fin-input"
+                        value={formSucursal.data.hora_corte}
+                        onChange={(e) => formSucursal.setData('hora_corte', e.target.value)}
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Hora límite para procesar pagos antes del corte.</p>
+                    {formSucursal.errors?.hora_corte && (
+                        <p className="mt-1 text-xs text-red-600">{formSucursal.errors.hora_corte}</p>
+                    )}
                 </div>
 
 

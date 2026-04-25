@@ -5,8 +5,11 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import DangerButton from '@/Components/DangerButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import Modal from '@/Components/Modal';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faShieldHalved } from '@fortawesome/free-solid-svg-icons';
 
-export default function SolicitudesPassword({ solicitudes, auth }) {
+export default function SolicitudesPassword({ solicitudes, auth, securityPolicy = {} }) {
+    const requiereVpn = securityPolicy?.requires_vpn ?? false;
     const [confirmacion, setConfirmacion] = useState({ isOpen: false, type: null, id: null });
 
     const openModal = (type, id = null) => {
@@ -42,11 +45,22 @@ export default function SolicitudesPassword({ solicitudes, auth }) {
                     </p>
                 </div>
 
+                {requiereVpn && (
+                    <div className="p-3 mb-4 text-sm text-red-800 border border-red-200 rounded-lg bg-red-50">
+                        <p>
+                            <FontAwesomeIcon icon={faShieldHalved} className="mr-1" />
+                            <strong>VPN requerida:</strong> Aprobar o rechazar solicitudes de contraseña requiere conexión VPN WireGuard.
+                        </p>
+                    </div>
+                )}
+
                 <div className="flex justify-end mb-4">
                     {solicitudes.data.some((sol) => sol.estado === 'PENDIENTE') && (
                         <PrimaryButton 
                             onClick={() => openModal('aprobar_todas')}
-                            className="bg-emerald-600 hover:bg-emerald-700"
+                            disabled={requiereVpn}
+                            className={`bg-emerald-600 hover:bg-emerald-700 ${requiereVpn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title={requiereVpn ? "Requiere conexión VPN WireGuard" : "Aprobar todas las solicitudes"}
                         >
                             Aprobar Todas las Pendientes
                         </PrimaryButton>
@@ -97,8 +111,22 @@ export default function SolicitudesPassword({ solicitudes, auth }) {
                                         <td className="p-3">
                                             {sol.estado === 'PENDIENTE' && (
                                                 <div className="flex space-x-2">
-                                                    <PrimaryButton onClick={() => openModal('aprobar', sol.id)} className="!px-3 !py-1 text-xs bg-emerald-600 hover:bg-emerald-700">Aprobar</PrimaryButton>
-                                                    <DangerButton onClick={() => openModal('rechazar', sol.id)} className="!px-3 !py-1 text-xs">Rechazar</DangerButton>
+                                                    <PrimaryButton 
+                                                        onClick={() => openModal('aprobar', sol.id)} 
+                                                        disabled={requiereVpn}
+                                                        className={`!px-3 !py-1 text-xs bg-emerald-600 hover:bg-emerald-700 ${requiereVpn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        title={requiereVpn ? "Requiere conexión VPN WireGuard" : "Aprobar solicitud"}
+                                                    >
+                                                        Aprobar
+                                                    </PrimaryButton>
+                                                    <DangerButton 
+                                                        onClick={() => openModal('rechazar', sol.id)} 
+                                                        disabled={requiereVpn}
+                                                        className={`!px-3 !py-1 text-xs ${requiereVpn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        title={requiereVpn ? "Requiere conexión VPN WireGuard" : "Rechazar solicitud"}
+                                                    >
+                                                        Rechazar
+                                                    </DangerButton>
                                                 </div>
                                             )}
                                         </td>

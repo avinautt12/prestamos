@@ -45,10 +45,11 @@ class StorePreValeRequest extends FormRequest
                 'estado_direccion'   => ['nullable', 'string', 'max:120'],
                 'codigo_postal'      => ['nullable', 'string', 'max:10'],
 
-                // Fotos INE y selfie
+                // Fotos INE, comprobante y selfie
                 'foto_ine_frente'    => ['required', 'image', 'max:5120'],
                 'foto_ine_reverso'   => ['required', 'image', 'max:5120'],
                 'foto_selfie_ine'    => ['required', 'image', 'max:5120'],
+                'foto_comprobante_domicilio' => ['required', 'image', 'max:5120'],
 
                 // Cuenta bancaria
                 'cuenta_banco'       => ['required', 'string', 'max:100'],
@@ -83,6 +84,9 @@ class StorePreValeRequest extends FormRequest
             'foto_selfie_ine.required'  => 'La selfie con INE es obligatoria.',
             'foto_selfie_ine.image'     => 'El archivo debe ser una imagen.',
             'foto_selfie_ine.max'       => 'La imagen no debe superar 5 MB.',
+            'foto_comprobante_domicilio.required' => 'El comprobante de domicilio es obligatorio.',
+            'foto_comprobante_domicilio.image'    => 'El comprobante debe ser una imagen.',
+            'foto_comprobante_domicilio.max'      => 'El comprobante no debe superar 5 MB.',
             'cuenta_banco.required'     => 'El nombre del banco es obligatorio.',
             'cuenta_clabe.required'     => 'La CLABE interbancaria es obligatoria.',
             'cuenta_clabe.size'         => 'La CLABE debe tener exactamente 18 dígitos.',

@@ -52,6 +52,7 @@ export default function Create({
         foto_ine_frente: null,
         foto_ine_reverso: null,
         foto_selfie_ine: null,
+        foto_comprobante_domicilio: null,
         cuenta_banco: '',
         cuenta_clabe: '',
         cuenta_titular: '',
@@ -127,7 +128,7 @@ export default function Create({
         }
 
         if (clienteStep === 3) {
-            return !!form.foto_ine_frente && !!form.foto_ine_reverso && !!form.foto_selfie_ine;
+            return !!form.foto_ine_frente && !!form.foto_ine_reverso && !!form.foto_selfie_ine && !!form.foto_comprobante_domicilio;
         }
 
         if (clienteStep === 4) {
@@ -188,6 +189,8 @@ export default function Create({
             actualizarCampo('foto_ine_reverso', file);
         } else if (currentScanType === 'selfie') {
             actualizarCampo('foto_selfie_ine', file);
+        } else if (currentScanType === 'comprobante') {
+            actualizarCampo('foto_comprobante_domicilio', file);
         }
         setScannerOpen(false);
     };
@@ -214,6 +217,7 @@ export default function Create({
             if (form.foto_ine_frente) payload.append('foto_ine_frente', form.foto_ine_frente);
             if (form.foto_ine_reverso) payload.append('foto_ine_reverso', form.foto_ine_reverso);
             if (form.foto_selfie_ine) payload.append('foto_selfie_ine', form.foto_selfie_ine);
+            if (form.foto_comprobante_domicilio) payload.append('foto_comprobante_domicilio', form.foto_comprobante_domicilio);
         }
 
         router.post(route('distribuidora.vales.store'), payload, {
@@ -394,7 +398,7 @@ export default function Create({
                                                 <div>
                                                     <p className="text-xs text-gray-500">Documentos</p>
                                                     <p className="text-sm font-semibold">
-                                                        {[form.foto_ine_frente && 'INE frente', form.foto_ine_reverso && 'INE reverso', form.foto_selfie_ine && 'Selfie'].filter(Boolean).join(', ') || 'Sin documentos'}
+                                                        {[form.foto_ine_frente && 'INE frente', form.foto_ine_reverso && 'INE reverso', form.foto_selfie_ine && 'Selfie', form.foto_comprobante_domicilio && 'Comprobante'].filter(Boolean).join(', ') || 'Sin documentos'}
                                                     </p>
                                                 </div>
                                             </div>
@@ -735,6 +739,18 @@ export default function Create({
                                                     </button>
                                                     {errors?.foto_selfie_ine && <p className="mt-1 text-xs text-red-600">{errors.foto_selfie_ine}</p>}
                                                 </div>
+                                                <div>
+                                                    <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Comprobante Domicilio *</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setCurrentScanType('comprobante'); setScannerOpen(true); }}
+                                                        className={`w-full h-12 border-2 border-dashed rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${form.foto_comprobante_domicilio ? 'border-green-500 text-green-700 bg-green-50 hover:bg-green-100' : 'border-green-300 text-green-600 hover:bg-green-50'}`}
+                                                    >
+                                                        <FontAwesomeIcon icon={form.foto_comprobante_domicilio ? faCheckCircle : faCamera} />
+                                                        {form.foto_comprobante_domicilio ? 'Escaneado ✓' : 'Escanear Comp.'}
+                                                    </button>
+                                                    {errors?.foto_comprobante_domicilio && <p className="mt-1 text-xs text-red-600">{errors.foto_comprobante_domicilio}</p>}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -775,6 +791,7 @@ export default function Create({
                                         if (!form.foto_ine_frente) faltantes.push('INE frente');
                                         if (!form.foto_ine_reverso) faltantes.push('INE reverso');
                                         if (!form.foto_selfie_ine) faltantes.push('Selfie con INE');
+                                        if (!form.foto_comprobante_domicilio) faltantes.push('Comprobante domicilio');
                                         if (!form.cuenta_banco.trim()) faltantes.push('Banco');
                                         if (!form.cuenta_clabe.trim()) faltantes.push('CLABE');
                                         if (!form.cuenta_titular.trim()) faltantes.push('Titular');

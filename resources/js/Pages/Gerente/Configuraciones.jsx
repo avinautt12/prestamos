@@ -87,6 +87,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
     const formSucursal = useForm({
         dia_corte: configuracionSucursal?.dia_corte ?? 15,
         plazo_pago_dias: configuracionSucursal?.plazo_pago_dias ?? 15,
+        hora_corte: configuracionSucursal?.hora_corte ? configuracionSucursal.hora_corte.substring(0, 5) : '18:00',
         factor_divisor_puntos: configuracionSucursal?.factor_divisor_puntos ?? 1200,
         multiplicador_puntos: configuracionSucursal?.multiplicador_puntos ?? 3,
         valor_punto_mxn: configuracionSucursal?.valor_punto_mxn ?? 2,

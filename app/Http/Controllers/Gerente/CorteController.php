@@ -45,6 +45,9 @@ class CorteController extends Controller
                     'observaciones' => $corte->observaciones,
                 ];
             })->values(),
+            'securityPolicy' => [
+                'requires_vpn' => (bool) config('security.gerente.require_vpn', false),
+            ],
         ]);
     }
 

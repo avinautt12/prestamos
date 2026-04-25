@@ -46,6 +46,9 @@ class DatabaseSeeder extends Seeder
 
             // --- Bitácoras ---
             BitacorasSeeder::class,
+
+            // --- Auditorías ---
+            AuditoriaSeeder::class,
         ]);
     }
 }

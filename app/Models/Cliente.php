@@ -24,6 +24,7 @@ class Cliente extends Model
         'foto_ine_frente',
         'foto_ine_reverso',
         'foto_selfie_ine',
+        'foto_comprobante_domicilio',
         'cuenta_banco',
         'cuenta_clabe',
         'cuenta_titular',

@@ -212,6 +212,9 @@ class AprobacionController extends Controller
             'solicitud' => $solicitud,
             'categorias' => $categorias,
             'configuracionSucursal' => $configuracionSucursal,
+            'securityPolicy' => [
+                'requires_vpn' => (bool) config('security.gerente.require_vpn', false),
+            ],
         ]);
     }
 
