@@ -32,6 +32,9 @@ return new class extends Migration
 
             $table->index('corte_id');
             $table->index('distribuidora_id');
+            $table->index(['distribuidora_id', 'estado'], 'rel_corte_dist_estado_idx');
+            $table->index(['estado', 'fecha_limite_pago'], 'rel_corte_estado_limite_idx');
+            $table->index(['referencia_pago', 'estado'], 'rel_corte_ref_estado_idx');
         });
     }
 

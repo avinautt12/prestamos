@@ -19,6 +19,8 @@ return new class extends Migration
             $table->dateTime('fecha_pago');
             $table->enum('estado', ['REPORTADO', 'DETECTADO', 'CONCILIADO', 'RECHAZADO'])->default('REPORTADO');
             $table->text('observaciones')->nullable();
+            $table->json('desglose_vales')->nullable();
+            $table->boolean('desglose_aplicado')->default(false);
             $table->timestamp('creado_en')->useCurrent();
 
             $table->foreign('relacion_corte_id')->references('id')->on('relaciones_corte');
@@ -27,6 +29,10 @@ return new class extends Migration
 
             $table->index('relacion_corte_id');
             $table->index('distribuidora_id');
+            $table->index(['relacion_corte_id', 'estado'], 'pagos_dist_rel_estado_idx');
+            $table->index(['distribuidora_id', 'estado'], 'pagos_dist_dist_estado_idx');
+            $table->index(['distribuidora_id', 'fecha_pago'], 'pagos_dist_dist_fecha_idx');
+            $table->index(['referencia_reportada', 'estado'], 'pagos_dist_ref_estado_idx');
         });
     }
 

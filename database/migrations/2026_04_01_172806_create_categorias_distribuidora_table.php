@@ -14,11 +14,11 @@ return new class extends Migration
             $table->string('nombre', 100)->unique();
             $table->decimal('porcentaje_comision', 8, 4)->default(0.0000);
             $table->integer('puntos_por_cada_1200')->default(3);
-            $table->decimal('valor_punto', 12, 2)->default(2.00);
             $table->decimal('castigo_pct_atraso', 8, 4)->default(20.0000);
             $table->boolean('activo')->default(true);
             $table->timestamp('creado_en')->useCurrent();
             $table->timestamp('actualizado_en')->useCurrent()->useCurrentOnUpdate();
+            $table->softDeletes();
         });
     }
 

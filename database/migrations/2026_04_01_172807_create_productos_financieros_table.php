@@ -13,6 +13,7 @@ return new class extends Migration
             $table->string('codigo', 30)->unique();
             $table->string('nombre', 150);
             $table->string('descripcion', 255)->nullable();
+            $table->decimal('monto_principal', 12, 2)->default(0.00);
             $table->integer('numero_quincenas');
             $table->decimal('porcentaje_comision_empresa', 8, 4)->default(0.0000);
             $table->decimal('monto_seguro', 12, 2)->default(0.00);
