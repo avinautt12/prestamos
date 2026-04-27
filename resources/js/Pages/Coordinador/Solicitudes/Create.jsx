@@ -202,7 +202,6 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
     // VALIDACIÓN ESTRICTA (Regex y Lógica de Negocio)
     // ============================================
     const validateForm = () => {
-        console.log('[Debug] validateForm start', { data });
         clearErrors();
         const newErrors = {};
 
@@ -292,7 +291,6 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         }
 
         if (Object.keys(newErrors).length > 0) {
-            console.log('[Debug] validateForm found errors', newErrors);
             setError(newErrors);
 
             // Lógica inteligente para saltar a la pestaña correcta (soporta notación con corchetes)
@@ -309,9 +307,8 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
             }
 
             if (typeof errorTab === 'number') {
-                console.log('[Debug] will navigate to tab', errorTab, 'for key', firstErrorKeyRaw);
                 // Aseguramos que el cambio de pestaña ocurra después de que React procese setError
-                setTimeout(() => { console.log('[Debug] navigating to tab', errorTab); setActiveTab(errorTab); }, 0);
+                setTimeout(() => { setActiveTab(errorTab); }, 0);
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return false;
@@ -322,10 +319,7 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
     const handleSubmit = (e) => {
         if (e) e.preventDefault();
 
-        console.log('[Debug] handleSubmit start');
-        if (!validateForm()) { console.log('[Debug] handleSubmit aborted: validation failed'); return; }
-
-        console.log('[Debug] validateForm passed, preparing to post');
+        if (!validateForm()) { return; }
 
         const routeName = isEditing ? 'coordinador.solicitudes.update' : 'coordinador.solicitudes.store';
         const routeParam = isEditing ? solicitud.id : undefined;
@@ -334,12 +328,10 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
         if (!tieneConyuge) dataToSend.familiares.conyuge = { nombre: '', telefono: '', ocupacion: '' };
         if (!tieneHijos) dataToSend.familiares.hijos = [];
 
-        console.log('[Debug] posting data', { routeName, routeParam, dataPreview: { curp: dataToSend.curp, telefono: dataToSend.telefono_celular } });
         post(route(routeName, routeParam), {
             data: dataToSend,
             forceFormData: true,
             onError: (submitErrors) => {
-                console.log('[Debug] submit onError', submitErrors);
                 const firstErrorKeyRaw = Object.keys(submitErrors || {})[0];
                 if (!firstErrorKeyRaw) {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -353,12 +345,9 @@ export default function Create({ sucursal, usuario, solicitud, formData, isEditi
                         if (firstErrorKey.startsWith(k) && typeof v === 'number') { errorTab = v; break; }
                     }
                 }
-                console.log('[Debug] submit mapped to tab', errorTab, 'for key', firstErrorKeyRaw);
-                if (typeof errorTab === 'number') setTimeout(() => { console.log('[Debug] navigating to tab (submit error)', errorTab); setActiveTab(errorTab); }, 0);
+                if (typeof errorTab === 'number') setTimeout(() => { setActiveTab(errorTab); }, 0);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             },
-            onSuccess: () => { console.log('[Debug] submit success'); },
-            onFinish: () => { console.log('[Debug] submit finish'); }
         });
     };
 
@@ -767,7 +756,6 @@ function DomicilioTab({ data, setData, errors }) {
             }));
             setColoniasDisponibles(colonias);
         } catch (error) {
-            console.log("No se pudo obtener el CP de la API pública. Habilitando llenado manual.");
             setColoniasDisponibles([]);
         } finally {
             setBuscandoCp(false);
