@@ -20,6 +20,7 @@ return new class extends Migration
             $table->timestamp('ultimo_acceso_en')->nullable();
             $table->timestamp('creado_en')->useCurrent();
             $table->timestamp('actualizado_en')->useCurrent()->useCurrentOnUpdate();
+            $table->softDeletes();
 
             $table->foreign('persona_id')->references('id')->on('personas');
             $table->unique('persona_id');

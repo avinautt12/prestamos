@@ -25,6 +25,8 @@ return new class extends Migration
 
             $table->index('referencia');
             $table->index(['fecha_movimiento', 'monto']);
+            $table->index(['fecha_movimiento', 'id'], 'mov_banc_fecha_id_idx');
+            $table->index(['referencia', 'fecha_movimiento', 'monto'], 'mov_banc_ref_fecha_monto_idx');
         });
     }
 

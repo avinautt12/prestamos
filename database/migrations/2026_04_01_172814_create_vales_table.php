@@ -24,6 +24,7 @@ return new class extends Migration
                 'ACTIVO',
                 'PAGO_PARCIAL',
                 'PAGADO',
+                'LIQUIDADO',
                 'MOROSO',
                 'RECLAMADO',
                 'CANCELADO',
@@ -66,6 +67,11 @@ return new class extends Migration
             $table->index('distribuidora_id');
             $table->index('cliente_id');
             $table->index('estado');
+            $table->index(['distribuidora_id', 'estado'], 'vales_dist_estado_idx');
+            $table->index(['distribuidora_id', 'cliente_id', 'estado'], 'vales_dist_cliente_estado_idx');
+            $table->index(['distribuidora_id', 'fecha_emision', 'id'], 'vales_dist_emision_id_idx');
+            $table->index(['distribuidora_id', 'fecha_limite_pago', 'fecha_emision'], 'vales_dist_limite_emision_idx');
+            $table->index(['sucursal_id', 'estado'], 'vales_sucursal_estado_idx');
         });
     }
 

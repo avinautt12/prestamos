@@ -25,6 +25,8 @@ return new class extends Migration
 
             // Nombre de índice único acortado
             $table->unique(['pago_distribuidora_id', 'movimiento_bancario_id'], 'conc_pago_mov_unique');
+            $table->unique('movimiento_bancario_id', 'conciliaciones_movimiento_unique');
+            $table->unique('pago_distribuidora_id', 'conciliaciones_pago_unique');
 
             $table->index('pago_distribuidora_id');
             $table->index('movimiento_bancario_id');

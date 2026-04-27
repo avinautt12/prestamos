@@ -13,7 +13,7 @@ return new class extends Migration
             $table->unsignedBigInteger('gerente_usuario_id');
             $table->unsignedBigInteger('solicitud_id');
             $table->unsignedBigInteger('distribuidora_id')->nullable();
-            $table->enum('tipo_evento', ['NUEVA_DISTRIBUIDORA', 'INCREMENTO_LIMITE', 'APROBACION']);
+            $table->enum('tipo_evento', ['NUEVA_DISTRIBUIDORA', 'INCREMENTO_LIMITE', 'INCREMENTO_MANUAL', 'INCREMENTO_SUGERIDO_APROBADO', 'APROBACION', 'RECHAZO']);
             $table->decimal('monto_anterior', 12, 2)->default(0);
             $table->decimal('monto_nuevo', 12, 2)->default(0);
             $table->timestamp('creado_en')->useCurrent();

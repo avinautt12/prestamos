@@ -17,7 +17,7 @@ return new class extends Migration
             $table->enum('sexo', ['M', 'F', 'OTRO'])->nullable();
             $table->date('fecha_nacimiento')->nullable();
             $table->string('curp', 18)->nullable()->unique();
-            $table->string('rfc', 13)->nullable();
+            $table->string('rfc', 13)->nullable()->unique();
             $table->string('telefono_personal', 30)->nullable();
             $table->string('telefono_celular', 30)->nullable();
             $table->string('correo_electronico', 150)->nullable();
@@ -34,7 +34,6 @@ return new class extends Migration
             $table->timestamp('actualizado_en')->useCurrent()->useCurrentOnUpdate();
 
             $table->index(['apellido_paterno', 'apellido_materno', 'primer_nombre']);
-            $table->index('rfc');
         });
     }
 

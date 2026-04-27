@@ -23,9 +23,8 @@ return new class extends Migration
             $table->decimal('porcentaje_comision_apertura', 6, 4)->default(10.0000);
             $table->decimal('porcentaje_interes_quincenal', 6, 4)->default(5.0000);
             $table->decimal('multa_incumplimiento_monto', 12, 2)->default(300.00);
-            $table->unsignedInteger('factor_divisor_puntos')->default(1200);
-            $table->unsignedInteger('multiplicador_puntos')->default(3);
-            $table->decimal('valor_punto_mxn', 12, 2)->default(2.00);
+            $table->decimal('umbral_incremento_auto', 12, 2)->nullable();
+            $table->decimal('porcentaje_incremento_min_score', 5, 2)->default(70.00);
 
             // Overrides por sucursal para no tocar catalogos globales.
             $table->json('categorias_config_json')->nullable();
