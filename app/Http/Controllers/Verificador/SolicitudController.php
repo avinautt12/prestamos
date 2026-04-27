@@ -272,7 +272,7 @@ class SolicitudController extends Controller
                     'latitud_verificacion' => $request->latitud_verificacion,
                     'longitud_verificacion' => $request->longitud_verificacion,
                     'fecha_visita' => now(),
-                    'checklist_json' => json_encode($checklistNormalizado),
+                    'checklist_json' => $checklistNormalizado,
                     'justificaciones_json' => json_encode($request->justificaciones ?? []),
                     'foto_fachada' => $fotoFachadaPath,
                     'foto_ine_con_persona' => $fotoIneConPersonaPath,
