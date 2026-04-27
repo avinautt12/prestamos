@@ -35,6 +35,7 @@ return new class extends Migration
             $table->string('comprobante_domicilio_path')->nullable();
             $table->string('reporte_buro_path')->nullable();
             $table->string('resultado_buro', 100)->nullable();
+            $table->text('motivo_rechazo')->nullable();
             $table->boolean('prevale_aprobado')->default(false);
             $table->boolean('fotos_casa_completas')->default(false);
             $table->timestamp('tomada_en')->nullable();
@@ -55,6 +56,8 @@ return new class extends Migration
             $table->index('sucursal_id');
             $table->index('verificador_asignado_id');
             $table->index('categoria_inicial_codigo');
+            $table->index(['sucursal_id', 'estado'], 'solicitudes_sucursal_estado_idx');
+            $table->index(['coordinador_usuario_id', 'estado'], 'solicitudes_coord_estado_idx');
         });
     }
 

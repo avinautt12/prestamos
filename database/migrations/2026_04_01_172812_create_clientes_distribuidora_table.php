@@ -24,6 +24,9 @@ return new class extends Migration
 
             $table->unique(['distribuidora_id', 'cliente_id']);
             $table->index('cliente_id');
+            $table->index(['distribuidora_id', 'estado_relacion'], 'clientes_dist_estado_rel_idx');
+            $table->index(['distribuidora_id', 'bloqueado_por_parentesco'], 'clientes_dist_parentesco_idx');
+            $table->index('estado_relacion');
         });
     }
 

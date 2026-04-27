@@ -20,16 +20,21 @@ return new class extends Migration
             $table->boolean('es_parcial')->default(false);
             $table->boolean('afecta_puntos')->default(true);
             $table->text('notas')->nullable();
+            $table->timestamp('revertido_en')->nullable();
+            $table->unsignedBigInteger('revertido_por_usuario_id')->nullable();
+            $table->text('motivo_reversion')->nullable();
             $table->timestamp('creado_en')->useCurrent();
 
             $table->foreign('vale_id')->references('id')->on('vales');
             $table->foreign('cliente_id')->references('id')->on('clientes');
             $table->foreign('distribuidora_id')->references('id')->on('distribuidoras');
             $table->foreign('cobrado_por_usuario_id')->references('id')->on('usuarios');
+            $table->foreign('revertido_por_usuario_id')->references('id')->on('usuarios');
 
             $table->index('vale_id');
             $table->index('fecha_pago');
             $table->index('distribuidora_id');
+            $table->index('revertido_en');
         });
     }
 

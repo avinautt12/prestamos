@@ -36,11 +36,13 @@ return new class extends Migration
 
             // Checklist de validación (JSON)
             $table->longText('checklist_json')->nullable();
+            $table->longText('justificaciones_json')->nullable();
 
             // Evidencia fotográfica
             $table->string('foto_fachada')->nullable();
             $table->string('foto_ine_con_persona')->nullable();
             $table->string('foto_comprobante')->nullable();
+            $table->longText('evidencias_extras_json')->nullable();
 
             // Distancia calculada entre el domicilio y la verificación
             $table->decimal('distancia_metros', 10, 2)->nullable();

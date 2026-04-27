@@ -17,6 +17,7 @@ return new class extends Migration
             $table->boolean('activo')->default(true);
             $table->timestamp('creado_en')->useCurrent();
             $table->timestamp('actualizado_en')->useCurrent()->useCurrentOnUpdate();
+            $table->softDeletes();
         });
     }
 
