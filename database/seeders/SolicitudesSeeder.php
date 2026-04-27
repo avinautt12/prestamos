@@ -130,15 +130,15 @@ class SolicitudesSeeder extends Seeder
                     'estado'                   => $s['estado'],
                     'categoria_inicial_codigo' => 'COBRE',
                     'limite_credito_solicitado' => 15000.00,
-                    'datos_familiares_json'     => json_encode([
+                    'datos_familiares_json'     => [
                         ['parentesco' => 'Conyuge', 'nombre' => 'Familiar Prueba', 'edad' => 30],
-                    ]),
-                    'afiliaciones_externas_json' => json_encode([
+                    ],
+                    'afiliaciones_externas_json' => [
                         ['empresa' => 'Empresa Demo', 'antiguedad_anios' => 5, 'limite_credito' => 10000],
-                    ]),
-                    'vehiculos_json' => json_encode([
+                    ],
+                    'vehiculos_json' => [
                         ['marca' => 'Nissan', 'modelo' => 'Versa', 'anio' => 2018],
-                    ]),
+                    ],
                     'ine_frente_path'            => 'solicitudes/demo/ine_frente.jpg',
                     'ine_reverso_path'           => 'solicitudes/demo/ine_reverso.jpg',
                     'comprobante_domicilio_path' => 'solicitudes/demo/comprobante.jpg',
@@ -163,11 +163,11 @@ class SolicitudesSeeder extends Seeder
                         'longitud_verificacion'  => -103.42,
                         'distancia_metros'       => 35,
                         'fecha_visita'           => $s['revisada_en'],
-                        'checklist_json'         => json_encode([
+                        'checklist_json'         => [
                             'identidad' => true,
                             'domicilio' => true,
                             'referencias' => true,
-                        ]),
+                        ],
                         'foto_fachada'           => 'verificaciones/demo/fachada.jpg',
                         'foto_ine_con_persona'   => 'verificaciones/demo/ine_persona.jpg',
                         'foto_comprobante'       => 'verificaciones/demo/comprobante.jpg',
