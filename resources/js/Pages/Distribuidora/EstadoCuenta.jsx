@@ -168,6 +168,26 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, rel
                             </div>
 
                             <div className="p-4 space-y-4">
+                                {/* Banner de arrastre */}
+                                {Number(relacionSeleccionada.total_arrastre_recibido) > 0 && (
+                                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs">
+                                        <p className="font-bold text-amber-800">⚠ Esta relación incluye saldo de cortes anteriores</p>
+                                        <p className="mt-1 text-amber-700">Arrastre recibido: <span className="font-semibold">{formatCurrency(relacionSeleccionada.total_arrastre_recibido)}</span></p>
+                                    </div>
+                                )}
+
+                                {/* Etiquetas extras de estado */}
+                                {relacionSeleccionada.estado === 'PAGADA' && relacionSeleccionada.conciliada_anticipada && (
+                                    <div className="p-2 bg-green-100 border border-green-300 rounded-lg text-xs font-bold text-green-800 text-center">
+                                        ✓ PAGADA · ANTICIPADO (dentro de la ventana de descuento)
+                                    </div>
+                                )}
+                                {relacionSeleccionada.estado === 'CERRADA' && relacionSeleccionada.cerrada_por_arrastre_en && (
+                                    <div className="p-2 bg-gray-100 border border-gray-300 rounded-lg text-xs font-bold text-gray-700 text-center">
+                                        CERRADA · ARRASTRADA al siguiente corte
+                                    </div>
+                                )}
+
                                 {/* Resumen principal */}
                                 <div className="grid grid-cols-2 gap-3 text-sm">
                                     <div>
@@ -243,21 +263,52 @@ export default function EstadoCuenta({ distribuidora, resumen, filtros = {}, rel
                                     <div>
                                         <p className="text-xs font-bold text-gray-500 mb-2">Vales del corte ({relacionSeleccionada.partidas.length})</p>
                                         <div className="space-y-1">
-                                            {relacionSeleccionada.partidas.map((p) => (
-                                                <div key={p.id} className="p-2 bg-gray-50 rounded-lg text-xs">
-                                                    <div className="flex justify-between">
-                                                        <span className="font-medium text-gray-900">{p.nombre_producto_snapshot || 'Vale'}</span>
-                                                        <span className="font-bold text-gray-900">{formatCurrency(p.monto_total_linea)}</span>
+                                            {relacionSeleccionada.partidas.map((p) => {
+                                                const esAtraso = Boolean(p.es_atraso);
+                                                const wrapperCls = esAtraso
+                                                    ? 'p-2 bg-red-50 border border-red-200 rounded-lg text-xs'
+                                                    : 'p-2 bg-gray-50 rounded-lg text-xs';
+                                                const badgeCls = esAtraso
+                                                    ? 'inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white'
+                                                    : 'inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-gray-200 text-gray-700';
+                                                const badgeLabel = esAtraso
+                                                    ? `ATRASO Q${p.numero_quincena ?? '?'}`
+                                                    : `Quincena ${p.numero_quincena ?? '?'}/${p.pagos_totales ?? '?'}`;
+
+                                                return (
+                                                    <div key={p.id} className={wrapperCls}>
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="font-medium text-gray-900">{p.nombre_producto_snapshot || 'Vale'}</span>
+                                                                <span className={badgeCls}>{badgeLabel}</span>
+                                                            </div>
+                                                            <span className="font-bold text-gray-900">{formatCurrency(p.monto_total_linea)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between mt-1 text-gray-500">
+                                                            <span>
+                                                                {formatNumber(p.pagos_realizados)}/{formatNumber(p.pagos_totales)} pagos
+                                                                {esAtraso && p.corte_origen_fecha && (
+                                                                    <span className="ml-1 text-red-700">· del corte {formatDate(p.corte_origen_fecha)}</span>
+                                                                )}
+                                                            </span>
+                                                            <span>
+                                                                {formatCurrency(p.monto_pago)}
+                                                                {Number(p.monto_recargo) > 0 && <span className="text-red-600"> +{formatCurrency(p.monto_recargo)}</span>}
+                                                            </span>
+                                                        </div>
+                                                        {esAtraso && Number(p.quincenas_atrasadas_acumuladas) > 0 && (
+                                                            <p className="mt-1 text-[10px] text-red-700 font-medium">
+                                                                Recargo acumulado por {p.quincenas_atrasadas_acumuladas} corte(s) vencido(s)
+                                                            </p>
+                                                        )}
+                                                        {Number(p.monto_pagado_previo) > 0 && (
+                                                            <p className="mt-1 text-[10px] text-gray-500">
+                                                                Ya abonado previamente: {formatCurrency(p.monto_pagado_previo)}
+                                                            </p>
+                                                        )}
                                                     </div>
-                                                    <div className="flex justify-between mt-0.5 text-gray-500">
-                                                        <span>{formatNumber(p.pagos_realizados)}/{formatNumber(p.pagos_totales)} pagos</span>
-                                                        <span>
-                                                            {formatCurrency(p.monto_pago)}
-                                                            {Number(p.monto_recargo) > 0 && <span className="text-red-600"> +{formatCurrency(p.monto_recargo)}</span>}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}

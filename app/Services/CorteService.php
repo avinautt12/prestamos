@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 class CorteService
 {
     public const HORA_CORTE_FIJA = '18:00:00';
+    public const RECARGO_POR_ATRASO = 300.00;
 
     public function __construct(
         private readonly DistribuidoraNotificationService $distribuidoraNotificationService
@@ -163,6 +164,8 @@ class CorteService
         $year = $fechaCorte->format('Y');
         $ymd = $fechaCorte->format('ymd');
 
+        $corteAnterior = $this->obtenerCorteAnterior($corte);
+
         $distribuidoras = Distribuidora::query()
             ->where('sucursal_id', $sucursal->id)
             ->where('estado', Distribuidora::ESTADO_ACTIVA)
@@ -174,18 +177,34 @@ class CorteService
             ->count();
 
         foreach ($distribuidoras as $distribuidora) {
-            // Vales con saldo abierto que no tengan ya una partida en este corte
-            $vales = Vale::query()
+            // Idempotencia: si ya existe relación para (corte, distribuidora), saltar
+            if (RelacionCorte::query()
+                ->where('corte_id', $corte->id)
+                ->where('distribuidora_id', $distribuidora->id)
+                ->exists()
+            ) {
+                continue;
+            }
+
+            $valesQuery = Vale::query()
                 ->where('distribuidora_id', $distribuidora->id)
                 ->whereIn('estado', [
                     Vale::ESTADO_ACTIVO,
                     Vale::ESTADO_PAGO_PARCIAL,
                     Vale::ESTADO_MOROSO,
                 ])
-                ->with('productoFinanciero:id,nombre')
-                ->get();
+                ->whereColumn('pagos_realizados', '<', 'quincenas_totales')
+                ->with('productoFinanciero:id,nombre');
 
-            if ($vales->isEmpty()) {
+            if ($corteAnterior !== null) {
+                $valesQuery->where('fecha_emision', '<', $corteAnterior->fecha_ejecucion);
+            }
+
+            $vales = $valesQuery->get();
+
+            $relacionAnterior = $this->obtenerRelacionAnteriorAbierta($distribuidora, $corte);
+
+            if ($vales->isEmpty() && $relacionAnterior === null) {
                 continue;
             }
 
@@ -199,38 +218,98 @@ class CorteService
                 $fechaLimite,
                 $fechaInicioAnticipado,
                 $fechaFinAnticipado,
+                $relacionAnterior,
                 &$consecutivo,
                 &$relacionesCreadas
             ) {
                 $totalComision = 0.0;
                 $totalPago = 0.0;
                 $totalRecargos = 0.0;
+                $totalArrastreRecibido = 0.0;
 
                 $partidasData = [];
                 foreach ($vales as $vale) {
                     $quincenas = max(1, (int) $vale->quincenas_totales);
                     $comisionPorQuincena = round((float) $vale->monto_comision_empresa / $quincenas, 2);
                     $pagoQuincenal = (float) $vale->monto_quincenal;
-                    $recargo = $vale->estado === Vale::ESTADO_MOROSO
-                        ? (float) $vale->monto_multa_snap
-                        : 0.0;
-                    $totalLinea = round($comisionPorQuincena + $pagoQuincenal + $recargo, 2);
+                    $nombreProducto = $vale->productoFinanciero?->nombre ?? 'Producto';
 
-                    $totalComision += $comisionPorQuincena;
-                    $totalPago += $pagoQuincenal;
-                    $totalRecargos += $recargo;
+                    $quincenasYaPagadas = (int) $vale->pagos_realizados;
+                    $quincenasEsperadas = $this->quincenasEsperadasParaVale($vale, $corte);
+                    $quincenasAtrasadas = max(0, $quincenasEsperadas - 1 - $quincenasYaPagadas);
+                    $cuposDisponibles = $quincenas - $quincenasYaPagadas;
+                    $cuposUsados = 0;
 
-                    $partidasData[] = [
-                        'vale_id' => $vale->id,
-                        'cliente_id' => $vale->cliente_id,
-                        'nombre_producto_snapshot' => $vale->productoFinanciero?->nombre ?? 'Producto',
-                        'pagos_realizados' => (int) $vale->pagos_realizados,
-                        'pagos_totales' => (int) $vale->quincenas_totales,
-                        'monto_comision' => $comisionPorQuincena,
-                        'monto_pago' => $pagoQuincenal,
-                        'monto_recargo' => $recargo,
-                        'monto_total_linea' => $totalLinea,
-                    ];
+                    // Partidas ATRASO (una por corte vencido)
+                    for ($i = 1; $i <= $quincenasAtrasadas && $cuposUsados < $cuposDisponibles; $i++) {
+                        $numQ = $quincenasYaPagadas + $i;
+
+                        $partidaOrigen = PartidaRelacionCorte::query()
+                            ->where('vale_id', $vale->id)
+                            ->where('numero_quincena', $numQ)
+                            ->orderByDesc('id')
+                            ->first();
+
+                        $montoPagadoPrevio = (float) ($partidaOrigen?->monto_pagado_previo ?? 0);
+                        $saldoPendiente = max(0.0, round($pagoQuincenal - $montoPagadoPrevio, 2));
+                        $qAcumAnterior = (int) ($partidaOrigen?->quincenas_atrasadas_acumuladas ?? 0);
+                        $recargoAcumulado = round(($qAcumAnterior + 1) * self::RECARGO_POR_ATRASO, 2);
+                        $totalLinea = round($saldoPendiente + $recargoAcumulado, 2);
+
+                        $partidasData[] = [
+                            'vale_id' => $vale->id,
+                            'cliente_id' => $vale->cliente_id,
+                            'nombre_producto_snapshot' => $nombreProducto,
+                            'pagos_realizados' => $quincenasYaPagadas,
+                            'pagos_totales' => $quincenas,
+                            'es_atraso' => true,
+                            'numero_quincena' => $numQ,
+                            'quincenas_atrasadas_acumuladas' => $qAcumAnterior + 1,
+                            'monto_comision' => 0.0,
+                            'monto_pago' => $saldoPendiente,
+                            'monto_recargo' => $recargoAcumulado,
+                            'monto_total_linea' => $totalLinea,
+                            'monto_pagado_previo' => $montoPagadoPrevio,
+                            'corte_origen_id' => $partidaOrigen?->relacionCorte?->corte_id,
+                            'relacion_origen_id' => $relacionAnterior?->id,
+                        ];
+
+                        $totalPago += $saldoPendiente;
+                        $totalRecargos += $recargoAcumulado;
+                        $totalArrastreRecibido += $saldoPendiente;
+                        $cuposUsados++;
+                    }
+
+                    // Partida NORMAL del corte actual (si quedan cupos)
+                    if ($cuposUsados < $cuposDisponibles) {
+                        $numQ = $quincenasYaPagadas + $quincenasAtrasadas + 1;
+                        $totalLinea = round($comisionPorQuincena + $pagoQuincenal, 2);
+
+                        $partidasData[] = [
+                            'vale_id' => $vale->id,
+                            'cliente_id' => $vale->cliente_id,
+                            'nombre_producto_snapshot' => $nombreProducto,
+                            'pagos_realizados' => $quincenasYaPagadas,
+                            'pagos_totales' => $quincenas,
+                            'es_atraso' => false,
+                            'numero_quincena' => $numQ,
+                            'quincenas_atrasadas_acumuladas' => 0,
+                            'monto_comision' => $comisionPorQuincena,
+                            'monto_pago' => $pagoQuincenal,
+                            'monto_recargo' => 0.0,
+                            'monto_total_linea' => $totalLinea,
+                            'monto_pagado_previo' => 0.0,
+                            'corte_origen_id' => null,
+                            'relacion_origen_id' => null,
+                        ];
+
+                        $totalComision += $comisionPorQuincena;
+                        $totalPago += $pagoQuincenal;
+                    }
+                }
+
+                if (empty($partidasData) && $relacionAnterior === null) {
+                    return;
                 }
 
                 $totalAPagar = round($totalComision + $totalPago + $totalRecargos, 2);
@@ -242,6 +321,7 @@ class CorteService
                 $relacion = RelacionCorte::create([
                     'corte_id' => $corte->id,
                     'distribuidora_id' => $distribuidora->id,
+                    'relacion_anterior_id' => $relacionAnterior?->id,
                     'numero_relacion' => $numeroRelacion,
                     'referencia_pago' => $referenciaPago,
                     'fecha_limite_pago' => $fechaLimite->toDateString(),
@@ -254,12 +334,17 @@ class CorteService
                     'total_pago' => round($totalPago, 2),
                     'total_recargos' => round($totalRecargos, 2),
                     'total_a_pagar' => $totalAPagar,
+                    'total_arrastre_recibido' => round($totalArrastreRecibido, 2),
                     'estado' => RelacionCorte::ESTADO_GENERADA,
                 ]);
 
                 foreach ($partidasData as $partida) {
                     $partida['relacion_corte_id'] = $relacion->id;
                     PartidaRelacionCorte::create($partida);
+                }
+
+                if ($relacionAnterior !== null) {
+                    $this->cerrarRelacionAnteriorPorArrastre($relacionAnterior);
                 }
 
                 $puntosGanados = app(\App\Services\ServicioReglasNegocio::class)
@@ -376,6 +461,73 @@ class CorteService
             return Carbon::parse($hora)->format('H:i:s');
         } catch (\Throwable) {
             return '18:00:00';
+        }
+    }
+
+    private function obtenerCorteAnterior(Corte $corte): ?Corte
+    {
+        $referencia = $corte->fecha_ejecucion ?? now();
+
+        return Corte::query()
+            ->where('sucursal_id', $corte->sucursal_id)
+            ->where('estado', Corte::ESTADO_EJECUTADO)
+            ->where('id', '!=', $corte->id)
+            ->whereNotNull('fecha_ejecucion')
+            ->where('fecha_ejecucion', '<', $referencia)
+            ->orderByDesc('fecha_ejecucion')
+            ->first();
+    }
+
+    private function obtenerRelacionAnteriorAbierta(Distribuidora $distribuidora, Corte $corte): ?RelacionCorte
+    {
+        return RelacionCorte::query()
+            ->where('distribuidora_id', $distribuidora->id)
+            ->whereIn('estado', [
+                RelacionCorte::ESTADO_GENERADA,
+                RelacionCorte::ESTADO_PARCIAL,
+                RelacionCorte::ESTADO_VENCIDA,
+            ])
+            ->where('corte_id', '!=', $corte->id)
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    private function quincenasEsperadasParaVale(Vale $vale, Corte $corte): int
+    {
+        $quincenasTotales = max(1, (int) $vale->quincenas_totales);
+
+        $partidasNormalesPrevias = PartidaRelacionCorte::query()
+            ->where('vale_id', $vale->id)
+            ->where('es_atraso', false)
+            ->whereHas('relacionCorte', fn($q) => $q->where('corte_id', '!=', $corte->id))
+            ->count();
+
+        return min($partidasNormalesPrevias + 1, $quincenasTotales);
+    }
+
+    private function cerrarRelacionAnteriorPorArrastre(RelacionCorte $relacion): void
+    {
+        $relacion->update([
+            'estado' => RelacionCorte::ESTADO_CERRADA,
+            'cerrada_por_arrastre_en' => now(),
+        ]);
+
+        try {
+            \App\Models\BitacoraAuditoria::create([
+                'usuario_id' => auth()->user()?->id,
+                'sucursal_id' => $relacion->corte?->sucursal_id,
+                'tipo_evento' => \App\Models\BitacoraAuditoria::TIPO_ACTUALIZAR,
+                'nivel' => \App\Models\BitacoraAuditoria::NIVEL_INFO,
+                'modulo' => \App\Models\BitacoraAuditoria::MODULO_CORTE,
+                'descripcion' => "RelacionCorte {$relacion->numero_relacion} cerrada por arrastre al siguiente corte.",
+                'datos_extra' => [
+                    'relacion_corte_id' => $relacion->id,
+                    'numero_relacion' => $relacion->numero_relacion,
+                    'estado_anterior' => $relacion->getOriginal('estado'),
+                ],
+            ]);
+        } catch (\Throwable) {
+            // No interrumpir el cierre por fallo en bitácora
         }
     }
 }
