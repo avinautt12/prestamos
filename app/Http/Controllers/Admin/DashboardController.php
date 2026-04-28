@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Distribuidora;
 use App\Models\Solicitud;
+use App\Models\RelacionCorte;
 use App\Models\Sucursal;
 use App\Models\Vale;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -139,6 +141,49 @@ class DashboardController extends Controller
                 'capital_en_riesgo' => $capitalEnRiesgo,
                 'capital_colocado' => $capitalColocado,
             ],
+        ]);
+    }
+    public function rentabilidad(Request $request): Response
+    {
+        $fechaDesde = $request->string('fecha_desde', now()->startOfMonth()->toDateString())->toString();
+        $fechaHasta = $request->string('fecha_hasta', now()->toDateString())->toString();
+
+        $datosRentabilidad = DB::table('relaciones_corte as rc')
+            ->join('cortes as c', 'c.id', '=', 'rc.corte_id')
+            ->join('sucursales as s', 's.id', '=', 'c.sucursal_id')
+            ->whereBetween('c.fecha_ejecucion', [$fechaDesde, $fechaHasta])
+            ->where('rc.estado', '!=', RelacionCorte::ESTADO_GENERADA) // Solo lo que ya tiene compromiso de pago o pagado
+            ->select([
+                's.id as sucursal_id',
+                's.nombre as sucursal_nombre',
+                DB::raw('SUM(rc.total_comision) as total_comisiones'),
+                DB::raw('SUM(rc.total_recargos) as total_recargos'),
+                DB::raw('SUM(rc.total_pago) as capital_recuperado'),
+                DB::raw('COUNT(DISTINCT rc.distribuidora_id) as distribuidoras_atendidas'),
+                DB::raw('COUNT(rc.id) as cortes_procesados'),
+            ])
+            ->groupBy('s.id', 's.nombre')
+            ->get()
+            ->map(function ($item) {
+                $item->ingresos_totales = (float) $item->total_comisiones + (float) $item->total_recargos;
+                $item->total_comisiones = (float) $item->total_comisiones;
+                $item->total_recargos = (float) $item->total_recargos;
+                $item->capital_recuperado = (float) $item->capital_recuperado;
+                return $item;
+            });
+
+        return Inertia::render('Admin/Rentabilidad', [
+            'datos' => $datosRentabilidad,
+            'filtros' => [
+                'fecha_desde' => $fechaDesde,
+                'fecha_hasta' => $fechaHasta,
+            ],
+            'resumen_global' => [
+                'ingresos_totales' => $datosRentabilidad->sum('ingresos_totales'),
+                'comisiones_totales' => $datosRentabilidad->sum('total_comisiones'),
+                'recargos_totales' => $datosRentabilidad->sum('total_recargos'),
+                'capital_total' => $datosRentabilidad->sum('capital_recuperado'),
+            ]
         ]);
     }
 }

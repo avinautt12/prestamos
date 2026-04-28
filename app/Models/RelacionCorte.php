@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class RelacionCorte extends Model
 {
@@ -15,6 +16,7 @@ class RelacionCorte extends Model
     protected $fillable = [
         'corte_id',
         'distribuidora_id',
+        'relacion_anterior_id',
         'numero_relacion',
         'referencia_pago',
         'fecha_limite_pago',
@@ -27,7 +29,9 @@ class RelacionCorte extends Model
         'total_pago',
         'total_recargos',
         'total_a_pagar',
-        'estado'
+        'total_arrastre_recibido',
+        'estado',
+        'cerrada_por_arrastre_en',
     ];
 
     protected $casts = [
@@ -41,7 +45,9 @@ class RelacionCorte extends Model
         'total_pago' => 'decimal:2',
         'total_recargos' => 'decimal:2',
         'total_a_pagar' => 'decimal:2',
-        'generada_en' => 'datetime'
+        'total_arrastre_recibido' => 'decimal:2',
+        'generada_en' => 'datetime',
+        'cerrada_por_arrastre_en' => 'datetime',
     ];
 
     public const ESTADO_GENERADA = 'GENERADA';
@@ -69,5 +75,20 @@ class RelacionCorte extends Model
     public function pagosDistribuidora(): HasMany
     {
         return $this->hasMany(PagoDistribuidora::class, 'relacion_corte_id');
+    }
+
+    public function relacionAnterior(): BelongsTo
+    {
+        return $this->belongsTo(RelacionCorte::class, 'relacion_anterior_id');
+    }
+
+    public function relacionSiguiente(): HasOne
+    {
+        return $this->hasOne(RelacionCorte::class, 'relacion_anterior_id');
+    }
+
+    public function estaCerradaPorArrastre(): bool
+    {
+        return $this->estado === self::ESTADO_CERRADA && $this->cerrada_por_arrastre_en !== null;
     }
 }

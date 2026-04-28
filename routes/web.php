@@ -49,35 +49,49 @@ Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->grou
     Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/calendario', [App\Http\Controllers\Admin\DashboardController::class, 'calendario'])->name('calendario');
     Route::get('/reportes', [App\Http\Controllers\Admin\DashboardController::class, 'reportes'])->name('reportes');
+    Route::get('/rentabilidad', [App\Http\Controllers\Admin\DashboardController::class, 'rentabilidad'])->name('rentabilidad');
+
     Route::get('/reportes/descargar', [App\Http\Controllers\Admin\ReporteController::class, 'descargar'])->name('reportes.descargar');
     Route::post('/reportes/enviar', [App\Http\Controllers\Admin\ReporteController::class, 'enviar'])->name('reportes.enviar');
     
     Route::get('/auditorias', [App\Http\Controllers\Admin\AuditoriaController::class, 'index'])->name('auditorias');
 
     Route::get('/solicitudes-password', [\App\Http\Controllers\PasswordAuthorizationController::class, 'index'])->name('solicitudes_password');
-    Route::post('/solicitudes-password/aprobar-todas', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobarTodas'])->name('solicitudes_password.aprobar_todas');
-    Route::post('/solicitudes-password/{id}/aprobar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobar'])->name('solicitudes_password.aprobar');
-    Route::post('/solicitudes-password/{id}/rechazar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'rechazar'])->name('solicitudes_password.rechazar');
-
     Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
-    Route::put('/configuraciones/sucursal', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarSucursal'])->name('configuraciones.sucursal.update');
-    Route::post('/configuraciones/categorias', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearCategoria'])->name('configuraciones.categorias.store');
-    Route::put('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarCategoria'])->name('configuraciones.categorias.update');
-    Route::put('/configuraciones/categorias/{categoria}/inactivar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'inactivarCategoria'])->name('configuraciones.categorias.inactivar');
-    Route::put('/configuraciones/categorias/{categoria}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarCategoria'])->name('configuraciones.categorias.activar');
-    Route::delete('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarCategoria'])->name('configuraciones.categorias.delete');
-    Route::put('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarProducto'])->name('configuraciones.productos.update');
-    Route::post('/configuraciones/productos', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearProducto'])->name('configuraciones.productos.store');
-    Route::put('/configuraciones/productos/{producto}/inactivar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'inactivarProducto'])->name('configuraciones.productos.inactivar');
-    Route::put('/configuraciones/productos/{producto}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarProducto'])->name('configuraciones.productos.activar');
-    Route::post('/configuraciones/productos/{producto}/restaurar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'restaurarProducto'])->name('configuraciones.productos.restaurar');
-    Route::delete('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarProducto'])->name('configuraciones.productos.delete');
-
     Route::get('/usuarios', [App\Http\Controllers\Admin\UsuarioController::class, 'index'])->name('usuarios.index');
-    Route::post('/usuarios', [App\Http\Controllers\Admin\UsuarioController::class, 'store'])->name('usuarios.store');
-    Route::put('/usuarios/{usuario}/rol', [App\Http\Controllers\Admin\UsuarioController::class, 'actualizarRol'])->name('usuarios.rol.update');
-    Route::patch('/usuarios/{usuario}/estado', [App\Http\Controllers\Admin\UsuarioController::class, 'actualizarEstado'])->name('usuarios.estado.update');
-    Route::post('/usuarios/{usuario}/reenviar-activacion', [App\Http\Controllers\Admin\UsuarioController::class, 'reenviarActivacionDistribuidora'])->name('usuarios.reenviar-activacion');
+    
+    // Fidelización (Puntos)
+    Route::get('/fidelizacion', [App\Http\Controllers\Admin\FidelizacionController::class, 'index'])->name('fidelizacion.index');
+    Route::get('/fidelizacion/distribuidora/{id}', [App\Http\Controllers\Admin\FidelizacionController::class, 'movimientos'])->name('fidelizacion.movimientos');
+    Route::post('/fidelizacion/distribuidora/{id}/ajustar', [App\Http\Controllers\Admin\FidelizacionController::class, 'ajustar'])->name('fidelizacion.ajustar');
+
+    
+    Route::middleware('admin.secure-action')->group(function () {
+        // Password authorizations
+        Route::post('/solicitudes-password/aprobar-todas', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobarTodas'])->name('solicitudes_password.aprobar_todas');
+        Route::post('/solicitudes-password/{id}/aprobar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobar'])->name('solicitudes_password.aprobar');
+        Route::post('/solicitudes-password/{id}/rechazar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'rechazar'])->name('solicitudes_password.rechazar');
+
+        // Configuraciones
+        Route::put('/configuraciones/sucursal', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarSucursal'])->name('configuraciones.sucursal.update');
+        Route::post('/configuraciones/categorias', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearCategoria'])->name('configuraciones.categorias.store');
+        Route::put('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarCategoria'])->name('configuraciones.categorias.update');
+        Route::put('/configuraciones/categorias/{categoria}/inactivar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'inactivarCategoria'])->name('configuraciones.categorias.inactivar');
+        Route::put('/configuraciones/categorias/{categoria}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarCategoria'])->name('configuraciones.categorias.activar');
+        Route::delete('/configuraciones/categorias/{categoria}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarCategoria'])->name('configuraciones.categorias.delete');
+        Route::put('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'actualizarProducto'])->name('configuraciones.productos.update');
+        Route::post('/configuraciones/productos', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'crearProducto'])->name('configuraciones.productos.store');
+        Route::put('/configuraciones/productos/{producto}/inactivar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'inactivarProducto'])->name('configuraciones.productos.inactivar');
+        Route::put('/configuraciones/productos/{producto}/activar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'activarProducto'])->name('configuraciones.productos.activar');
+        Route::post('/configuraciones/productos/{producto}/restaurar', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'restaurarProducto'])->name('configuraciones.productos.restaurar');
+        Route::delete('/configuraciones/productos/{producto}', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'eliminarProducto'])->name('configuraciones.productos.delete');
+
+        // Usuarios
+        Route::post('/usuarios', [App\Http\Controllers\Admin\UsuarioController::class, 'store'])->name('usuarios.store');
+        Route::put('/usuarios/{usuario}/rol', [App\Http\Controllers\Admin\UsuarioController::class, 'actualizarRol'])->name('usuarios.rol.update');
+        Route::patch('/usuarios/{usuario}/estado', [App\Http\Controllers\Admin\UsuarioController::class, 'actualizarEstado'])->name('usuarios.estado.update');
+        Route::post('/usuarios/{usuario}/reenviar-activacion', [App\Http\Controllers\Admin\UsuarioController::class, 'reenviarActivacionDistribuidora'])->name('usuarios.reenviar-activacion');
+    });
 });
 
 // ============================================================
@@ -88,6 +102,15 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
     Route::get('/reportes', [App\Http\Controllers\Gerente\DashboardController::class, 'reportes'])->name('reportes');
     Route::get('/reportes/descargar', [App\Http\Controllers\Gerente\ReporteController::class, 'descargar'])->name('reportes.descargar');
     Route::post('/reportes/enviar', [App\Http\Controllers\Gerente\ReporteController::class, 'enviar'])->name('reportes.enviar');
+
+    // Fidelización para Gerente
+    Route::prefix('fidelizacion')->name('fidelizacion.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Gerente\FidelizacionController::class, 'index'])->name('index');
+        Route::get('/{distribuidora}/movimientos', [App\Http\Controllers\Gerente\FidelizacionController::class, 'movimientos'])->name('movimientos');
+        Route::post('/{distribuidora}/ajustar', [App\Http\Controllers\Gerente\FidelizacionController::class, 'ajustar'])->name('ajustar');
+    });
+
+
     Route::get('/cortes', [App\Http\Controllers\Gerente\CorteController::class, 'index'])->name('cortes');
     Route::post('/cortes/{corte}/cerrar-manual', [App\Http\Controllers\Gerente\CorteController::class, 'cerrarManual'])
         ->middleware('gerente.secure-action')
