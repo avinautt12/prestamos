@@ -278,4 +278,18 @@ class Usuario extends Authenticatable
 
         return parent::save($options);
     }
+
+    /**
+     * Get all active users with ADMIN role.
+     */
+    public static function getAdmins(): \Illuminate\Database\Eloquent\Collection
+    {
+        return static::query()
+            ->where('activo', true)
+            ->whereHas('roles', function ($q) {
+                $q->where('codigo', 'ADMIN')
+                  ->wherePivotNull('revocado_en');
+            })
+            ->get();
+    }
 }

@@ -475,7 +475,7 @@ class DashboardController extends Controller
                     'producto_financiero_id'           => $producto->id,
                     'sucursal_id'                      => $distribuidora->sucursal_id,
                     'creado_por_usuario_id'            => auth()->user()->id,
-                    'aprobado_por_usuario_id'          => $requierePrevale ? null : Auth::id(),
+                    'aprobado_por_usuario_id'          => $requierePrevale ? null : auth()->user()->id,
                     'estado'                           => $requierePrevale ? Vale::ESTADO_BORRADOR : Vale::ESTADO_ACTIVO,
                     'monto'                            => $montos['monto_principal'],
                     'porcentaje_comision_empresa_snap' => (float) $producto->porcentaje_comision_empresa,
@@ -506,7 +506,7 @@ class DashboardController extends Controller
                         [
                             'distribuidora_id' => $distribuidora->id,
                             'cliente_id' => $clienteId,
-                            'ejecutado_por_usuario_id' => Auth::id(),
+                            'ejecutado_por_usuario_id' => auth()->user()->id,
                             'origen' => 'VALE_FERIADO',
                             'referencia_interna' => $referenciaTransferencia,
                             'monto' => $montoPrincipal,
@@ -1156,6 +1156,7 @@ class DashboardController extends Controller
                 'pagosDistribuidora.conciliacion',
                 'partidas.vale:id,numero_vale,estado',
                 'partidas.cliente.persona:id,primer_nombre,segundo_nombre,apellido_paterno,apellido_materno',
+                'partidas.corteOrigen:id,fecha_ejecucion',
             ])
             ->where('distribuidora_id', $distribuidora->id);
 
@@ -1717,6 +1718,10 @@ class DashboardController extends Controller
             'total_a_pagar' => $totalAPagar,
             'total_pago' => (float) $relacion->total_pago,
             'total_recargos' => (float) $relacion->total_recargos,
+            'total_arrastre_recibido' => (float) $relacion->total_arrastre_recibido,
+            'relacion_anterior_id' => $relacion->relacion_anterior_id,
+            'cerrada_por_arrastre_en' => optional($relacion->cerrada_por_arrastre_en)->toDateTimeString(),
+            'conciliada_anticipada' => $this->fueConciliadaEnVentanaAnticipada($relacion),
             'limite_credito_snapshot' => (float) $relacion->limite_credito_snapshot,
             'credito_disponible_snapshot' => (float) $relacion->credito_disponible_snapshot,
             'puntos_snapshot' => (float) $relacion->puntos_snapshot,
@@ -1739,10 +1744,15 @@ class DashboardController extends Controller
                         'nombre_producto_snapshot' => $partida->nombre_producto_snapshot,
                         'pagos_realizados' => (int) $partida->pagos_realizados,
                         'pagos_totales' => (int) $partida->pagos_totales,
+                        'es_atraso' => (bool) $partida->es_atraso,
+                        'numero_quincena' => $partida->numero_quincena,
+                        'quincenas_atrasadas_acumuladas' => (int) $partida->quincenas_atrasadas_acumuladas,
                         'monto_comision' => (float) $partida->monto_comision,
                         'monto_pago' => (float) $partida->monto_pago,
                         'monto_recargo' => (float) $partida->monto_recargo,
                         'monto_total_linea' => (float) $partida->monto_total_linea,
+                        'monto_pagado_previo' => (float) $partida->monto_pagado_previo,
+                        'corte_origen_fecha' => optional($partida->corteOrigen?->fecha_ejecucion)->toDateString(),
                         'cliente_nombre' => $this->nombreCompletoDesdePartes(
                             $partida->cliente?->persona?->primer_nombre,
                             $partida->cliente?->persona?->segundo_nombre,
@@ -1755,6 +1765,31 @@ class DashboardController extends Controller
                 })->values()
                 : [],
         ];
+    }
+
+    private function fueConciliadaEnVentanaAnticipada(RelacionCorte $relacion): bool
+    {
+        $inicio = $relacion->fecha_inicio_pago_anticipado;
+        $fin = $relacion->fecha_fin_pago_anticipado;
+        if (!$inicio || !$fin) {
+            return false;
+        }
+
+        $conciliados = $relacion->pagosDistribuidora
+            ->filter(fn(PagoDistribuidora $p) => $p->estado === PagoDistribuidora::ESTADO_CONCILIADO)
+            ->filter(fn(PagoDistribuidora $p) => $p->conciliacion?->conciliado_en !== null);
+
+        if ($conciliados->isEmpty()) {
+            return false;
+        }
+
+        $ultima = $conciliados->sortByDesc(fn($p) => $p->conciliacion->conciliado_en)->first();
+        $fecha = $ultima->conciliacion->conciliado_en;
+
+        return $fecha->between(
+            $inicio->copy()->startOfDay(),
+            $fin->copy()->endOfDay()
+        );
     }
 
     private function transformarPagoDistribuidora(PagoDistribuidora $pago): array

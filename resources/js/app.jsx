@@ -5,20 +5,17 @@ import { createRoot } from 'react-dom/client';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { useEffect } from 'react';
-// Registrar el Service Worker en la raíz para que tenga scope sobre toda la app
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then((registration) => {
 
-                // Detectar actualización disponible
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
                     if (!newWorker) return;
                     newWorker.addEventListener('statechange', () => {
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                             console.info('[PWA] Nueva versión disponible. Actualizando...');
-                            // Forzar activación inmediata
                             newWorker.postMessage({ type: 'SKIP_WAITING' });
                         }
                     });
@@ -28,6 +25,15 @@ if ('serviceWorker' in navigator) {
                 console.warn('[PWA] Error al registrar SW:', err);
             });
     });
+}
+
+if ('serviceWorker' in navigator && import.meta.env.DEV) {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister());
+    });
+    if ('caches' in window) {
+        caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
+    }
 }
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';

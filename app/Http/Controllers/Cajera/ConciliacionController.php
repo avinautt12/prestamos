@@ -912,6 +912,13 @@ class ConciliacionController extends Controller
 
         $relacion->save();
 
+        $abonoService = app(\App\Services\AbonoPartidasService::class);
+        if ($relacion->estado === RelacionCorte::ESTADO_PAGADA) {
+            $abonoService->marcarPartidasComoPagadas($relacion);
+        } else {
+            $abonoService->aplicarAbono($relacion, $montoConciliado);
+        }
+
         if ($estadoAnterior !== RelacionCorte::ESTADO_PAGADA && $relacion->estado === RelacionCorte::ESTADO_PAGADA) {
             $this->restaurarCreditoDistribuidoraPorRelacion($relacion);
         }
