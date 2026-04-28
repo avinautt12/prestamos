@@ -48,7 +48,9 @@ class PasswordAuthorizationController extends Controller
         return Inertia::render('Admin/SolicitudesPassword', [
             'solicitudes' => $solicitudes,
             'securityPolicy' => [
-                'requires_vpn' => (bool) config('security.gerente.require_vpn', false),
+                'requires_vpn' => Auth::user()->tieneRol('ADMIN')
+                    ? (bool) config('security.admin.require_vpn', false)
+                    : (bool) config('security.gerente.require_vpn', false),
             ],
         ]);
     }

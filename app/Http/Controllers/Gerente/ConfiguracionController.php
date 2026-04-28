@@ -9,6 +9,7 @@ use App\Http\Requests\Gerente\ActualizarProductoConfiguracionRequest;
 use App\Http\Requests\Gerente\ActualizarSucursalConfiguracionRequest;
 use App\Http\Requests\Gerente\CrearCategoriaConfiguracionRequest;
 use App\Http\Requests\Gerente\CrearProductoConfiguracionRequest;
+use App\Models\BitacoraAuditoria;
 use App\Models\BitacoraConfiguracionSucursal;
 use App\Models\CategoriaDistribuidora;
 use App\Models\Corte;
@@ -18,6 +19,7 @@ use App\Models\PuntosConf;
 use App\Models\Sucursal;
 use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
+use App\Notifications\NotificacionOperativa;
 use App\Services\CorteService;
 use App\Services\Distribuidora\DistribuidoraNotificationService;
 use App\Services\ProductoFinancieroService;
@@ -188,6 +190,11 @@ class ConfiguracionController extends Controller
             'categorias' => $categorias,
             'productos' => $productos,
             'historialCambios' => $historialCambios,
+            'securityPolicy' => [
+                'requires_vpn' => $esAdmin 
+                    ? (bool) config('security.admin.require_vpn', false)
+                    : (bool) config('security.gerente.require_vpn', false),
+            ],
         ]);
     }
 
@@ -216,10 +223,15 @@ class ConfiguracionController extends Controller
             'dia_corte' => $data['dia_corte'] ?? null,
             'plazo_pago_dias' => (int) $data['plazo_pago_dias'],
             'hora_corte' => $data['hora_corte'] . ':00',
+            // Campos de sucursal agregados:
+            'multa_incumplimiento_monto' => (float) $data['multa_incumplimiento_monto'],
+            'porcentaje_comision_apertura' => (float) $data['porcentaje_comision_apertura'],
+            'porcentaje_interes_quincenal' => (float) $data['porcentaje_interes_quincenal'],
             // Campos globales (se guardan en puntos_conf):
             'factor_divisor_puntos' => (int) $data['factor_divisor_puntos'],
             'multiplicador_puntos' => (int) $data['multiplicador_puntos'],
             'valor_punto_mxn' => (float) $data['valor_punto_mxn'],
+            'castigo_pct_atraso' => (float) $data['castigo_pct_atraso'],
         ];
 
         DB::transaction(function () use ($sucursalesObjetivo, $usuario, $despues) {
@@ -229,6 +241,7 @@ class ConfiguracionController extends Controller
                 'factor_divisor_puntos' => $despues['factor_divisor_puntos'],
                 'multiplicador_puntos'  => $despues['multiplicador_puntos'],
                 'valor_punto_mxn'       => $despues['valor_punto_mxn'],
+                'castigo_pct_atraso'    => $despues['castigo_pct_atraso'],
                 'actualizado_por_usuario_id' => $usuario->id,
             ]);
 
@@ -240,12 +253,18 @@ class ConfiguracionController extends Controller
                     'dia_corte' => $configuracion->dia_corte,
                     'plazo_pago_dias' => $configuracion->plazo_pago_dias,
                     'hora_corte' => $configuracion->hora_corte,
+                    'multa_incumplimiento_monto' => $configuracion->multa_incumplimiento_monto,
+                    'porcentaje_comision_apertura' => $configuracion->porcentaje_comision_apertura,
+                    'porcentaje_interes_quincenal' => $configuracion->porcentaje_interes_quincenal,
                 ];
 
                 $configuracion->update([
                     'dia_corte' => $despues['dia_corte'],
                     'plazo_pago_dias' => $despues['plazo_pago_dias'],
                     'hora_corte' => $despues['hora_corte'],
+                    'multa_incumplimiento_monto' => $despues['multa_incumplimiento_monto'],
+                    'porcentaje_comision_apertura' => $despues['porcentaje_comision_apertura'],
+                    'porcentaje_interes_quincenal' => $despues['porcentaje_interes_quincenal'],
                     'actualizado_por_usuario_id' => $usuario->id,
                     'actualizado_en' => now(),
                 ]);
@@ -261,6 +280,27 @@ class ConfiguracionController extends Controller
                     $antes,
                     $despues
                 );
+            }
+
+            BitacoraAuditoria::registrar([
+                'tipo_evento' => BitacoraAuditoria::TIPO_CAMBIO_CONFIG,
+                'nivel' => BitacoraAuditoria::NIVEL_WARNING,
+                'modulo' => BitacoraAuditoria::MODULO_CONFIGURACION,
+                'descripcion' => 'Actualización masiva de parámetros financieros (Corte, Puntos, Intereses) por el Administrador.',
+                'datos_extra' => $despues,
+            ]);
+
+            // Alerta a todos los Admins (incluyendo al que lo hizo)
+            $admins = Usuario::getAdmins();
+            $msg = "Se actualizaron parámetros financieros globales (Sucursal: " . ($sucursalesObjetivo->count() > 1 ? 'TODAS' : $sucursalesObjetivo->first()->nombre) . ")";
+            
+            foreach ($admins as $admin) {
+                $admin->notify(new NotificacionOperativa(
+                    titulo: 'Cambio Crítico en Configuración',
+                    mensaje: $msg,
+                    tipo: 'warning',
+                    meta: ['por_usuario' => $usuario->nombre_usuario]
+                ));
             }
         });
 
