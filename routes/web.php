@@ -209,6 +209,9 @@ Route::middleware(['auth', 'role:CAJERA'])->prefix('cajera')->name('cajera.')->g
     Route::post('/prevale/{id}/aprobar', [PrevaleController::class, 'aprobar'])->name('prevale.aprobar');
     Route::post('/prevale/{id}/rechazar', [PrevaleController::class, 'rechazar'])->name('prevale.rechazar');
 
+    // Rutas de Mis Vales (vales donde la cajera tuvo intervención)
+    Route::get('/mis-vales', [App\Http\Controllers\Cajera\MisValesController::class, 'index'])->name('mis-vales.index');
+
     // Rutas de Cobranza
     Route::get('/cobranza', [App\Http\Controllers\Cajera\CobranzaController::class, 'index'])->name('cobranza.index');
     Route::post('/cobranza/{distribuidora}/bloquear', [App\Http\Controllers\Cajera\CobranzaController::class, 'bloquear'])->name('cobranza.bloquear');

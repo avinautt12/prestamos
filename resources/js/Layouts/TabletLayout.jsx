@@ -16,6 +16,7 @@ import {
     faPeopleGroup,
     faClipboardCheck,
     faScaleBalanced,
+    faFileInvoiceDollar,
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function TabletLayout({ children, title = 'Prestamo Fácil', showTitle = false }) {
@@ -128,11 +129,13 @@ export default function TabletLayout({ children, title = 'Prestamo Fácil', show
             { name: 'Dashboard', href: route('cajera.dashboard'), icon: faHouse, active: route().current('cajera.dashboard') },
             { name: 'Prevales', href: route('cajera.prevale.index'), icon: faFileLines, active: route().current('cajera.prevale.*') },
             { name: 'Conciliaciones', href: route('cajera.conciliaciones'), icon: faScaleBalanced, active: route().current('cajera.conciliaciones*') },
+            { name: 'Mis Vales', href: route('cajera.mis-vales.index'), icon: faFileInvoiceDollar, active: route().current('cajera.mis-vales.*') },
             { name: 'Cobranza', href: route('cajera.cobranza.index'), icon: faUsers, active: route().current('cajera.cobranza.*') }
         ];
         shortcuts = [
             { name: 'Validar Prevale', href: route('cajera.prevale.index') },
             { name: 'Conciliar archivo', href: route('cajera.conciliaciones') },
+            { name: 'Mis Vales', href: route('cajera.mis-vales.index') },
         ];
     } else {
         navigation = [

@@ -7,7 +7,8 @@ export default function CajeraDashboard({ stats, vales_por_verificar, movimiento
     const quickActions = [
         { title: 'Verificación Prevale', description: 'Validar documentos y autorizar primer depósito', href: route('cajera.prevale.index'), icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', variant: 'primary' },
         { title: 'Conciliación Bancaria', description: 'Carga masiva de archivos y cruce de pagos', href: route('cajera.conciliaciones'), icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z', variant: 'secondary' },
-        { title: 'Módulo de Cobranza', description: 'Gestión de morosidad y bloqueo de cuentas', href: route('cajera.cobranza.index'), icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z', variant: 'secondary' }
+        { title: 'Módulo de Cobranza', description: 'Gestión de morosidad y bloqueo de cuentas', href: route('cajera.cobranza.index'), icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z', variant: 'secondary' },
+        { title: 'Mis Vales', description: 'Vales donde feriaste, cobraste o conciliaste', href: route('cajera.mis-vales.index'), icon: 'M3 7h18M3 12h18M3 17h18', variant: 'secondary' }
     ];
 
     const statCards = [

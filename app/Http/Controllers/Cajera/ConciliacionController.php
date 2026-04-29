@@ -994,7 +994,7 @@ class ConciliacionController extends Controller
         $relacion->loadMissing('partidas.vale');
 
         $creditoArestaurar = (float) $relacion->partidas->sum(function ($partida) {
-            return (float) ($partida->vale?->monto_principal ?? 0);
+            return (float) ($partida->vale?->monto ?? 0);
         });
 
         if ($creditoArestaurar <= 0) {
