@@ -9,6 +9,7 @@ use App\Models\MovimientoBancario;
 use App\Models\PagoDistribuidora;
 use App\Models\RelacionCorte;
 use App\Models\Vale;
+use App\Models\PartidaRelacionCorte;
 use App\Models\Sucursal;
 use App\Models\SucursalConfiguracion;
 use App\Models\Usuario;
@@ -21,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -1473,5 +1475,137 @@ class ConciliacionController extends Controller
                 'fecha_limite_pago' => $segundoCorte->copy()->addDays(15),
             ],
         ];
+    }
+
+    public function partidasPendientes(Request $request): Response
+    {
+        $filtros = [
+            'q' => trim((string) $request->string('q', '')),
+            'distribuidora_id' => (int) $request->integer('distribuidora_id'),
+            'estado' => trim((string) $request->string('estado', 'TODOS')),
+        ];
+
+        $query = PagoDistribuidora::query()
+            ->with([
+                'partida.vale:id,numero_vale,estado',
+                'partida.cliente.persona:id,primer_nombre,segundo_nombre,apellido_paterno,apellido_materno',
+                'relacionCorte:id,numero_relacion',
+                'distribuidora.persona:id,primer_nombre,segundo_nombre,apellido_paterno,apellido_materno',
+            ])
+            ->whereNotNull('partida_id')
+            ->whereIn('estado', [
+                PagoDistribuidora::ESTADO_REPORTADO,
+                PagoDistribuidora::ESTADO_DETECTADO,
+            ]);
+
+        if ($filtros['q'] !== '') {
+            $term = $filtros['q'];
+            $query->where(function ($sub) use ($term) {
+                $sub->where('referencia_reportada', 'like', "%{$term}%")
+                    ->orWhereHas('partida.vale', fn($q) => $q->where('numero_vale', 'like', "%{$term}%"))
+                    ->orWhereHas('distribuidora.persona', fn($q) => $q->whereRaw("CONCAT_WS(' ', primer_nombre, segundo_nombre, apellido_paterno, apellido_materno) LIKE ?", ["%{$term}%"]));
+            });
+        }
+
+        if ($filtros['distribuidora_id'] > 0) {
+            $query->where('distribuidora_id', $filtros['distribuidora_id']);
+        }
+
+        $pagos = $query->orderByDesc('fecha_pago')->limit(100)->get()->map(function ($pago) {
+            return [
+                'id' => $pago->id,
+                'partida_id' => $pago->partida_id,
+                'vale_numero' => $pago->partida?->vale?->numero_vale,
+                'cliente_nombre' => $pago->partida?->cliente?->persona
+                    ? trim(implode(' ', array_filter([
+                        $pago->partida->cliente->persona->primer_nombre,
+                        $pago->partida->cliente->persona->segundo_nombre,
+                        $pago->partida->cliente->persona->apellido_paterno,
+                        $pago->partida->cliente->persona->apellido_materno,
+                    ])))
+                    : '',
+                'distribuidora_nombre' => $pago->distribuidora?->persona
+                    ? trim(implode(' ', array_filter([
+                        $pago->distribuidora->persona->primer_nombre,
+                        $pago->distribuidora->persona->segundo_nombre,
+                        $pago->distribuidora->persona->apellido_paterno,
+                        $pago->distribuidora->persona->apellido_materno,
+                    ])))
+                    : '',
+                'monto' => (float) $pago->monto,
+                'metodo_pago' => $pago->metodo_pago,
+                'referencia_reportada' => $pago->referencia_reportada,
+                'fecha_pago' => optional($pago->fecha_pago)->toDateTimeString(),
+                'estado' => $pago->estado,
+                'numero_relacion' => $pago->relacionCorte?->numero_relacion,
+                'observaciones' => $pago->observaciones,
+            ];
+        })->values();
+
+        return Inertia::render('Cajera/ConciliacionPartidas', [
+            'pagos' => $pagos,
+            'filtros' => $filtros,
+        ]);
+    }
+
+    public function conciliarPartida(Request $request, int $pagoId): RedirectResponse
+    {
+        $request->validate([
+            'movimiento_bancario_id' => ['required', 'integer'],
+            'estado' => ['required', Rule::in([Conciliacion::ESTADO_CONCILIADA, Conciliacion::ESTADO_CON_DIFERENCIA, Conciliacion::ESTADO_RECHAZADA])],
+            'observaciones' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $pago = PagoDistribuidora::with('partida', 'relacionCorte')
+            ->whereNotNull('partida_id')
+            ->whereIn('estado', [
+                PagoDistribuidora::ESTADO_REPORTADO,
+                PagoDistribuidora::ESTADO_DETECTADO,
+            ])
+            ->findOrFail($pagoId);
+
+        $movimiento = MovimientoBancario::findOrFail($request->movimiento_bancario_id);
+        $relacion = $pago->relacionCorte;
+
+        $diferencia = round((float) $movimiento->monto - (float) $pago->monto, 2);
+        $estadoConciliacion = abs($diferencia) < 0.01
+            ? Conciliacion::ESTADO_CONCILIADA
+            : ($request->estado ?: Conciliacion::ESTADO_CON_DIFERENCIA);
+
+        try {
+            DB::transaction(function () use ($pago, $movimiento, $relacion, $diferencia, $estadoConciliacion, $request) {
+                $pago->update([
+                    'cuenta_banco_empresa_id' => $movimiento->cuenta_banco_empresa_id,
+                    'estado' => $estadoConciliacion === Conciliacion::ESTADO_RECHAZADO
+                        ? PagoDistribuidora::ESTADO_RECHAZADO
+                        : PagoDistribuidora::ESTADO_CONCILIADO,
+                ]);
+
+                Conciliacion::create([
+                    'pago_distribuidora_id' => $pago->id,
+                    'movimiento_bancario_id' => $movimiento->id,
+                    'conciliado_por_usuario_id' => auth()->id(),
+                    'conciliado_en' => now(),
+                    'monto_conciliado' => $movimiento->monto,
+                    'diferencia_monto' => $diferencia,
+                    'estado' => $estadoConciliacion,
+                    'observaciones' => $request->observaciones,
+                ]);
+
+                if ($estadoConciliacion !== Conciliacion::ESTADO_RECHAZADO && $relacion) {
+                    $this->actualizarEstadoRelacionPorPagos($relacion);
+                }
+            });
+
+            $nombreVale = $pago->partida?->vale?->numero_vale ?? 'N/A';
+            $msg = "Pago {$nombreVale} conciliado como {$estadoConciliacion}.";
+
+            return redirect()->route('cajera.conciliaciones.partidas')->with('message', $msg);
+        } catch (QueryException $e) {
+            if ($this->isUniqueConciliacionException($e)) {
+                return back()->with('error', 'Este movimiento ya fue conciliado.');
+            }
+            throw $e;
+        }
     }
 }

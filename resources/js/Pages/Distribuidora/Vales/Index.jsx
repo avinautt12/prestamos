@@ -280,6 +280,13 @@ export default function Index({ distribuidora, resumen, vales = [], filtros = {}
                     <Link href={route('distribuidora.vales.create')} className="px-4 py-2.5 bg-green-700 text-white rounded-xl font-medium">+</Link>
                 </div>
 
+                <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                    <p className="text-xs text-blue-700">
+                        <span className="font-bold">¿Para qué es esta pantalla?</span> Aquí registras los pagos que los clientes te hacen en efectivo. 
+                        Click en un vale → "Registrar pago".
+                    </p>
+                </div>
+
                 <div className="grid grid-cols-5 gap-1">
                     {[
                         { value: 'TODOS', label: 'TODOS' },

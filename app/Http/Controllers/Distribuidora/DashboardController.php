@@ -19,6 +19,7 @@ use App\Models\Persona;
 use App\Models\ProductoFinanciero;
 use App\Models\PuntosConf;
 use App\Models\RelacionCorte;
+use App\Models\PartidaRelacionCorte;
 use App\Models\Vale;
 use App\Services\Distribuidora\DistribuidoraContextService;
 use App\Services\Distribuidora\DistribuidoraNotificationService;
@@ -28,6 +29,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -1926,5 +1928,149 @@ class DashboardController extends Controller
         $partesFiltradas = array_filter($partes, fn(?string $parte) => filled($parte));
 
         return trim(implode(' ', $partesFiltradas));
+    }
+
+    public function partidasPendientes(Request $request): Response
+    {
+        $distribuidora = $this->obtenerDistribuidoraActual();
+
+        if (!$distribuidora) {
+            abort(403, 'No tienes acceso.');
+        }
+
+        $relacionId = $request->integer('relacion_id');
+
+        $query = PartidaRelacionCorte::query()
+            ->with([
+                'vale:id,numero_vale,estado,monto,monto_total_deuda,saldo_actual,monto_quincenal',
+                'cliente.persona:id,primer_nombre,segundo_nombre,apellido_paterno,apellido_materno',
+                'relacionCorte:id,numero_relacion,fecha_limite_pago,total_a_pagar,referencia_pago',
+            ])
+            ->whereHas('relacionCorte', function ($q) use ($distribuidora, $relacionId) {
+                $q->where('distribuidora_id', $distribuidora->id)
+                    ->whereIn('estado', [
+                        RelacionCorte::ESTADO_GENERADA,
+                        RelacionCorte::ESTADO_PARCIAL,
+                        RelacionCorte::ESTADO_VENCIDA,
+                    ]);
+                if ($relacionId > 0) {
+                    $q->where('id', $relacionId);
+                }
+            })
+            ->orderBy('relacion_corte_id')
+            ->orderBy('numero_quincena');
+
+        $partidas = $query->limit(50)->get()->map(function ($partida) {
+            $yaReportado = DB::table('pagos_distribuidora')
+                ->where('partida_id', $partida->id)
+                ->whereIn('estado', [
+                    PagoDistribuidora::ESTADO_REPORTADO,
+                    PagoDistribuidora::ESTADO_DETECTADO,
+                    PagoDistribuidora::ESTADO_CONCILIADO,
+                ])
+                ->exists();
+
+            return [
+                'id' => $partida->id,
+                'relacion_corte_id' => $partida->relacion_corte_id,
+                'numero_relacion' => $partida->relacionCorte?->numero_relacion,
+                'vale_id' => $partida->vale_id,
+                'vale_numero' => $partida->vale?->numero_vale,
+                'vale_estado' => $partida->vale?->estado,
+                'cliente_nombre' => $this->nombreCompletoDesdePartes(
+                    $partida->cliente?->persona?->primer_nombre,
+                    $partida->cliente?->persona?->segundo_nombre,
+                    $partida->cliente?->persona?->apellido_paterno,
+                    $partida->cliente?->persona?->apellido_materno,
+                ),
+                'numero_quincena' => $partida->numero_quincena,
+                'pagos_realizados' => (int) $partida->pagos_realizados,
+                'pagos_totales' => (int) $partida->pagos_totales,
+                'es_atraso' => (bool) $partida->es_atraso,
+                'monto_pago' => (float) $partida->monto_pago,
+                'monto_recargo' => (float) $partida->monto_recargo,
+                'monto_total_linea' => (float) $partida->monto_total_linea,
+                'ya_reportado' => $yaReportado,
+                'fecha_limite_pago' => optional($partida->relacionCorte?->fecha_limite_pago)->toDateString(),
+                'referencia_pago' => $partida->relacionCorte?->referencia_pago,
+            ];
+        })->values();
+
+        return Inertia::render('Distribuidora/ReportarPagos', [
+            'distribuidora' => $this->transformarDistribuidora($distribuidora),
+            'partidas' => $partidas,
+        ]);
+    }
+
+    public function reportarPagoPartida(Request $request, int $partidaId): RedirectResponse
+    {
+        $distribuidora = $this->obtenerDistribuidoraActual();
+
+        if (!$distribuidora) {
+            return back()->withErrors(['general' => 'No tienes acceso.']);
+        }
+
+        $request->validate([
+            'monto' => ['required', 'numeric', 'min:0.01'],
+            'metodo_pago' => ['required', Rule::in(['TRANSFERENCIA', 'DEPOSITO', 'OTRO'])],
+            'referencia_reportada' => ['required', 'string', 'max:100'],
+        ]);
+
+        $partida = PartidaRelacionCorte::query()
+            ->whereHas('relacionCorte', fn($q) => $q->where('distribuidora_id', $distribuidora->id))
+            ->findOrFail($partidaId);
+
+        $yaReportado = DB::table('pagos_distribuidora')
+            ->where('partida_id', $partidaId)
+            ->whereIn('estado', [
+                PagoDistribuidora::ESTADO_REPORTADO,
+                PagoDistribuidora::ESTADO_DETECTADO,
+                PagoDistribuidora::ESTADO_CONCILIADO,
+            ])
+            ->exists();
+
+        if ($yaReportado) {
+            return back()->withErrors(['general' => 'Esta partida ya fue reportada.']);
+        }
+
+        $monto = round((float) $request->monto, 2);
+        $montoMaximo = (float) $partida->monto_total_linea;
+
+        if ($monto > $montoMaximo + 0.01) {
+            return back()->withErrors(['monto' => "El monto no puede exceder {$montoMaximo}."]);
+        }
+
+        try {
+            DB::transaction(function () use ($partida, $distribuidora, $request, $monto) {
+                $pago = PagoDistribuidora::create([
+                    'relacion_corte_id' => $partida->relacion_corte_id,
+                    'distribuidora_id' => $distribuidora->id,
+                    'partida_id' => $partida->id,
+                    'cuenta_banco_empresa_id' => null,
+                    'monto' => $monto,
+                    'metodo_pago' => $request->metodo_pago,
+                    'referencia_reportada' => $request->referencia_reportada,
+                    'fecha_pago' => $request->fecha_pago ?? now(),
+                    'estado' => PagoDistribuidora::ESTADO_REPORTADO,
+                    'observaciones' => "Pago reportado por vale individual: {$partida->vale?->numero_vale}",
+                ]);
+
+                $this->notificationService->notificar(
+                    $distribuidora,
+                    'PAGO_REPORTADO_VALE',
+                    'Pago reportado por vale',
+                    "Pago de {$monto} reportado para {$partida->vale?->numero_vale}. Pendiente de conciliación.",
+                    [
+                        'partida_id' => (int) $partidaId,
+                        'pago_id' => (int) $pago->id,
+                        'monto' => $monto,
+                    ]
+                );
+            });
+
+            return back()->with('success', 'Pago reportado correctamente.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['general' => 'Error al reportar el pago. Intenta de nuevo.']);
+        }
     }
 }

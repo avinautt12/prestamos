@@ -14,6 +14,7 @@ import {
     faExchangeAlt,
     faXmark,
     faRightFromBracket,
+    faCashRegister,
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function DistribuidoraLayout({ children, title = 'Mi Panel', subtitle = null }) {
@@ -29,6 +30,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
         { name: 'Clientes', short: 'Clientes', href: route('distribuidora.clientes'), icon: faUsers, current: 'distribuidora.clientes' },
         { name: 'Vales', short: 'Vales', href: route('distribuidora.vales'), icon: faFileAlt, current: 'distribuidora.vales' },
         { name: 'Crear vale', short: 'Crear', href: route('distribuidora.vales.create'), icon: faFileAlt, current: 'distribuidora.vales.create' },
+        { name: 'Reportar pagos', short: 'Pagar', href: route('distribuidora.partidas-pendientes'), icon: faCashRegister, current: 'distribuidora.partidas-pendientes' },
         { name: 'Estado cuenta', short: 'Cuenta', href: route('distribuidora.estado-cuenta'), icon: faWallet, current: 'distribuidora.estado-cuenta' },
         { name: 'Puntos', short: 'Puntos', href: route('distribuidora.puntos'), icon: faStar, current: 'distribuidora.puntos' },
         { name: 'Traspasos', short: 'Traspasos', href: route('distribuidora.traspasos.index'), icon: faExchangeAlt, current: 'distribuidora.traspasos.index' },

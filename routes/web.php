@@ -222,6 +222,8 @@ Route::middleware(['auth', 'role:CAJERA'])->prefix('cajera')->name('cajera.')->g
     Route::get('/conciliaciones/simular-archivo', [ConciliacionController::class, 'simularArchivoBancario'])->name('conciliaciones.simular-archivo');
     Route::post('/conciliaciones/importar', [ConciliacionController::class, 'importar'])->name('conciliaciones.importar');
     Route::post('/conciliaciones/manual', [ConciliacionController::class, 'conciliarManual'])->name('conciliaciones.manual');
+    Route::get('/conciliaciones/partidas', [ConciliacionController::class, 'partidasPendientes'])->name('conciliaciones.partidas');
+    Route::post('/conciliaciones/partidas/{partida}/conciliar', [ConciliacionController::class, 'conciliarPartida'])->name('conciliaciones.partidas.conciliar');
     Route::get('/pagos-distribuidora', [App\Http\Controllers\Cajera\DashboardController::class, 'pagosDistribuidora'])->name('pagos-distribuidora');
 
     // Rutas de Prevale (Usando el controlador que creaste)
@@ -261,6 +263,8 @@ Route::middleware(['auth', 'role:DISTRIBUIDORA'])->prefix('distribuidora')->name
     Route::get('/estado-cuenta', [App\Http\Controllers\Distribuidora\DashboardController::class, 'estadoCuenta'])->name('estado-cuenta');
     Route::get('/relaciones/{relacion}/pdf', [App\Http\Controllers\Distribuidora\DashboardController::class, 'descargarRelacionPDF'])->name('relaciones.pdf');
     Route::post('/relaciones/{relacion}/reportar-pago', [App\Http\Controllers\Distribuidora\DashboardController::class, 'reportarPago'])->name('relaciones.reportar-pago');
+    Route::post('/partidas/{partida}/reportar-pago', [App\Http\Controllers\Distribuidora\DashboardController::class, 'reportarPagoPartida'])->name('partidas.reportar-pago');
+    Route::get('/partidas-pendientes', [App\Http\Controllers\Distribuidora\DashboardController::class, 'partidasPendientes'])->name('partidas-pendientes');
 });
 
 // Redirección por defecto según rol
