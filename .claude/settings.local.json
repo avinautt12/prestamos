@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root prestamofacil -e ' *)"
     ]
   }
 }
