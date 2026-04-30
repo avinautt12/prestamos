@@ -9,7 +9,6 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then((registration) => {
-                console.info('[PWA] SW registrado con éxito:', registration.scope);
 
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
@@ -55,7 +54,6 @@ function RealtimeNotificationsBridge({ auth }) {
         const attachedChannels = [];
         const handleNotification = (notification) => {
             window.dispatchEvent(new CustomEvent('app-notification', { detail: notification }));
-            console.log('Notificacion en tiempo real:', notification);
         };
 
         channelNames.forEach((channelName) => {
