@@ -50,8 +50,6 @@ class ConfiguracionController extends Controller
         $sucursal = $this->resolverSucursalConfiguracion($usuario, $sucursalSolicitada);
 
         $configuracion = $sucursal ? $this->obtenerOCrearConfiguracion($sucursal, $usuario) : null;
-        $categoriasOverrides = (array) ($configuracion?->categorias_config_json ?? []);
-        $productosOverrides = (array) ($configuracion?->productos_config_json ?? []);
 
         $categorias = CategoriaDistribuidora::query()
             ->orderByDesc('activo')
@@ -63,25 +61,6 @@ class ConfiguracionController extends Controller
                 'porcentaje_comision',
                 'activo',
             ])
-            ->map(function (CategoriaDistribuidora $categoria) use ($categoriasOverrides) {
-                $override = $categoriasOverrides[(string) $categoria->id] ?? null;
-
-                if (is_array($override)) {
-                    if (array_key_exists('nombre', $override)) {
-                        $categoria->nombre = (string) $override['nombre'];
-                    }
-
-                    if (array_key_exists('porcentaje_comision', $override)) {
-                        $categoria->porcentaje_comision = (float) $override['porcentaje_comision'];
-                    }
-
-                    if (array_key_exists('activo', $override)) {
-                        $categoria->activo = (bool) $override['activo'];
-                    }
-                }
-
-                return $categoria;
-            })
             ->values();
 
         $productos = ProductoFinanciero::query()
@@ -99,37 +78,6 @@ class ConfiguracionController extends Controller
                 'activo',
                 'deleted_at',
             ])
-            ->map(function (ProductoFinanciero $producto) use ($productosOverrides) {
-                $override = $productosOverrides[(string) $producto->id] ?? null;
-
-                if (is_array($override)) {
-                    if (array_key_exists('monto_principal', $override)) {
-                        $producto->setAttribute('monto_principal', $override['monto_principal']);
-                    }
-
-                    if (array_key_exists('monto_seguro', $override)) {
-                        $producto->setAttribute('monto_seguro', $override['monto_seguro']);
-                    }
-
-                    if (array_key_exists('porcentaje_comision_empresa', $override)) {
-                        $producto->porcentaje_comision_empresa = (float) $override['porcentaje_comision_empresa'];
-                    }
-
-                    if (array_key_exists('porcentaje_interes_quincenal', $override)) {
-                        $producto->porcentaje_interes_quincenal = (float) $override['porcentaje_interes_quincenal'];
-                    }
-
-                    if (array_key_exists('numero_quincenas', $override)) {
-                        $producto->numero_quincenas = (int) $override['numero_quincenas'];
-                    }
-
-                    if (array_key_exists('activo', $override)) {
-                        $producto->activo = (bool) $override['activo'];
-                    }
-                }
-
-                return $producto;
-            })
             ->values();
 
         $historialCambios = collect();
@@ -293,21 +241,17 @@ class ConfiguracionController extends Controller
             'porcentaje_comision' => (float) $data['porcentaje_comision'],
         ];
 
-        DB::transaction(function () use ($sucursalesObjetivo, $usuario, $categoria, $despues) {
+        $antes = [
+            'nombre' => (string) $categoria->nombre,
+            'porcentaje_comision' => (float) $categoria->porcentaje_comision,
+        ];
+
+        DB::transaction(function () use ($sucursalesObjetivo, $usuario, $categoria, $antes, $despues) {
+            $categoria->update($despues);
+
             foreach ($sucursalesObjetivo as $sucursal) {
                 $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $usuario);
-                $categoriasConfig = (array) ($configuracion->categorias_config_json ?? []);
-                $overrideActual = (array) ($categoriasConfig[(string) $categoria->id] ?? []);
-
-                $antes = [
-                    'nombre' => (string) ($overrideActual['nombre'] ?? $categoria->nombre),
-                    'porcentaje_comision' => (float) ($overrideActual['porcentaje_comision'] ?? $categoria->porcentaje_comision),
-                ];
-
-                $categoriasConfig[(string) $categoria->id] = array_merge($overrideActual, $despues);
-
                 $configuracion->update([
-                    'categorias_config_json' => $categoriasConfig,
                     'actualizado_por_usuario_id' => $usuario->id,
                     'actualizado_en' => now(),
                 ]);
@@ -324,7 +268,7 @@ class ConfiguracionController extends Controller
             }
         });
 
-        return back()->with('success', 'Categoría actualizada para todas las sucursales activas.');
+        return back()->with('success', 'Categoría actualizada en el catálogo global.');
     }
 
     public function crearCategoria(CrearCategoriaConfiguracionRequest $request): RedirectResponse
@@ -698,24 +642,20 @@ class ConfiguracionController extends Controller
             return back()->withErrors($validacionNuevos);
         }
 
-        DB::transaction(function () use ($sucursalesObjetivo, $usuario, $producto, $despues) {
+        $antes = [
+            'monto_principal' => (float) $producto->monto_principal,
+            'monto_seguro' => (float) $producto->monto_seguro,
+            'porcentaje_comision_empresa' => (float) $producto->porcentaje_comision_empresa,
+            'porcentaje_interes_quincenal' => (float) $producto->porcentaje_interes_quincenal,
+            'numero_quincenas' => (int) $producto->numero_quincenas,
+        ];
+
+        DB::transaction(function () use ($sucursalesObjetivo, $usuario, $producto, $antes, $despues) {
+            $producto->update($despues);
+
             foreach ($sucursalesObjetivo as $sucursal) {
                 $configuracion = $this->obtenerOCrearConfiguracion($sucursal, $usuario);
-                $productosConfig = (array) ($configuracion->productos_config_json ?? []);
-                $overrideActual = (array) ($productosConfig[(string) $producto->id] ?? []);
-
-                $antes = [
-                    'monto_principal' => (float) ($overrideActual['monto_principal'] ?? $producto->monto_principal),
-                    'monto_seguro' => (float) ($overrideActual['monto_seguro'] ?? $producto->monto_seguro),
-                    'porcentaje_comision_empresa' => (float) ($overrideActual['porcentaje_comision_empresa'] ?? $producto->porcentaje_comision_empresa),
-                    'porcentaje_interes_quincenal' => (float) ($overrideActual['porcentaje_interes_quincenal'] ?? $producto->porcentaje_interes_quincenal),
-                    'numero_quincenas' => (int) ($overrideActual['numero_quincenas'] ?? $producto->numero_quincenas),
-                ];
-
-                $productosConfig[(string) $producto->id] = array_merge($overrideActual, $despues);
-
                 $configuracion->update([
-                    'productos_config_json' => $productosConfig,
                     'actualizado_por_usuario_id' => $usuario->id,
                     'actualizado_en' => now(),
                 ]);
@@ -734,7 +674,7 @@ class ConfiguracionController extends Controller
             }
         });
 
-        return back()->with('success', 'Parámetros del producto actualizados para todas las sucursales activas.');
+        return back()->with('success', 'Parámetros del producto actualizados en el catálogo global.');
     }
 
     public function activarProducto(Request $request, ProductoFinanciero $producto): RedirectResponse
