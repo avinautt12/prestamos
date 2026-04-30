@@ -123,6 +123,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                 porcentaje_comision_empresa: normalizarNumeroInput(producto.porcentaje_comision_empresa, '0'),
                 porcentaje_interes_quincenal: normalizarNumeroInput(producto.porcentaje_interes_quincenal, '0'),
                 numero_quincenas: normalizarNumeroInput(producto.numero_quincenas, '12'),
+                monto_multa_tardia: normalizarNumeroInput(producto.monto_multa_tardia, '0'),
             };
         });
         return map;
@@ -167,6 +168,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         porcentaje_comision_empresa: '',
         monto_seguro: '',
         porcentaje_interes_quincenal: '',
+        monto_multa_tardia: '',
         sucursal_id: sucursalSeleccionadaId ?? sucursal?.id ?? '',
     });
 
@@ -560,6 +562,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                 porcentaje_comision_empresa: productoValues[productoId]?.porcentaje_comision_empresa,
                 porcentaje_interes_quincenal: productoValues[productoId]?.porcentaje_interes_quincenal,
                 numero_quincenas: productoValues[productoId]?.numero_quincenas,
+                monto_multa_tardia: productoValues[productoId]?.monto_multa_tardia,
                 sucursal_id: sucursalActivaId || undefined,
             },
             {

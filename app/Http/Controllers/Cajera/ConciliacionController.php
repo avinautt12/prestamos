@@ -1319,8 +1319,7 @@ class ConciliacionController extends Controller
 
     private function authUserPk(): ?int
     {
-        $id = Auth::id();
-        return is_numeric($id) ? (int) $id : null;
+        return auth()->user()?->id;
     }
 
     private function isUniqueConciliacionException(QueryException $e): bool

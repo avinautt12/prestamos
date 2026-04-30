@@ -467,6 +467,12 @@ class DashboardController extends Controller
                 $fechaTransferencia = now();
                 $referenciaTransferencia = 'INT-' . $numeroVale . '-' . $fechaTransferencia->format('YmdHis');
 
+                $fechaEmision = now();
+                $quincenasTotales = (int) $montos['quincenas_totales'];
+                $fechaLimitePago = $fechaEmision->copy()->addDays($quincenasTotales * 15);
+                $fechaInicioAnticipado = $fechaEmision->copy()->addDays(max(0, ($quincenasTotales - 2) * 15));
+                $fechaFinAnticipado = $fechaLimitePago->copy();
+
                 $clienteId = $cliente->id;
                 $vale = Vale::create([
                     'numero_vale'                      => $numeroVale,
@@ -488,11 +494,14 @@ class DashboardController extends Controller
                     'monto_multa_snap'                 => (float) $producto->monto_multa_tardia,
                     'monto_total_deuda'                => $montos['total_deuda'],
                     'monto_quincenal'                  => $montos['monto_quincenal'],
-                    'quincenas_totales'                => $montos['quincenas_totales'],
+                    'quincenas_totales'                => $quincenasTotales,
                     'pagos_realizados'                 => 0,
                     'saldo_actual'                     => $montos['total_deuda'],
-                    'fecha_emision'                    => now(),
+                    'fecha_emision'                    => $fechaEmision,
                     'fecha_transferencia'              => $requierePrevale ? null : $fechaTransferencia,
+                    'fecha_limite_pago'                => $fechaLimitePago->toDateString(),
+                    'fecha_inicio_pago_anticipado'     => $fechaInicioAnticipado->toDateString(),
+                    'fecha_fin_pago_anticipado'        => $fechaFinAnticipado->toDateString(),
                     'referencia_transferencia'         => $requierePrevale ? null : $referenciaTransferencia,
                 ]);
 

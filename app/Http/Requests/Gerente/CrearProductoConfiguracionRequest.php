@@ -23,6 +23,7 @@ class CrearProductoConfiguracionRequest extends FormRequest
             'porcentaje_comision_empresa' => ['required', 'numeric', 'min:0', 'max:100'],
             'monto_seguro' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
             'porcentaje_interes_quincenal' => ['required', 'numeric', 'min:0', 'max:100'],
+            'monto_multa_tardia' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
         ];
     }
 }

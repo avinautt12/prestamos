@@ -10,7 +10,13 @@ const ESTADOS_PAGABLES = ['ACTIVO', 'PAGO_PARCIAL', 'PAGADO', 'MOROSO'];
 function ValeDetailModal({ vale, open, onClose }) {
     const [cancelando, setCancelando] = useState(false);
     const [tipoPago, setTipoPago] = useState('COMPLETO');
-    const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+    const today = useMemo(() => {
+        const d = new Date();
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }, []);
 
     const estaEnEstadoPagable = Boolean(vale) && ESTADOS_PAGABLES.includes(vale?.estado);
     const puedePagar = Boolean(vale?.puede_registrar_pago);
@@ -67,7 +73,15 @@ function ValeDetailModal({ vale, open, onClose }) {
         if (!window.confirm(msg)) return;
         pagoForm.post(route('distribuidora.vales.pagos.store', vale.id), {
             preserveScroll: true,
-            onSuccess: () => setTipoPago('COMPLETO'),
+            onSuccess: () => {
+                setTipoPago('COMPLETO');
+                pagoForm.reset('monto', 'notas');
+                router.reload({ only: ['vales', 'valeSeleccionado', 'resumenEstados'], preserveScroll: true });
+            },
+            onError: (errors) => {
+                const mensaje = errors?.general || errors?.monto || errors?.fecha_pago || Object.values(errors || {})[0] || 'No se pudo registrar el pago. Intenta de nuevo.';
+                window.alert(mensaje);
+            },
         });
     };
 

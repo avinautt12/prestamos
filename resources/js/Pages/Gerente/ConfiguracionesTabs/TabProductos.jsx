@@ -163,7 +163,7 @@ export default function TabProductos({
                             />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Apertura (%)</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Comisión (%)</label>
                             <input
                                 type="number"
                                 className="block w-full rounded-md border-slate-200 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
@@ -187,6 +187,18 @@ export default function TabProductos({
                                 className="block w-full rounded-md border-slate-200 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
                                 value={nuevoProductoForm.data.porcentaje_interes_quincenal}
                                 onChange={(e) => nuevoProductoForm.setData('porcentaje_interes_quincenal', e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Multa por atraso ($)</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="block w-full rounded-md border-slate-200 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                                placeholder="Ej: 300"
+                                value={nuevoProductoForm.data.monto_multa_tardia}
+                                onChange={(e) => nuevoProductoForm.setData('monto_multa_tardia', e.target.value)}
                             />
                         </div>
                         <div className="md:col-span-3 flex justify-end">
@@ -279,7 +291,7 @@ export default function TabProductos({
                                                     <input type="number" className="block w-full border-slate-200 rounded-md sm:text-sm py-1.5" value={values.monto_principal ?? ''} onChange={e => setProductoValues(prev => ({...prev, [producto.id]: {...(prev[producto.id]||{}), monto_principal: e.target.value}}))} />
                                                 </div>
                                                 <div>
-                                                    <label className="text-[11px] font-bold text-slate-400 uppercase mb-1 block">Apertura (%)</label>
+                                                    <label className="text-[11px] font-bold text-slate-400 uppercase mb-1 block">Comisión (%)</label>
                                                     <input type="number" className="block w-full border-slate-200 rounded-md sm:text-sm py-1.5" value={values.porcentaje_comision_empresa ?? ''} onChange={e => setProductoValues(prev => ({...prev, [producto.id]: {...(prev[producto.id]||{}), porcentaje_comision_empresa: e.target.value}}))} />
                                                 </div>
                                                 <div>
@@ -289,6 +301,10 @@ export default function TabProductos({
                                                 <div>
                                                     <label className="text-[11px] font-bold text-slate-400 uppercase mb-1 block">Interés (%)</label>
                                                     <input type="number" className="block w-full border-slate-200 rounded-md sm:text-sm py-1.5" value={values.porcentaje_interes_quincenal ?? ''} onChange={e => setProductoValues(prev => ({...prev, [producto.id]: {...(prev[producto.id]||{}), porcentaje_interes_quincenal: e.target.value}}))} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[11px] font-bold text-slate-400 uppercase mb-1 block">Multa atraso ($)</label>
+                                                    <input type="number" step="0.01" min="0" className="block w-full border-slate-200 rounded-md sm:text-sm py-1.5" value={values.monto_multa_tardia ?? String(producto.monto_multa_tardia ?? '0')} onChange={e => setProductoValues(prev => ({...prev, [producto.id]: {...(prev[producto.id]||{}), monto_multa_tardia: e.target.value}}))} />
                                                 </div>
                                             </div>
                                             <div className="flex items-center justify-between pt-2">

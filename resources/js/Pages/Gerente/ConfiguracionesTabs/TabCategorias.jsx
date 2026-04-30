@@ -180,21 +180,27 @@ export default function TabCategorias({
                                                     </td>
                                                     <td className="px-4 py-3 text-right">
                                                         <div className="flex justify-end gap-1.5">
-                                                            <button 
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => guardarCategoria(categoria.id)}
                                                                 className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                                                 title={soloLectura ? "Bloqueado por VPN" : "Guardar cambios"}
                                                                 disabled={Boolean(accionesCategoria[categoria.id]) || soloLectura}
                                                             >
                                                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                                             </button>
-                                                            <button 
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => inactivarCategoria(categoria.id)}
                                                                 className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                                                 title={soloLectura ? "Bloqueado por VPN" : "Inactivar nivel"}
                                                                 disabled={Boolean(accionesCategoria[categoria.id]) || soloLectura}
                                                             >
                                                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                                                             </button>
-                                                            <button 
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => eliminarCategoria(categoria.id)}
                                                                 className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                                                 title={soloLectura ? "Bloqueado por VPN" : "Eliminar permanentemente"}
                                                                 disabled={Boolean(accionesCategoria[categoria.id]) || soloLectura}

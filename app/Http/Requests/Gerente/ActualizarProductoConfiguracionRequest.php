@@ -22,6 +22,7 @@ class ActualizarProductoConfiguracionRequest extends FormRequest
             'porcentaje_comision_empresa' => ['required', 'numeric', 'min:0', 'max:100'],
             'porcentaje_interes_quincenal' => ['required', 'numeric', 'min:0', 'max:100'],
             'numero_quincenas' => ['required', 'integer', 'between:1,72'],
+            'monto_multa_tardia' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
         ];
     }
 }

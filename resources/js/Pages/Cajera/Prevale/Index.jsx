@@ -74,7 +74,7 @@ export default function IndexPrevale({ vales }) {
                                                             </span>
                                                             <span className="flex items-center gap-1">
                                                                 <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                                                                Monto: <span className="font-bold text-green-600">${vale.monto_principal}</span>
+                                                                Monto: <span className="font-bold text-green-600">${Number(vale.producto_financiero?.monto_principal ?? vale.monto ?? 0).toFixed(2)}</span>
                                                             </span>
                                                         </div>
                                                     </div>

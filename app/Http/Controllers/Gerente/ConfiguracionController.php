@@ -77,6 +77,7 @@ class ConfiguracionController extends Controller
                 'numero_quincenas',
                 'porcentaje_comision_empresa',
                 'porcentaje_interes_quincenal',
+                'monto_multa_tardia',
                 'activo',
                 'deleted_at',
             ])
@@ -420,6 +421,7 @@ class ConfiguracionController extends Controller
             'porcentaje_comision_empresa' => (float) $data['porcentaje_comision_empresa'],
             'monto_seguro' => (float) $data['monto_seguro'],
             'porcentaje_interes_quincenal' => (float) $data['porcentaje_interes_quincenal'],
+            'monto_multa_tardia' => (float) $data['monto_multa_tardia'],
             'activo' => true,
             'creado_en' => now(),
             'actualizado_en' => now(),
@@ -671,6 +673,7 @@ class ConfiguracionController extends Controller
             'porcentaje_comision_empresa' => (float) $data['porcentaje_comision_empresa'],
             'porcentaje_interes_quincenal' => (float) $data['porcentaje_interes_quincenal'],
             'numero_quincenas' => (int) $data['numero_quincenas'],
+            'monto_multa_tardia' => (float) $data['monto_multa_tardia'],
         ];
 
         $productoValidacion = clone $producto;
@@ -688,6 +691,7 @@ class ConfiguracionController extends Controller
             'porcentaje_comision_empresa' => (float) $producto->porcentaje_comision_empresa,
             'porcentaje_interes_quincenal' => (float) $producto->porcentaje_interes_quincenal,
             'numero_quincenas' => (int) $producto->numero_quincenas,
+            'monto_multa_tardia' => (float) $producto->monto_multa_tardia,
         ];
 
         DB::transaction(function () use ($sucursalesObjetivo, $usuario, $producto, $antes, $despues) {
