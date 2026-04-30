@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\ActivacionDistribuidoraMail;
+use App\Models\BitacoraAuditoria;
 use App\Models\Persona;
 use App\Models\Rol;
 use App\Models\Sucursal;
@@ -90,6 +91,9 @@ class UsuarioController extends Controller
             'filtros' => $filtros,
             'roles' => Rol::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
             'sucursales' => Sucursal::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            'securityPolicy' => [
+                'requires_vpn' => (bool) config('security.admin.require_vpn', false),
+            ],
         ]);
     }
 
@@ -137,6 +141,18 @@ class UsuarioController extends Controller
                 'revocado_en' => null,
                 'es_principal' => true,
             ]);
+
+            BitacoraAuditoria::registrar([
+                'tipo_evento' => BitacoraAuditoria::TIPO_CREAR,
+                'nivel' => BitacoraAuditoria::NIVEL_INFO,
+                'modulo' => BitacoraAuditoria::MODULO_USUARIOS,
+                'descripcion' => "Creado nuevo usuario '{$data['nombre_usuario']}' con rol '{$rol->codigo}'.",
+                'datos_extra' => [
+                    'usuario_id' => $usuario->id,
+                    'rol' => $rol->codigo,
+                    'sucursal_id' => $data['sucursal_id'] ?? null,
+                ],
+            ]);
         });
 
         if ($rol->codigo !== 'DISTRIBUIDORA' && !empty($data['correo_electronico'])) {
@@ -176,7 +192,6 @@ class UsuarioController extends Controller
                     'revocado_en' => now(),
                     'es_principal' => false,
                 ]);
-
             DB::table('usuario_rol')->insert([
                 'usuario_id' => $usuario->id,
                 'rol_id' => $rol->id,
@@ -184,6 +199,18 @@ class UsuarioController extends Controller
                 'asignado_en' => now(),
                 'revocado_en' => null,
                 'es_principal' => true,
+            ]);
+
+            BitacoraAuditoria::registrar([
+                'tipo_evento' => BitacoraAuditoria::TIPO_ACTUALIZAR,
+                'nivel' => BitacoraAuditoria::NIVEL_WARNING,
+                'modulo' => BitacoraAuditoria::MODULO_USUARIOS,
+                'descripcion' => "Cambio de rol para usuario '{$usuario->nombre_usuario}' a '{$rol->codigo}'.",
+                'datos_extra' => [
+                    'usuario_id' => $usuario->id,
+                    'nuevo_rol' => $rol->codigo,
+                    'sucursal_id' => $data['sucursal_id'] ?? null,
+                ],
             ]);
         });
 
@@ -199,6 +226,14 @@ class UsuarioController extends Controller
         $usuario->update([
             'activo' => (bool) $data['activo'],
             'actualizado_en' => now(),
+        ]);
+
+        BitacoraAuditoria::registrar([
+            'tipo_evento' => BitacoraAuditoria::TIPO_ACTUALIZAR,
+            'nivel' => (bool) $data['activo'] ? BitacoraAuditoria::NIVEL_INFO : BitacoraAuditoria::NIVEL_WARNING,
+            'modulo' => BitacoraAuditoria::MODULO_USUARIOS,
+            'descripcion' => "Usuario '{$usuario->nombre_usuario}' marcado como " . ((bool) $data['activo'] ? 'ACTIVO' : 'INACTIVO') . ".",
+            'datos_extra' => ['usuario_id' => $usuario->id, 'activo' => $data['activo']],
         ]);
 
         return back()->with('success', 'Estado de usuario actualizado.');

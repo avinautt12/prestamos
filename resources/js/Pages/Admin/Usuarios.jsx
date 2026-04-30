@@ -2,8 +2,9 @@ import React from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 
-export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles = [], sucursales = [] }) {
+export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles = [], sucursales = [], securityPolicy = {} }) {
     const { flash = {}, errors = {} } = usePage().props;
+    const requiresVpn = securityPolicy?.requires_vpn ?? false;
 
     const form = useForm({
         nombre_usuario: '',
@@ -155,19 +156,36 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
                 </div>
             )}
 
+            {requiresVpn && (
+                <div className="p-4 mb-4 rounded-xl bg-red-50 border border-red-100 flex items-start gap-3 animate-fin-fade-in">
+                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0 text-red-600">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-bold text-red-800">Capa de seguridad administrativa activa</h4>
+                        <p className="text-xs text-red-600 mt-0.5">
+                            La creación de usuarios y cambios de roles/estado requieren conexión a la VPN WireGuard.
+                            Los botones de acción han sido deshabilitados preventivamente.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <form onSubmit={crearUsuario} className="p-5 mb-5 space-y-4 border shadow-sm bg-white/95 border-slate-200 rounded-2xl">
                 <div className="pb-4 border-b border-slate-200">
                     <h2 className="text-lg font-semibold text-slate-900">Crear usuario</h2>
                     <p className="mt-1 text-sm text-slate-500">Alta rápida con credenciales sugeridas automáticamente.</p>
                 </div>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                    <Input label="Nombre" value={form.data.primer_nombre} onChange={(v) => form.setData('primer_nombre', v)} />
-                    <Input label="Apellido" value={form.data.apellido_paterno} onChange={(v) => form.setData('apellido_paterno', v)} />
-                    <Input label="Correo" type="email" value={form.data.correo_electronico} onChange={(v) => form.setData('correo_electronico', v)} />
+                    <Input label="Nombre" value={form.data.primer_nombre} onChange={(v) => form.setData('primer_nombre', v)} disabled={requiresVpn} />
+                    <Input label="Apellido" value={form.data.apellido_paterno} onChange={(v) => form.setData('apellido_paterno', v)} disabled={requiresVpn} />
+                    <Input label="Correo" type="email" value={form.data.correo_electronico} onChange={(v) => form.setData('correo_electronico', v)} disabled={requiresVpn} />
 
                     <div>
                         <label className="block mb-1 text-sm text-slate-700">Rol</label>
-                        <select className="w-full border rounded-lg border-slate-300" value={form.data.rol_id} onChange={(e) => form.setData('rol_id', e.target.value)}>
+                        <select className="w-full border rounded-lg border-slate-300 disabled:bg-slate-50 disabled:text-slate-400" value={form.data.rol_id} onChange={(e) => form.setData('rol_id', e.target.value)} disabled={requiresVpn}>
                             <option value="">Selecciona un rol</option>
                             {roles.map((rol) => (
                                 <option key={rol.id} value={rol.id}>{rol.nombre}</option>
@@ -199,19 +217,21 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
                         label="Nombre de Usuario"
                         value={form.data.nombre_usuario}
                         onChange={(v) => form.setData('nombre_usuario', v)}
+                        disabled={requiresVpn}
                     />
                     <Input
                         label="Contraseña Temporal"
                         type="password"
                         value={form.data.password}
                         onChange={(v) => form.setData('password', v)}
+                        disabled={requiresVpn}
                     />
                 </div>
 
                 <div className="flex items-center justify-between pt-2">
                     <p className="text-xs text-slate-500">Nota: Admin no requiere sucursal fija.</p>
-                    <button type="submit" className="fin-btn-primary" disabled={form.processing}>
-                        {form.processing ? 'Guardando...' : 'Crear usuario'}
+                    <button type="submit" className="fin-btn-primary disabled:opacity-50 disabled:cursor-not-allowed" disabled={form.processing || requiresVpn}>
+                        {form.processing ? 'Guardando...' : requiresVpn ? 'Bloqueado por VPN' : 'Crear usuario'}
                     </button>
                 </div>
             </form>
@@ -313,14 +333,15 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
                                     </td>
                                     <td className="px-3 py-2">
                                         <div className="flex flex-wrap gap-1">
-                                            <button type="button" className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200" onClick={() => cambiarEstado(usuario.id, usuario.activo)}>
+                                            <button type="button" className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed" onClick={() => cambiarEstado(usuario.id, usuario.activo)} disabled={requiresVpn}>
                                                 {usuario.activo ? 'Desactivar' : 'Activar'}
                                             </button>
                                             {rolActual?.codigo === 'DISTRIBUIDORA' && (
                                                 <button
                                                     type="button"
-                                                    className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                                                    className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
                                                     onClick={() => reenviarActivacion(usuario.id)}
+                                                    disabled={requiresVpn}
                                                 >
                                                     {estadoActivacion === 'EXPIRADA' ? 'Regen.' : 'Reenviar'}
                                                 </button>
@@ -360,8 +381,9 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
                                             ) : (
                                                 <button
                                                     type="button"
-                                                    className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                                                    className="px-2 py-1 text-xs border rounded bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
                                                     onClick={() => iniciarCambioRol(usuario.id, rolActual?.id, usuario.sucursal_actual_id)}
+                                                    disabled={requiresVpn}
                                                 >
                                                     Rol
                                                 </button>
@@ -412,16 +434,17 @@ export default function Usuarios({ usuarios = { data: [] }, filtros = {}, roles 
     );
 }
 
-function Input({ label, value, onChange, type = 'text', readOnly = false }) {
+function Input({ label, value, onChange, type = 'text', readOnly = false, ...props }) {
     return (
         <div>
             <label className="block mb-1 text-sm text-slate-700">{label}</label>
             <input
                 type={type}
-                className={`w-full border rounded-lg border-slate-300 ${readOnly ? 'bg-slate-100 text-slate-700' : ''}`}
+                className={`w-full border rounded-lg border-slate-300 ${readOnly ? 'bg-slate-100 text-slate-700' : ''} disabled:bg-slate-50 disabled:text-slate-500`}
                 value={value}
                 readOnly={readOnly}
                 onChange={(e) => onChange(e.target.value)}
+                {...props}
             />
         </div>
     );

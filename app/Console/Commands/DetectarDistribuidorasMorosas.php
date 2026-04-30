@@ -65,7 +65,10 @@ class DetectarDistribuidorasMorosas extends Command
                         // 3. Penalizar puntos (Ej. 20% según Reglas de Negocio)
                         $puntosActuales = (float) $distribuidora->puntos_actuales;
                         if ($puntosActuales > 0) {
-                            $calculoPenalizacion = $reglas->calcularPenalizacionAtraso($puntosActuales, 20); // Regla PDF: 20%
+                            $configPuntos = \App\Models\PuntosConf::actual();
+                            $porcentajeCastigo = (float) $configPuntos->castigo_pct_atraso;
+                            
+                            $calculoPenalizacion = $reglas->calcularPenalizacionAtraso($puntosActuales, $porcentajeCastigo);
                             $perdidos = $calculoPenalizacion['puntos_perdidos'];
                             
                             if ($perdidos > 0) {

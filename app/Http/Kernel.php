@@ -70,6 +70,7 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'role' => \App\Http\Middleware\RoleMiddleware::class,
         'gerente.secure-action' => \App\Http\Middleware\EnsureGerenteSecureAction::class,
+        'admin.secure-action' => \App\Http\Middleware\EnsureAdminSecureAction::class,
 
     ];
 }

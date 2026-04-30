@@ -219,6 +219,7 @@ class CorteService
                 $fechaInicioAnticipado,
                 $fechaFinAnticipado,
                 $relacionAnterior,
+                $config,
                 &$consecutivo,
                 &$relacionesCreadas
             ) {
@@ -226,6 +227,7 @@ class CorteService
                 $totalPago = 0.0;
                 $totalRecargos = 0.0;
                 $totalArrastreRecibido = 0.0;
+                $montoOtorgado = 0.0; // Suma de principales de vales nuevos en este corte
 
                 $partidasData = [];
                 foreach ($vales as $vale) {
@@ -253,7 +255,8 @@ class CorteService
                         $montoPagadoPrevio = (float) ($partidaOrigen?->monto_pagado_previo ?? 0);
                         $saldoPendiente = max(0.0, round($pagoQuincenal - $montoPagadoPrevio, 2));
                         $qAcumAnterior = (int) ($partidaOrigen?->quincenas_atrasadas_acumuladas ?? 0);
-                        $recargoAcumulado = round(($qAcumAnterior + 1) * self::RECARGO_POR_ATRASO, 2);
+                        $montoMulta = (float) ($config?->multa_incumplimiento_monto ?? self::RECARGO_POR_ATRASO);
+                        $recargoAcumulado = round(($qAcumAnterior + 1) * $montoMulta, 2);
                         $totalLinea = round($saldoPendiente + $recargoAcumulado, 2);
 
                         $partidasData[] = [
@@ -305,6 +308,10 @@ class CorteService
 
                         $totalComision += $comisionPorQuincena;
                         $totalPago += $pagoQuincenal;
+
+                        if ($numQ === 1) {
+                            $montoOtorgado += (float) $vale->monto_principal;
+                        }
                     }
                 }
 
@@ -347,9 +354,16 @@ class CorteService
                     $this->cerrarRelacionAnteriorPorArrastre($relacionAnterior);
                 }
 
-                $puntosGanados = app(\App\Services\ServicioReglasNegocio::class)
-                    ->calcularPuntos($totalAPagar, 1200, 3)['puntos_totales'];
+                $factorBase = (int) ($config?->factor_divisor_puntos ?? 1200);
+                $multiplicador = (int) ($config?->multiplicador_puntos ?? 3);
+                $valorPunto = (float) ($config?->valor_punto_mxn ?? 2.00);
+                $castigoPct = (float) ($config?->castigo_pct_atraso ?? 20.0);
 
+                // Los puntos se ganan por el monto total otorgado (principal de nuevos vales)
+                $puntosGanados = app(\App\Services\ServicioReglasNegocio::class)
+                    ->calcularPuntos($montoOtorgado, $factorBase, $multiplicador)['puntos_totales'];
+
+                // 1. Ganar puntos por el total a pagar del corte
                 if ($puntosGanados > 0) {
                     $distribuidora->increment('puntos_actuales', $puntosGanados);
                     \App\Models\MovimientoPunto::create([
@@ -357,12 +371,33 @@ class CorteService
                         'corte_id' => $corte->id,
                         'tipo_movimiento' => \App\Models\MovimientoPunto::TIPO_GANADO_PUNTUAL,
                         'puntos' => $puntosGanados,
-                        'valor_punto_snapshot' => 2.00,
+                        'valor_punto_snapshot' => $valorPunto,
                         'motivo' => "Puntos generados por Relación {$relacion->numero_relacion}",
                     ]);
                 }
 
-                DB::afterCommit(function () use ($corte, $distribuidora, $relacion, $puntosGanados) {
+                // 2. Penalizar (Merma de Puntos) si hubo morosidad (recargos)
+                $puntosPerdidos = 0;
+                if ($totalRecargos > 0 && $distribuidora->puntos_actuales > 0 && $castigoPct > 0) {
+                    $puntosActuales = $distribuidora->fresh()->puntos_actuales;
+                    $penalizacion = app(\App\Services\ServicioReglasNegocio::class)
+                        ->calcularPenalizacionAtraso($puntosActuales, $castigoPct);
+                    
+                    if ($penalizacion['puntos_perdidos'] > 0) {
+                        $puntosPerdidos = $penalizacion['puntos_perdidos'];
+                        $distribuidora->decrement('puntos_actuales', $puntosPerdidos);
+                        \App\Models\MovimientoPunto::create([
+                            'distribuidora_id' => $distribuidora->id,
+                            'corte_id' => $corte->id,
+                            'tipo_movimiento' => \App\Models\MovimientoPunto::TIPO_PENALIZACION_ATRASO,
+                            'puntos' => -$puntosPerdidos,
+                            'valor_punto_snapshot' => $valorPunto,
+                            'motivo' => "Castigo por mora ({$castigoPct}%) en Relación {$relacion->numero_relacion}",
+                        ]);
+                    }
+                }
+
+                DB::afterCommit(function () use ($corte, $distribuidora, $relacion, $puntosGanados, $puntosPerdidos) {
                     if ($corte->tipo_corte === Corte::TIPO_PUNTOS) {
                         $this->distribuidoraNotificationService->notificar(
                             $distribuidora,
@@ -379,6 +414,9 @@ class CorteService
                     }
 
                     $pmsj = $puntosGanados > 0 ? " Ademas, has acumulado {$puntosGanados} puntos." : '';
+                    if ($puntosPerdidos > 0) {
+                        $pmsj .= " Has perdido {$puntosPerdidos} puntos por penalización de mora.";
+                    }
                     $this->distribuidoraNotificationService->notificar(
                         $distribuidora,
                         'CORTE_LISTO',

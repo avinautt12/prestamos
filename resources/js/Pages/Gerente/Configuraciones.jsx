@@ -13,6 +13,9 @@ const FIELD_LABELS = {
     factor_divisor_puntos: 'Factor divisor puntos',
     multiplicador_puntos: 'Multiplicador puntos',
     valor_punto_mxn: 'Valor del punto (MXN)',
+    castigo_pct_atraso: 'Penalización mora (%)',
+    multa_incumplimiento_monto: 'Multa mora ($)',
+    porcentaje_comision_apertura: 'Comisión apertura (%)',
     monto_principal: 'Monto a prestar',
     monto_seguro: 'Seguro ($)',
     porcentaje_comision: 'Comisión (%)',
@@ -80,7 +83,9 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         soloLecturaProductos = false,
         routePrefix = 'gerente',
         sucursalSeleccionadaId = null,
+        securityPolicy = {},
     } = usePage().props;
+    const requiresVpn = securityPolicy?.requires_vpn ?? false;
     const CATEGORIAS_POR_PAGINA = 6;
     const HISTORIAL_POR_PAGINA = 8;
 
@@ -91,6 +96,10 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         factor_divisor_puntos: configuracionSucursal?.factor_divisor_puntos ?? 1200,
         multiplicador_puntos: configuracionSucursal?.multiplicador_puntos ?? 3,
         valor_punto_mxn: configuracionSucursal?.valor_punto_mxn ?? 2,
+        castigo_pct_atraso: configuracionSucursal?.castigo_pct_atraso ?? 20,
+        multa_incumplimiento_monto: configuracionSucursal?.multa_incumplimiento_monto ?? 300,
+        porcentaje_comision_apertura: configuracionSucursal?.porcentaje_comision_apertura ?? 10,
+        porcentaje_interes_quincenal: configuracionSucursal?.porcentaje_interes_quincenal ?? 5,
         sucursal_id: sucursalSeleccionadaId ?? sucursal?.id ?? '',
     });
 
@@ -636,64 +645,62 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
         <AdminLayout title="Configuraciones Variables">
             <Head title="Configuraciones Variables" />
 
-            <div className="mb-4 fin-card">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                        <h2 className="fin-title flex items-center gap-3">
-                            Parámetros variables del negocio
-                            {soloLecturaProductos && (
-                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                                    {productos.length} Productos
-                                </span>
-                            )}
-                        </h2>
-                        <p className="mt-1 fin-subtitle">
-                            {puedeEditar
+            <div className="mb-6 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                <div className="p-6">
+                    <h2 className="text-xl font-bold text-slate-900">Parámetros variables del negocio</h2>
+                    <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                        <p className="text-sm text-slate-500">
+                            {esAdmin 
                                 ? 'Como Admin, los cambios se aplican automáticamente en todas las sucursales activas.'
-                                : 'Consulta el catálogo de productos vigente para la operación comercial.'}
+                                : 'Ajustes operativos específicos para esta sucursal.'}
                         </p>
-                        {esAdmin ? (
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
-                                <span>
-                                    Ámbito: <span className="font-semibold text-gray-900">Global</span>
-                                </span>
-                                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                                    Aplica a todas las sucursales activas
-                                </span>
-                            </div>
-                        ) : (
-                            <p className="mt-2 text-sm text-gray-600">
-                                Sucursal activa: <span className="font-semibold">{sucursal?.nombre || 'Sin sucursal asignada'}</span>
-                            </p>
-                        )}
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                            Ámbito: {esAdmin ? 'Global' : 'Local'}
+                        </span>
                     </div>
-                </div>
 
-                {!soloLecturaProductos && (
-                    <div className="pt-4 mt-4 border-t border-gray-100">
-                        <div className="flex flex-wrap gap-2">
-                            {[
-                                { id: 'sucursal', label: 'Sucursal' },
-                                { id: 'categorias', label: `Categorías (${categorias.length})` },
-                                { id: 'productos', label: `Productos (${productos.length})` },
-                                { id: 'historial', label: `Historial (${historialCambios.length})` },
-                            ].map((tab) => (
+                    {esAdmin && requiresVpn && (
+                        <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-100 flex items-start gap-3 animate-fin-fade-in">
+                            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0 text-red-600">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-bold text-red-800">Capa de seguridad activa (WireGuard)</h4>
+                                <p className="text-xs text-red-600 mt-0.5">
+                                    Los cambios en parámetros globales, categorías y productos están protegidos. 
+                                    Para guardar cualquier modificación debes estar conectado a la VPN corporativa.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-6 flex flex-wrap gap-2">
+                        {[
+                            { id: 'sucursal', label: 'Sucursal', reqAdmin: true },
+                            { id: 'categorias', label: `Categorias (${categorias.length})`, reqAdmin: true },
+                            { id: 'productos', label: `Productos (${productos.length})`, reqAdmin: false },
+                            { id: 'historial', label: `Historial (${historialCambios.length})`, reqAdmin: true },
+                        ].filter(tab => !tab.reqAdmin || esAdmin).map((tab) => {
+                            const activo = tabActiva === tab.id;
+                            return (
                                 <button
                                     key={tab.id}
                                     type="button"
                                     onClick={() => setTabActiva(tab.id)}
-                                    className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                                        tabActiva === tab.id
-                                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${
+                                        activo
+                                            ? 'bg-[#1FA62D] text-white shadow-md'
+                                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
                                     }`}
                                 >
                                     {tab.label}
                                 </button>
-                            ))}
-                        </div>
+                            );
+                        })}
                     </div>
-                )}
+                </div>
             </div>
 
             {tabActiva === 'sucursal' && !soloLecturaProductos && (
@@ -703,6 +710,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                     guardandoSucursal={guardandoSucursal}
                     generalError={errors?.general}
                     esAdmin={esAdmin}
+                    soloLectura={requiresVpn}
                 />
             )}
 
@@ -732,6 +740,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                     setPaginaInactivas={setPaginaInactivas}
                     ordenCategorias={ordenCategorias}
                     alternarOrdenCategorias={(campo) => alternarOrden(setOrdenCategorias, campo)}
+                    soloLectura={requiresVpn}
                 />
             )}
 
@@ -766,7 +775,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                     accionesProducto={accionesProducto}
                     nuevoProductoForm={nuevoProductoForm}
                     crearProducto={crearProducto}
-                    soloLectura={soloLecturaProductos}
+                    soloLectura={soloLecturaProductos || requiresVpn}
                 />
             )}
 
