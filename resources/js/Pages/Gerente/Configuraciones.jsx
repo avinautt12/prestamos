@@ -482,6 +482,17 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
             {
                 preserveScroll: true,
                 onStart: () => marcarAccionCategoria(categoriaId, 'Guardando...'),
+                onSuccess: () => {
+                    setCategoriaValues(prev => {
+                        const next = { ...prev };
+                        delete next[categoriaId];
+                        return next;
+                    });
+                },
+                onError: (errors) => {
+                    const mensaje = errors?.security || errors?.general || errors?.porcentaje_comision || errors?.nombre || 'No se pudo guardar la categoría.';
+                    window.alert(mensaje);
+                },
                 onFinish: () => limpiarAccionCategoria(categoriaId),
             }
         );
@@ -554,6 +565,17 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
             {
                 preserveScroll: true,
                 onStart: () => marcarAccionProducto(productoId, 'Guardando...'),
+                onSuccess: () => {
+                    setProductoValues(prev => {
+                        const next = { ...prev };
+                        delete next[productoId];
+                        return next;
+                    });
+                },
+                onError: (errors) => {
+                    const mensaje = errors?.security || errors?.general || Object.values(errors || {})[0] || 'No se pudo guardar el producto.';
+                    window.alert(mensaje);
+                },
                 onFinish: () => limpiarAccionProducto(productoId),
             }
         );
