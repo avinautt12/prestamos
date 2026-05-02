@@ -288,7 +288,7 @@ class Usuario extends Authenticatable
             ->where('activo', true)
             ->whereHas('roles', function ($q) {
                 $q->where('codigo', 'ADMIN')
-                  ->wherePivotNull('revocado_en');
+                  ->whereNull('usuario_rol.revocado_en');
             })
             ->get();
     }

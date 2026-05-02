@@ -149,7 +149,7 @@ class PrevaleController extends Controller
                 [
                     'distribuidora_id' => $distribuidora->id,
                     'cliente_id' => $cliente->id,
-                    'ejecutado_por_usuario_id' => auth()->user()?->id,
+                    'ejecutado_por_usuario_id' => Auth::user()->id,
                     'origen' => 'VALE_FERIADO',
                     'referencia_interna' => $referenciaTransferencia,
                     'monto' => $montoPrestamo,
