@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\Hash;
 class UsuariosSeeder extends Seeder
 {
     /**
-     * Crea 13 usuarios operativos:
+     * Crea 19 usuarios operativos:
      *   - 1 ADMIN global
-     *   - Por sucursal (Centro y Norte): 1 gerente, 1 coordinador, 3 verificadores, 1 cajera
+     *   - Por sucursal (Centro, Norte y Sur): 1 gerente, 1 coordinador, 3 verificadores, 1 cajera
      *
      * Los usuarios con rol DISTRIBUIDORA se crean en DistribuidorasSeeder.
      *
@@ -90,13 +90,13 @@ class UsuariosSeeder extends Seeder
             );
         }
 
-        $this->command?->info('13 usuarios creados: 1 admin global + 12 operativos (2 sucursales × 6 usuarios).');
+        $this->command?->info('19 usuarios creados: 1 admin global + 18 operativos (3 sucursales × 6 usuarios).');
         $this->command?->info('Password comun: password123');
         $this->command?->info('Alias: admin / gerente / coordinador / verificador / cajera (los 4 de Centro)');
     }
 
     /**
-     * 13 usuarios: 1 admin + 6 por sucursal × 2 sucursales.
+     * 19 usuarios: 1 admin + 6 por sucursal × 3 sucursales.
      */
     private function definicionUsuarios(): array
     {
@@ -295,6 +295,96 @@ class UsuariosSeeder extends Seeder
                 'rfc'              => 'CORV910319N14',
                 'telefono'         => '8711400002',
                 'correo'           => 'cajera.trc_nte@prestamofacil.test',
+            ],
+
+            // ==================== SUCURSAL SUR ====================
+            // ---------- GERENTE ----------
+            [
+                'nombre_usuario'   => 'gerente.trc_sur',
+                'rol'              => 'GERENTE',
+                'sucursal'         => 'SUC-TRC-SUR',
+                'primer_nombre'    => 'Fernando',
+                'apellido_paterno' => 'Castaneda',
+                'apellido_materno' => 'Robles',
+                'sexo'             => 'M',
+                'fecha_nacimiento' => '1980-06-18',
+                'curp'             => 'CARF800618HCLSBR03',
+                'rfc'              => 'CARF800618K83',
+                'telefono'         => '8711100003',
+                'correo'           => 'gerente.trc_sur@prestamofacil.test',
+            ],
+            // ---------- COORDINADOR ----------
+            [
+                'nombre_usuario'   => 'coord.trc_sur',
+                'rol'              => 'COORDINADOR',
+                'sucursal'         => 'SUC-TRC-SUR',
+                'primer_nombre'    => 'Itzel',
+                'apellido_paterno' => 'Vallejo',
+                'apellido_materno' => 'Trejo',
+                'sexo'             => 'F',
+                'fecha_nacimiento' => '1989-10-27',
+                'curp'             => 'VATI891027MCLLRT06',
+                'rfc'              => 'VATI891027L26',
+                'telefono'         => '8711200003',
+                'correo'           => 'coord.trc_sur@prestamofacil.test',
+            ],
+            // ---------- VERIFICADORES (3) ----------
+            [
+                'nombre_usuario'   => 'verif1.trc_sur',
+                'rol'              => 'VERIFICADOR',
+                'sucursal'         => 'SUC-TRC-SUR',
+                'primer_nombre'    => 'Hugo',
+                'apellido_paterno' => 'Martinez',
+                'apellido_materno' => 'Espinoza',
+                'sexo'             => 'M',
+                'fecha_nacimiento' => '1986-02-11',
+                'curp'             => 'MAEH860211HCLRSG11',
+                'rfc'              => 'MAEH860211P31',
+                'telefono'         => '8711300007',
+                'correo'           => 'verif1.trc_sur@prestamofacil.test',
+            ],
+            [
+                'nombre_usuario'   => 'verif2.trc_sur',
+                'rol'              => 'VERIFICADOR',
+                'sucursal'         => 'SUC-TRC-SUR',
+                'primer_nombre'    => 'Karina',
+                'apellido_paterno' => 'Aguirre',
+                'apellido_materno' => 'Pineda',
+                'sexo'             => 'F',
+                'fecha_nacimiento' => '1990-07-30',
+                'curp'             => 'AUPK900730MCLGNR12',
+                'rfc'              => 'AUPK900730S58',
+                'telefono'         => '8711300008',
+                'correo'           => 'verif2.trc_sur@prestamofacil.test',
+            ],
+            [
+                'nombre_usuario'   => 'verif3.trc_sur',
+                'rol'              => 'VERIFICADOR',
+                'sucursal'         => 'SUC-TRC-SUR',
+                'primer_nombre'    => 'Roberto',
+                'apellido_paterno' => 'Ibanez',
+                'apellido_materno' => 'Carrillo',
+                'sexo'             => 'M',
+                'fecha_nacimiento' => '1988-11-04',
+                'curp'             => 'IACR881104HCLBRB18',
+                'rfc'              => 'IACR881104T84',
+                'telefono'         => '8711300009',
+                'correo'           => 'verif3.trc_sur@prestamofacil.test',
+            ],
+            // ---------- CAJERA ----------
+            [
+                'nombre_usuario'   => 'cajera.trc_sur',
+                'rol'              => 'CAJERA',
+                'sucursal'         => 'SUC-TRC-SUR',
+                'primer_nombre'    => 'Daniela',
+                'apellido_paterno' => 'Salinas',
+                'apellido_materno' => 'Pineda',
+                'sexo'             => 'F',
+                'fecha_nacimiento' => '1992-08-09',
+                'curp'             => 'SAPD920809MCLLNN15',
+                'rfc'              => 'SAPD920809V15',
+                'telefono'         => '8711400003',
+                'correo'           => 'cajera.trc_sur@prestamofacil.test',
             ],
         ];
     }

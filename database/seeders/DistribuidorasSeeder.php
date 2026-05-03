@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Hash;
 class DistribuidorasSeeder extends Seeder
 {
     /**
-     * Crea 5 distribuidoras distribuidas en las 2 sucursales:
+     * Crea 7 distribuidoras distribuidas en las 3 sucursales:
      *
      *   CENTRO:
      *     - 2 ACTIVA (ligadas a las solicitudes APROBADAS de Centro)
@@ -28,6 +28,9 @@ class DistribuidorasSeeder extends Seeder
      *     - 2 ACTIVA (ligadas a las solicitudes APROBADAS de Norte)
      *     - 1 CANDIDATA (ligada a la solicitud POSIBLE_DISTRIBUIDORA de Norte)
      *
+     *   SUR:
+     *     - 2 ACTIVA (sin solicitud previa, alta directa)
+     *
      * Password común: password123
      * Alias: `distribuidora` → dist1.trc_centro (primera ACTIVA de Centro)
      */
@@ -37,9 +40,11 @@ class DistribuidorasSeeder extends Seeder
 
         $centro = Sucursal::where('codigo', 'SUC-TRC-CENTRO')->first();
         $norte  = Sucursal::where('codigo', 'SUC-TRC-NTE')->first();
+        $sur    = Sucursal::where('codigo', 'SUC-TRC-SUR')->first();
 
         $coordCentro = Usuario::where('nombre_usuario', 'coordinador')->first();
         $coordNorte  = Usuario::where('nombre_usuario', 'coord.trc_nte')->first();
+        $coordSur    = Usuario::where('nombre_usuario', 'coord.trc_sur')->first();
 
         $catCobre = CategoriaDistribuidora::where('codigo', 'COBRE')->first();
         $catPlata = CategoriaDistribuidora::where('codigo', 'PLATA')->first();
@@ -107,10 +112,28 @@ class DistribuidorasSeeder extends Seeder
                 'solicitud' => $solicitudCandidata,
                 'persona_existente' => $solicitudCandidata?->persona_solicitante_id,
             ],
+
+            // ---------- SUR ACTIVA (alta directa, sin solicitud previa) ----------
+            [
+                'usuario' => 'dist1.trc_sur',
+                'nombre' => 'Mercadito', 'paterno' => 'Sandoval', 'materno' => 'Vega', 'sexo' => 'F',
+                'sucursal' => $sur, 'coord' => $coordSur, 'cat' => $catCobre,
+                'estado' => Distribuidora::ESTADO_ACTIVA,
+                'limite' => 35000, 'credito' => 35000, 'puntos' => 0,
+                'solicitud' => null,
+            ],
+            [
+                'usuario' => 'dist2.trc_sur',
+                'nombre' => 'Cremeria', 'paterno' => 'Nava', 'materno' => 'Hernandez', 'sexo' => 'M',
+                'sucursal' => $sur, 'coord' => $coordSur, 'cat' => $catPlata,
+                'estado' => Distribuidora::ESTADO_ACTIVA,
+                'limite' => 60000, 'credito' => 60000, 'puntos' => 0,
+                'solicitud' => null,
+            ],
         ];
 
-        $consecutivos = ['SUC-TRC-CENTRO' => 0, 'SUC-TRC-NTE' => 0];
-        $sufijoSucursal = ['SUC-TRC-CENTRO' => 'C', 'SUC-TRC-NTE' => 'N'];
+        $consecutivos = ['SUC-TRC-CENTRO' => 0, 'SUC-TRC-NTE' => 0, 'SUC-TRC-SUR' => 0];
+        $sufijoSucursal = ['SUC-TRC-CENTRO' => 'C', 'SUC-TRC-NTE' => 'N', 'SUC-TRC-SUR' => 'S'];
 
         foreach ($definiciones as $i => $d) {
             $codSuc = $d['sucursal']->codigo;
@@ -228,7 +251,7 @@ class DistribuidorasSeeder extends Seeder
             }
         }
 
-        $this->command?->info('5 distribuidoras creadas: 4 ACTIVA (2 por sucursal) + 1 CANDIDATA (Norte).');
+        $this->command?->info('7 distribuidoras creadas: 6 ACTIVA (2 por sucursal) + 1 CANDIDATA (Norte).');
         $this->command?->info('Alias: distribuidora = dist1 de Centro');
     }
 }
