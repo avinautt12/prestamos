@@ -5,29 +5,11 @@ import { createRoot } from 'react-dom/client';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { useEffect } from 'react';
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js', { scope: '/' })
-            .then((registration) => {
 
-                registration.addEventListener('updatefound', () => {
-                    const newWorker = registration.installing;
-                    if (!newWorker) return;
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            console.info('[PWA] Nueva versión disponible. Actualizando...');
-                            newWorker.postMessage({ type: 'SKIP_WAITING' });
-                        }
-                    });
-                });
-            })
-            .catch((err) => {
-                console.warn('[PWA] Error al registrar SW:', err);
-            });
-    });
-}
-
-if ('serviceWorker' in navigator && import.meta.env.DEV) {
+// Limpieza de PWA antiguo: desregistra cualquier service worker previamente
+// instalado (cuando la app sí era PWA) y vacía sus cachés. Se deja para que
+// dispositivos que ya tenían la app instalada queden limpios.
+if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then((regs) => {
         regs.forEach((r) => r.unregister());
     });

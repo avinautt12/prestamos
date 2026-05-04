@@ -37,7 +37,17 @@
     [data-fin-a11y='on'] input,
     [data-fin-a11y='on'] select,
     [data-fin-a11y='on'] textarea {
-        min-height: 48px;
+        min-height: 44px;
+    }
+
+    @media (min-width: 1024px) {
+        [data-fin-a11y='on'] button,
+        [data-fin-a11y='on'] a,
+        [data-fin-a11y='on'] input,
+        [data-fin-a11y='on'] select,
+        [data-fin-a11y='on'] textarea {
+            min-height: auto;
+        }
     }
 }
 
@@ -57,8 +67,9 @@
     }
 
     .fin-mobile-device {
-        @apply relative min-h-screen mx-auto bg-white border-x border-gray-200 shadow-sm;
-        width: min(100%, 430px);
+        @apply relative min-h-screen mx-auto bg-white;
+        width: 100%;
+        max-width: 720px;
     }
 
     .fin-mobile-header {
@@ -68,20 +79,20 @@
     }
 
     .fin-mobile-main {
-        padding-bottom: calc(80px + env(safe-area-inset-bottom));
+        padding-bottom: 1.5rem;
     }
 
     .fin-mobile-nav {
         @apply fixed bottom-0 z-40;
-        width: min(100%, 430px);
+        width: 100%;
+        max-width: 720px;
         left: 50%;
         transform: translateX(-50%);
-        padding-bottom: env(safe-area-inset-bottom);
     }
 
     .fin-mobile-toasts {
         @apply fixed z-50 w-full max-w-sm space-y-2 pointer-events-none;
-        top: calc(64px + env(safe-area-inset-top));
+        top: 72px;
         left: 50%;
         transform: translateX(-50%);
         padding-inline: 12px;
@@ -242,12 +253,8 @@
         }
 
         .fin-mobile-device {
-            @apply min-h-[calc(100vh-2rem)] rounded-[2rem] border;
+            @apply min-h-[calc(100vh-2rem)] rounded-2xl border border-gray-200 shadow-sm;
             overflow: hidden;
-        }
-
-        .fin-mobile-main {
-            padding-bottom: 210px;
         }
 
         .fin-mobile-toasts {
@@ -264,7 +271,7 @@
         }
 
         .fin-mobile-shell .fin-modal-sheet {
-            max-width: 430px;
+            max-width: 720px;
         }
     }
 }
@@ -323,7 +330,6 @@
 @media (max-width: 380px) {
     .fin-mobile-main {
         @apply p-3;
-        padding-bottom: calc(210px + env(safe-area-inset-bottom));
     }
 
     .fin-mobile-nav .rounded-2xl {
