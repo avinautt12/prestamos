@@ -28,10 +28,23 @@ export default function TabConfiguracion({
         if (cortesPendientes.length === 0 || cerrandoCorte) return;
         if (!window.confirm(`¿Cerrar el corte ahora en TODAS las sucursales (${cortesPendientes.length})? Se generarán las relaciones de cobro para todas las distribuidoras.`)) return;
         setCerrandoCorte(true);
-        router.post(route('admin.cortes.cerrar-manual-global'), {}, {
-            preserveScroll: true,
-            onFinish: () => setCerrandoCorte(false),
-        });
+        try {
+            router.post(route('admin.cortes.cerrar-manual-global'), {}, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    console.log('Cortes cerrados exitosamente');
+                },
+                onError: (errors) => {
+                    console.error('Error al cerrar cortes:', errors);
+                    alert('Error al cerrar cortes: ' + JSON.stringify(errors));
+                },
+                onFinish: () => setCerrandoCorte(false),
+            });
+        } catch (error) {
+            console.error('Excepción al cerrar cortes:', error);
+            alert('Excepción: ' + error.message);
+            setCerrandoCorte(false);
+        }
     };
 
     return (
