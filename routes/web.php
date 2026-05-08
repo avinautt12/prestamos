@@ -49,7 +49,6 @@ Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->grou
     Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/calendario', [App\Http\Controllers\Admin\DashboardController::class, 'calendario'])->name('calendario');
     Route::get('/reportes', [App\Http\Controllers\Admin\DashboardController::class, 'reportes'])->name('reportes');
-    Route::get('/rentabilidad', [App\Http\Controllers\Admin\DashboardController::class, 'rentabilidad'])->name('rentabilidad');
 
     Route::get('/reportes/descargar', [App\Http\Controllers\Admin\ReporteController::class, 'descargar'])->name('reportes.descargar');
     Route::post('/reportes/enviar', [App\Http\Controllers\Admin\ReporteController::class, 'enviar'])->name('reportes.enviar');
@@ -67,6 +66,9 @@ Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->grou
 
     
     Route::middleware('admin.secure-action')->group(function () {
+        // Cortes (cierre manual global desde Configuraciones → Ciclo Operativo)
+        Route::post('/cortes/cerrar-manual-global', [App\Http\Controllers\Gerente\CorteController::class, 'cerrarManualGlobal'])->name('cortes.cerrar-manual-global');
+
         // Password authorizations
         Route::post('/solicitudes-password/aprobar-todas', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobarTodas'])->name('solicitudes_password.aprobar_todas');
         Route::post('/solicitudes-password/{id}/aprobar', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobar'])->name('solicitudes_password.aprobar');
@@ -112,9 +114,6 @@ Route::middleware(['auth', 'role:GERENTE'])->prefix('gerente')->name('gerente.')
 
 
     Route::get('/cortes', [App\Http\Controllers\Gerente\CorteController::class, 'index'])->name('cortes');
-    Route::post('/cortes/{corte}/cerrar-manual', [App\Http\Controllers\Gerente\CorteController::class, 'cerrarManual'])
-        ->middleware('gerente.secure-action')
-        ->name('cortes.cerrar-manual');
 
     Route::get('/solicitudes-password', [\App\Http\Controllers\PasswordAuthorizationController::class, 'index'])->name('solicitudes_password');
     Route::post('/solicitudes-password/aprobar-todas', [\App\Http\Controllers\PasswordAuthorizationController::class, 'aprobarTodas'])

@@ -125,6 +125,21 @@ class ConfiguracionController extends Controller
         $configuracionPayload['multiplicador_puntos']  = (int) $puntosConf->multiplicador_puntos;
         $configuracionPayload['valor_punto_mxn']       = (float) $puntosConf->valor_punto_mxn;
 
+        $proximosCortesGlobal = [];
+        if ($esAdmin) {
+            $sucursalesActivas = Sucursal::query()->where('activo', true)->orderBy('nombre')->get();
+            foreach ($sucursalesActivas as $sucursalActiva) {
+                $proximo = $this->corteService->obtenerProximoCorte($sucursalActiva);
+                $proximosCortesGlobal[] = [
+                    'sucursal_id' => $sucursalActiva->id,
+                    'sucursal_nombre' => $sucursalActiva->nombre,
+                    'corte_id' => $proximo?->id,
+                    'fecha_programada' => $proximo?->fecha_programada,
+                    'estado' => $proximo?->estado,
+                ];
+            }
+        }
+
         return Inertia::render('Gerente/Configuraciones', [
             'sucursal' => $sucursal,
             'sucursales' => $esAdmin
@@ -139,8 +154,9 @@ class ConfiguracionController extends Controller
             'categorias' => $categorias,
             'productos' => $productos,
             'historialCambios' => $historialCambios,
+            'proximosCortesGlobal' => $proximosCortesGlobal,
             'securityPolicy' => [
-                'requires_vpn' => $esAdmin 
+                'requires_vpn' => $esAdmin
                     ? (bool) config('security.admin.require_vpn', false)
                     : (bool) config('security.gerente.require_vpn', false),
             ],

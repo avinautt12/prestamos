@@ -74,7 +74,7 @@ const obtenerPagina = (items, pagina, porPagina) => {
     return items.slice(inicio, inicio + porPagina);
 };
 
-export default function Configuraciones({ sucursal, configuracionSucursal, categorias, productos = [], historialCambios = [] }) {
+export default function Configuraciones({ sucursal, configuracionSucursal, categorias, productos = [], historialCambios = [], proximosCortesGlobal = [] }) {
     const { errors } = usePage().props;
     const {
         sucursales = [],
@@ -736,6 +736,7 @@ export default function Configuraciones({ sucursal, configuracionSucursal, categ
                     generalError={errors?.general}
                     esAdmin={esAdmin}
                     soloLectura={requiresVpn}
+                    proximosCortesGlobal={proximosCortesGlobal}
                 />
             )}
 

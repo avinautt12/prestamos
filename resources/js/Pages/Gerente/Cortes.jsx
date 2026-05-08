@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCalendarDays, faCircleCheck, faClock, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
@@ -143,23 +143,9 @@ export default function Cortes({ sucursal, proximoCorte, cortesMes = [] }) {
                                 <p><span className="text-gray-500">Tipo:</span> {proximoCorte.tipo_corte}</p>
                                 <p><span className="text-gray-500">Observaciones:</span> {proximoCorte.observaciones || 'Sin observaciones'}</p>
 
-                                {proximoCorte.estado === 'PROGRAMADO' ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (!window.confirm('¿Cerrar este corte ahora? Se generarán las relaciones de cobro para todas las distribuidoras.')) {
-                                                return;
-                                            }
-                                            router.post(route('gerente.cortes.cerrar-manual', proximoCorte.id), {}, {
-                                                preserveScroll: true,
-                                            });
-                                        }}
-                                        className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-                                    >
-                                        <FontAwesomeIcon icon={faCircleCheck} />
-                                        Cerrar corte ahora
-                                    </button>
-                                ) : null}
+                                <p className="mt-3 text-xs text-gray-500 italic">
+                                    El cierre manual se realiza desde Configuraciones → Ciclo Operativo (perfil ADMIN).
+                                </p>
                             </div>
                         ) : (
                             <p className="text-sm text-gray-500">Aun no hay un corte programado para tu sucursal.</p>

@@ -27,15 +27,8 @@ export default function DocumentScanner({
         setError(null);
         setIsCameraReady(false);
 
-        const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-
-        if (!window.isSecureContext && !isLocalHost) {
-            setError('CONEXION NO SEGURA: El acceso a la camara requiere HTTPS en moviles por seguridad del navegador.');
-            return;
-        }
-
         if (!navigator.mediaDevices?.getUserMedia) {
-            setError('CAMARA NO DISPONIBLE: Este navegador o modo PWA no permite abrir la camara integrada.');
+            setError('CAMARA NO DISPONIBLE: Este navegador no permite abrir la camara integrada. Usa la camara del dispositivo.');
             return;
         }
 
@@ -166,7 +159,7 @@ export default function DocumentScanner({
                         </div>
                         <p className="text-white font-bold mb-2">{error}</p>
                         <p className="text-gray-400 text-sm mb-6">
-                            Asegurate de usar HTTPS. Si el modo PWA no responde bien, puedes abrir la camara nativa del telefono desde aqui.
+                            Si la camara del navegador no funciona, abre la camara nativa del telefono desde aqui.
                         </p>
                         <div className="flex flex-col gap-3 w-full max-w-xs">
                             <button

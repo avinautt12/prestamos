@@ -39,10 +39,10 @@ class DatabaseSeeder extends Seeder
             ClientesSeeder::class,
 
             // --- Vales ---
-            ValesSeeder::class,
+            // ValesSeeder::class,           // Deshabilitado: la distribuidora arranca sin vales pre-creados.
 
             // --- Cortes + relaciones + pagos + conciliaciones + puntos ---
-            CortesSeeder::class,
+            // CortesSeeder::class,          // Deshabilitado: sin cortes/relaciones/pagos históricos en estado de cuenta.
 
             // --- Bitácoras ---
             BitacorasSeeder::class,
