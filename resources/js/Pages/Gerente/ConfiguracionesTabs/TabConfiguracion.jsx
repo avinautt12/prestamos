@@ -48,16 +48,16 @@ export default function TabConfiguracion({
     };
 
     return (
-        <form className="space-y-8 bg-white border border-slate-200 rounded-xl shadow-sm p-8" onSubmit={guardarConfiguracionSucursal}>
-            <div className="border-b border-slate-100 pb-5">
-                <h3 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+        <form className="p-8 space-y-8 bg-white border shadow-sm border-slate-200 rounded-xl" onSubmit={guardarConfiguracionSucursal}>
+            <div className="pb-5 border-b border-slate-100">
+                <h3 className="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-900">
                     <svg className="w-5 h-5 text-[#1FA62D]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     1) Configuración global
                 </h3>
-                <p className="mt-2 text-sm text-slate-500 max-w-3xl leading-relaxed">
+                <p className="max-w-3xl mt-2 text-sm leading-relaxed text-slate-500">
                     {esAdmin
                         ? 'Establece las directrices operativas fundamentales, parámetros de cobranza y sistema de puntos para la red comercial.'
                         : 'Establece las directrices operativas locales, parámetros de cobranza y sistema de puntos de la sucursal activa.'}
@@ -66,8 +66,8 @@ export default function TabConfiguracion({
 
             <div className="grid grid-cols-1 gap-x-8 gap-y-10 lg:grid-cols-2">
                 {/* Sección Operación de Cortes */}
-                <div className="bg-slate-50/50 rounded-xl p-6 border border-slate-100/60 shadow-sm">
-                    <h4 className="text-sm font-bold tracking-widest text-slate-400 uppercase mb-5 flex items-center gap-2">
+                <div className="p-6 border shadow-sm bg-slate-50/50 rounded-xl border-slate-100/60">
+                    <h4 className="flex items-center gap-2 mb-5 text-sm font-bold tracking-widest uppercase text-slate-400">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                         Ciclo Operativo
                     </h4>
@@ -84,7 +84,7 @@ export default function TabConfiguracion({
                                 disabled={soloLectura}
                             />
                             <p className="mt-1 text-[11px] text-slate-400 font-medium">Sincroniza quincenas automáticamente.</p>
-                            {formSucursal.errors?.dia_corte && <p className="mt-1 text-xs text-red-600 font-medium">{formSucursal.errors.dia_corte}</p>}
+                            {formSucursal.errors?.dia_corte && <p className="mt-1 text-xs font-medium text-red-600">{formSucursal.errors.dia_corte}</p>}
                         </div>
                         <div>
                             <label className="text-sm font-semibold text-slate-700">Plazo de pago (días)</label>
@@ -97,7 +97,7 @@ export default function TabConfiguracion({
                                 onChange={(e) => formSucursal.setData('plazo_pago_dias', e.target.value)}
                                 disabled={soloLectura}
                             />
-                            {formSucursal.errors?.plazo_pago_dias && <p className="mt-1 text-xs text-red-600 font-medium">{formSucursal.errors.plazo_pago_dias}</p>}
+                            {formSucursal.errors?.plazo_pago_dias && <p className="mt-1 text-xs font-medium text-red-600">{formSucursal.errors.plazo_pago_dias}</p>}
                         </div>
                         <div>
                             <label className="text-sm font-semibold text-slate-700">Horario límite (Corte)</label>
@@ -108,19 +108,19 @@ export default function TabConfiguracion({
                                 onChange={(e) => formSucursal.setData('hora_corte', e.target.value)}
                                 disabled={soloLectura}
                             />
-                            {formSucursal.errors?.hora_corte && <p className="mt-1 text-xs text-red-600 font-medium">{formSucursal.errors.hora_corte}</p>}
+                            {formSucursal.errors?.hora_corte && <p className="mt-1 text-xs font-medium text-red-600">{formSucursal.errors.hora_corte}</p>}
                         </div>
 
                         {esAdmin && (
                             <div className="pt-4 mt-2 border-t border-slate-200">
-                                <p className="text-sm font-semibold text-slate-700 mb-1">Cierre manual global</p>
+                                <p className="mb-1 text-sm font-semibold text-slate-700">Cierre manual global</p>
                                 <p className="text-[11px] text-slate-400 mb-3">Aplica a todas las sucursales activas.</p>
 
                                 {proximosCortesGlobal.length > 0 ? (
                                     <ul className="mb-3 space-y-1.5 max-h-44 overflow-y-auto">
                                         {proximosCortesGlobal.map((c) => (
                                             <li key={c.sucursal_id} className="flex items-center justify-between text-[11px] bg-white border border-slate-200 rounded-md px-2 py-1.5">
-                                                <span className="font-semibold text-slate-700 truncate mr-2">{c.sucursal_nombre}</span>
+                                                <span className="mr-2 font-semibold truncate text-slate-700">{c.sucursal_nombre}</span>
                                                 <span className="text-slate-500 whitespace-nowrap">
                                                     {c.estado === 'PROGRAMADO'
                                                         ? formatearFechaCorte(c.fecha_programada)
@@ -137,7 +137,7 @@ export default function TabConfiguracion({
                                     type="button"
                                     onClick={cerrarCorteGlobal}
                                     disabled={cerrandoCorte || cortesPendientes.length === 0 || soloLectura}
-                                    className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="inline-flex items-center justify-center w-full gap-2 px-3 py-2 text-sm font-semibold text-white rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {cerrandoCorte ? 'Cerrando...' : `Cerrar corte ahora (${cortesPendientes.length})`}
                                 </button>
@@ -148,8 +148,8 @@ export default function TabConfiguracion({
                 </div>
 
                 {/* Sección Puntos y Penalizaciones */}
-                <div className="bg-slate-50/50 rounded-xl p-6 border border-slate-100/60 shadow-sm">
-                    <h4 className="text-sm font-bold tracking-widest text-slate-400 uppercase mb-5 flex items-center gap-2">
+                <div className="p-6 border shadow-sm bg-slate-50/50 rounded-xl border-slate-100/60">
+                    <h4 className="flex items-center gap-2 mb-5 text-sm font-bold tracking-widest uppercase text-slate-400">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
                         Fidelización y Castigos
                     </h4>
@@ -176,10 +176,10 @@ export default function TabConfiguracion({
                                 />
                             </div>
                         </div>
-                        {formSucursal.errors?.factor_divisor_puntos && <p className="text-xs text-red-600 font-medium">{formSucursal.errors.factor_divisor_puntos}</p>}
-                        
+                        {formSucursal.errors?.factor_divisor_puntos && <p className="text-xs font-medium text-red-600">{formSucursal.errors.factor_divisor_puntos}</p>}
+
                         <div>
-                            <label className="text-sm font-semibold text-slate-700 flex justify-between">
+                            <label className="flex justify-between text-sm font-semibold text-slate-700">
                                 Valor de canje (1 pt)
                                 <span className="text-slate-400">MXN</span>
                             </label>
@@ -191,9 +191,9 @@ export default function TabConfiguracion({
                                 disabled={soloLectura}
                             />
                         </div>
-                        
+
                         <div>
-                            <label className="text-sm font-semibold text-slate-700 flex justify-between">
+                            <label className="flex justify-between text-sm font-semibold text-slate-700">
                                 Castigo por mora
                                 <span className="text-slate-400">% Puntos</span>
                             </label>
@@ -205,7 +205,7 @@ export default function TabConfiguracion({
                                 disabled={soloLectura}
                             />
                             <p className="mt-1 text-[11px] text-slate-400 font-medium">Merma del saldo de puntos acumulados.</p>
-                            {formSucursal.errors?.castigo_pct_atraso && <p className="mt-1 text-xs text-red-600 font-medium">{formSucursal.errors.castigo_pct_atraso}</p>}
+                            {formSucursal.errors?.castigo_pct_atraso && <p className="mt-1 text-xs font-medium text-red-600">{formSucursal.errors.castigo_pct_atraso}</p>}
                         </div>
                     </div>
                 </div>
@@ -221,9 +221,9 @@ export default function TabConfiguracion({
             )}
 
             <div className="flex items-center justify-end pt-5 border-t border-slate-100">
-                <button 
-                    type="submit" 
-                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 bg-[#1FA62D] border border-transparent rounded-lg shadow-sm hover:bg-[#1B9229] focus:outline-none focus:ring-2 focus:ring-[#1FA62D] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed" 
+                <button
+                    type="submit"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 bg-[#1FA62D] border border-transparent rounded-lg shadow-sm hover:bg-[#1B9229] focus:outline-none focus:ring-2 focus:ring-[#1FA62D] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={guardandoSucursal || soloLectura}
                 >
                     {guardandoSucursal ? (
