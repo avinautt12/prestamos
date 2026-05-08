@@ -52,19 +52,19 @@ Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->grou
 
     Route::get('/reportes/descargar', [App\Http\Controllers\Admin\ReporteController::class, 'descargar'])->name('reportes.descargar');
     Route::post('/reportes/enviar', [App\Http\Controllers\Admin\ReporteController::class, 'enviar'])->name('reportes.enviar');
-    
+
     Route::get('/auditorias', [App\Http\Controllers\Admin\AuditoriaController::class, 'index'])->name('auditorias');
 
     Route::get('/solicitudes-password', [\App\Http\Controllers\PasswordAuthorizationController::class, 'index'])->name('solicitudes_password');
     Route::get('/configuraciones', [App\Http\Controllers\Gerente\ConfiguracionController::class, 'index'])->name('configuraciones');
     Route::get('/usuarios', [App\Http\Controllers\Admin\UsuarioController::class, 'index'])->name('usuarios.index');
-    
+
     // Fidelización (Puntos)
     Route::get('/fidelizacion', [App\Http\Controllers\Admin\FidelizacionController::class, 'index'])->name('fidelizacion.index');
     Route::get('/fidelizacion/distribuidora/{id}', [App\Http\Controllers\Admin\FidelizacionController::class, 'movimientos'])->name('fidelizacion.movimientos');
     Route::post('/fidelizacion/distribuidora/{id}/ajustar', [App\Http\Controllers\Admin\FidelizacionController::class, 'ajustar'])->name('fidelizacion.ajustar');
 
-    
+
     Route::middleware('admin.secure-action')->group(function () {
         // Cortes (cierre manual global desde Configuraciones → Ciclo Operativo)
         Route::post('/cortes/cerrar-manual-global', [App\Http\Controllers\Gerente\CorteController::class, 'cerrarManualGlobal'])->name('cortes.cerrar-manual-global');
