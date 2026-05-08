@@ -290,23 +290,29 @@ export default function CobranzaIndex({ stats, distribuidoras, relacionesDetalle
                                             </div>
 
                                             {/* Métricas */}
-                                            <div className="grid grid-cols-3 gap-4 text-center md:gap-6">
+                                            <div className="grid grid-cols-4 gap-4 text-center md:gap-6">
                                                 <div>
-                                                    <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">Vencidas</p>
-                                                    <p className={`text-lg font-bold ${dist.relaciones_vencidas_count > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                                                        {dist.relaciones_vencidas_count || 0}
+                                                    <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">Vencidas / Parc.</p>
+                                                    <p className={`text-lg font-bold ${(dist.relaciones_vencidas_count > 0 || dist.relaciones_parciales_count > 0) ? 'text-red-600' : 'text-gray-400'}`}>
+                                                        {dist.relaciones_vencidas_count || 0} <span className="text-sm font-normal text-gray-400">/</span> {dist.relaciones_parciales_count || 0}
                                                     </p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">Parciales</p>
-                                                    <p className={`text-lg font-bold ${dist.relaciones_parciales_count > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
-                                                        {dist.relaciones_parciales_count || 0}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">Adeudo</p>
-                                                    <p className="text-lg font-bold text-gray-900">
+                                                    <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">Deuda Total</p>
+                                                    <p className="text-lg font-bold text-gray-500">
                                                         {formatMonto(dist.monto_total_adeudado)}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">Abonado</p>
+                                                    <p className="text-lg font-bold text-emerald-600">
+                                                        {formatMonto(dist.monto_abonado)}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">Faltante</p>
+                                                    <p className="text-lg font-bold text-gray-900">
+                                                        {formatMonto((dist.monto_total_adeudado || 0) - (dist.monto_abonado || 0))}
                                                     </p>
                                                 </div>
                                             </div>
@@ -349,10 +355,10 @@ export default function CobranzaIndex({ stats, distribuidoras, relacionesDetalle
                                             <div className="px-4 pb-4 sm:px-6">
                                                 <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
                                                     <h4 className="mb-3 text-sm font-bold text-gray-700">
-                                                        Relaciones vencidas / parciales de {nombre}
+                                                        Relaciones pendientes de {nombre}
                                                     </h4>
                                                     {relaciones.length === 0 ? (
-                                                        <p className="text-sm text-gray-500">No hay relaciones vencidas en este momento.</p>
+                                                        <p className="text-sm text-gray-500">No hay relaciones pendientes en este momento.</p>
                                                     ) : (
                                                         <div className="overflow-auto">
                                                             <table className="min-w-full text-sm">
@@ -362,7 +368,9 @@ export default function CobranzaIndex({ stats, distribuidoras, relacionesDetalle
                                                                         <th className="py-2 pr-3 font-semibold">Referencia</th>
                                                                         <th className="py-2 pr-3 font-semibold">Fecha Límite</th>
                                                                         <th className="py-2 pr-3 font-semibold">Días Vencida</th>
-                                                                        <th className="py-2 pr-3 font-semibold">Monto</th>
+                                                                        <th className="py-2 pr-3 font-semibold">Total</th>
+                                                                        <th className="py-2 pr-3 font-semibold">Abonado</th>
+                                                                        <th className="py-2 pr-3 font-semibold">Faltante</th>
                                                                         <th className="py-2 pr-3 font-semibold">Estado</th>
                                                                     </tr>
                                                                 </thead>
@@ -382,7 +390,9 @@ export default function CobranzaIndex({ stats, distribuidoras, relacionesDetalle
                                                                                     <span className="text-gray-400">-</span>
                                                                                 )}
                                                                             </td>
-                                                                            <td className="py-2 pr-3 font-bold text-gray-900">{formatMonto(rel.total_a_pagar)}</td>
+                                                                            <td className="py-2 pr-3 text-gray-500">{formatMonto(rel.total_a_pagar)}</td>
+                                                                            <td className="py-2 pr-3 text-emerald-600">{formatMonto(rel.monto_abonado)}</td>
+                                                                            <td className="py-2 pr-3 font-bold text-gray-900">{formatMonto((rel.total_a_pagar || 0) - (rel.monto_abonado || 0))}</td>
                                                                             <td className="py-2 pr-3">
                                                                                 <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${relacionEstadoBadge(rel.estado)}`}>
                                                                                     {rel.estado}

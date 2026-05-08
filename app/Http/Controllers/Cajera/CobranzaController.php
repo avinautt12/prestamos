@@ -31,7 +31,7 @@ class CobranzaController extends Controller
             ->join('relaciones_corte', 'pagos_distribuidora.relacion_corte_id', '=', 'relaciones_corte.id')
             ->join('distribuidoras', 'relaciones_corte.distribuidora_id', '=', 'distribuidoras.id')
             ->where('distribuidoras.sucursal_id', $sucursalId)
-            ->whereIn('relaciones_corte.estado', [RelacionCorte::ESTADO_VENCIDA, RelacionCorte::ESTADO_PARCIAL])
+            ->whereIn('relaciones_corte.estado', [RelacionCorte::ESTADO_VENCIDA, RelacionCorte::ESTADO_PARCIAL, RelacionCorte::ESTADO_GENERADA])
             ->whereIn('pagos_distribuidora.estado', ['CONCILIADO', 'REPORTADO', 'DETECTADO'])
             ->sum('pagos_distribuidora.monto');
 
@@ -40,6 +40,7 @@ class CobranzaController extends Controller
             ->whereHas('relacionesCorte', fn ($q) => $q->whereIn('estado', [
                 RelacionCorte::ESTADO_VENCIDA,
                 RelacionCorte::ESTADO_PARCIAL,
+                RelacionCorte::ESTADO_GENERADA,
             ]))
             ->count();
 
@@ -59,6 +60,19 @@ class CobranzaController extends Controller
         $filtroEstado = $request->input('estado', 'TODAS');
 
         $distribuidoras = Distribuidora::query()
+            ->select('distribuidoras.*')
+            ->addSelect([
+                'monto_abonado' => DB::table('pagos_distribuidora')
+                    ->join('relaciones_corte', 'pagos_distribuidora.relacion_corte_id', '=', 'relaciones_corte.id')
+                    ->whereColumn('relaciones_corte.distribuidora_id', 'distribuidoras.id')
+                    ->whereIn('relaciones_corte.estado', [
+                        RelacionCorte::ESTADO_VENCIDA,
+                        RelacionCorte::ESTADO_PARCIAL,
+                        RelacionCorte::ESTADO_GENERADA,
+                    ])
+                    ->whereIn('pagos_distribuidora.estado', ['CONCILIADO', 'REPORTADO', 'DETECTADO'])
+                    ->selectRaw('COALESCE(SUM(pagos_distribuidora.monto), 0)')
+            ])
             ->where('sucursal_id', $sucursalId)
             ->with(['persona:id,primer_nombre,apellido_paterno,apellido_materno'])
             // Solo distribuidoras con relaciones problemáticas o que ya están MOROSA/BLOQUEADA
@@ -72,6 +86,7 @@ class CobranzaController extends Controller
                       ->whereHas('relacionesCorte', fn ($r) => $r->whereIn('estado', [
                           RelacionCorte::ESTADO_VENCIDA,
                           RelacionCorte::ESTADO_PARCIAL,
+                          RelacionCorte::ESTADO_GENERADA,
                       ]));
                 } else {
                     // TODAS: cualquiera que tenga deuda o esté MOROSA/BLOQUEADA
@@ -79,6 +94,7 @@ class CobranzaController extends Controller
                         $sub->whereHas('relacionesCorte', fn ($r) => $r->whereIn('estado', [
                             RelacionCorte::ESTADO_VENCIDA,
                             RelacionCorte::ESTADO_PARCIAL,
+                            RelacionCorte::ESTADO_GENERADA,
                         ]))
                         ->orWhereIn('estado', [
                             Distribuidora::ESTADO_MOROSA,
@@ -118,8 +134,12 @@ class CobranzaController extends Controller
         $distribuidoraIds = $distribuidoras->pluck('id');
         $relacionesDetalle = RelacionCorte::query()
             ->whereIn('distribuidora_id', $distribuidoraIds)
-            ->whereIn('estado', [RelacionCorte::ESTADO_VENCIDA, RelacionCorte::ESTADO_PARCIAL])
+            ->whereIn('estado', [RelacionCorte::ESTADO_VENCIDA, RelacionCorte::ESTADO_PARCIAL, RelacionCorte::ESTADO_GENERADA])
             ->with(['corte:id,fecha_programada'])
+            ->withSum(
+                ['pagosDistribuidora as monto_abonado' => fn ($q) => $q->whereIn('estado', ['CONCILIADO', 'REPORTADO', 'DETECTADO'])],
+                'monto'
+            )
             ->orderByDesc('fecha_limite_pago')
             ->get()
             ->groupBy('distribuidora_id')
