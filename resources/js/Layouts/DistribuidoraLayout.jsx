@@ -15,6 +15,7 @@ import {
     faXmark,
     faRightFromBracket,
     faCashRegister,
+    faChevronLeft,
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function DistribuidoraLayout({ children, title = 'Mi Panel', subtitle = null }) {
@@ -22,7 +23,7 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
     const currentUrl = usePage().url;
     const [toasts, setToasts] = useState([]);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
 
     const navigation = useMemo(() => [
@@ -96,19 +97,6 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
     }, []);
 
     useEffect(() => {
-        if (!sidebarOpen) {
-            return undefined;
-        }
-
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-
-        return () => {
-            document.body.style.overflow = previousOverflow;
-        };
-    }, [sidebarOpen]);
-
-    useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'instant' });
 
         const msg = flash?.success || flash?.message;
@@ -124,28 +112,118 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
     };
 
     return (
-        <div data-fin-a11y="on" className="fin-mobile-shell bg-[radial-gradient(circle_at_top_right,_#d1fae5_0%,_#f8fafc_40%,_#eef2ff_100%)]">
-            <div className="fin-mobile-device">
-                <header className="fin-mobile-header border-b" style={{ borderColor: '#D1FAE5' }}>
-                    <div className="flex items-center justify-between px-4 py-3">
+        <div className="min-h-screen bg-gray-100 flex">
+            <aside
+                className={`fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ${
+                    sidebarCollapsed ? 'w-16' : 'w-64'
+                }`}
+            >
+                <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-white">
+                    {!sidebarCollapsed && (
+                        <Link href={route('distribuidora.dashboard')} className="flex items-center gap-2">
+                            <ApplicationLogo className="w-8 h-8 text-green-700 fill-current" />
+                            <span className="text-base font-bold text-gray-900">Préstamo Fácil</span>
+                        </Link>
+                    )}
+                    {sidebarCollapsed && (
+                        <ApplicationLogo className="w-8 h-8 text-green-700 fill-current mx-auto" />
+                    )}
+                </div>
+
+                <nav className="flex-1 py-4 overflow-y-auto">
+                    {navigation.map((item) => {
+                        const isActive = route().current(item.current);
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className={`flex items-center gap-3 mx-2 my-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                                    isActive
+                                        ? 'bg-green-700 text-white'
+                                        : 'text-gray-600 hover:bg-green-50 hover:text-green-700'
+                                }`}
+                                title={sidebarCollapsed ? item.name : undefined}
+                            >
+                                <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${isActive ? 'bg-white/20' : 'bg-green-50 text-green-700'}`}>
+                                    <FontAwesomeIcon icon={item.icon} className="w-4 h-4" />
+                                </div>
+                                {!sidebarCollapsed && <span>{item.name}</span>}
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                <div className="p-3 border-t border-gray-100">
+                    <button
+                        type="button"
+                        onClick={abrirNotificaciones}
+                        className={`flex items-center gap-3 w-full px-3 py-3 text-sm font-medium text-gray-700 rounded-lg hover:bg-green-50 transition-colors ${
+                            sidebarCollapsed ? 'justify-center' : ''
+                        }`}
+                        title={sidebarCollapsed ? 'Notificaciones' : undefined}
+                    >
+                        <div className="relative">
+                            <span className="inline-flex items-center justify-center w-8 h-8 text-green-700 bg-green-50 rounded-lg">
+                                <FontAwesomeIcon icon={faBell} className="w-4 h-4" />
+                            </span>
+                            {unreadNotifications > 0 && (
+                                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 text-[10px] font-bold text-white bg-red-600 rounded-full">
+                                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                                </span>
+                            )}
+                        </div>
+                        {!sidebarCollapsed && <span>Notificaciones</span>}
+                    </button>
+                </div>
+
+                <div className="p-3 border-t border-gray-100">
+                    <div className={`flex items-center gap-3 ${sidebarCollapsed ? 'justify-center' : ''}`}>
+                        <div className={`flex items-center justify-center w-10 h-10 rounded-full bg-green-100 text-green-700 font-bold text-sm`}>
+                            {auth.user?.persona?.primer_nombre?.[0] || '?'}{auth.user?.persona?.apellido_paterno?.[0] || ''}
+                        </div>
+                        {!sidebarCollapsed && (
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-gray-900 truncate">
+                                    {auth.user?.persona?.primer_nombre} {auth.user?.persona?.apellido_paterno}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                    {!sidebarCollapsed && (
+                        <Link
+                            href={route('logout', {}, false)}
+                            method="post"
+                            as="button"
+                            className="mt-2 flex items-center justify-center gap-2 w-full py-2.5 text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg hover:bg-red-100 transition-colors"
+                        >
+                            <FontAwesomeIcon icon={faRightFromBracket} />
+                            Cerrar sesión
+                        </Link>
+                    )}
+                </div>
+            </aside>
+
+            <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
+                <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between px-6 py-3">
                         <button
                             type="button"
-                            onClick={() => setSidebarOpen(true)}
-                            className="inline-flex items-center justify-center w-10 h-10 bg-white border border-gray-200 rounded-xl text-gray-600 active:bg-gray-50 transition-colors"
-                            aria-label="Abrir menú"
+                            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                            className="inline-flex items-center justify-center w-10 h-10 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            aria-label={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
                         >
-                            <FontAwesomeIcon icon={faBars} className="w-5 h-5" />
+                            <FontAwesomeIcon icon={sidebarCollapsed ? faBars : faChevronLeft} className="w-5 h-5" />
                         </button>
 
-                        <Link href={route('distribuidora.dashboard')} className="flex items-center">
-                            <ApplicationLogo className="block w-auto h-8 text-green-700 fill-current" />
-                            <span className="ml-2 text-base font-bold text-gray-900">Préstamo Fácil</span>
-                        </Link>
+                        <div className="flex items-center gap-4">
+                            <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
+                            {subtitle && <span className="text-sm text-gray-500">| {subtitle}</span>}
+                        </div>
 
                         <button
                             type="button"
                             onClick={abrirNotificaciones}
-                            className="inline-flex items-center justify-center w-10 h-10 bg-white border border-gray-200 rounded-xl text-gray-600 active:bg-gray-50 transition-colors relative"
+                            className="inline-flex items-center justify-center w-10 h-10 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors relative"
                             aria-label="Notificaciones"
                         >
                             <FontAwesomeIcon icon={faBell} className="w-5 h-5" />
@@ -158,111 +236,16 @@ export default function DistribuidoraLayout({ children, title = 'Mi Panel', subt
                     </div>
                 </header>
 
-                <main className="p-4 fin-mobile-main" style={{ paddingTop: '1rem' }}>
-                    <div className="fin-mobile-page">
-                        <div className="mb-4 fin-card bg-white/95 backdrop-blur">
-                            <div className="flex items-start gap-3">
-                                <div>
-                                    <h1 className="fin-title">{title}</h1>
-                                    {subtitle && <p className="mt-1 fin-subtitle">{subtitle}</p>}
-                                </div>
-                            </div>
-                        </div>
-
-                        {children}
-                    </div>
+                <main className="p-6">
+                    {children}
                 </main>
-
-                {sidebarOpen && (
-                    <div className="fixed inset-0 z-[60] flex overflow-hidden">
-                        <div
-                            className="absolute inset-0 bg-black/45 backdrop-blur-sm transition-opacity"
-                            onClick={() => setSidebarOpen(false)}
-                        />
-
-                        <div className="relative flex flex-col w-full max-w-[280px] h-full bg-white shadow-2xl fin-enter-left">
-                            <div className="flex items-center justify-between px-5 py-6 border-b border-green-50 bg-gradient-to-br from-green-50 to-white">
-                                <div>
-                                    <p className="text-xs font-bold text-green-700 uppercase tracking-widest">Mi Menú</p>
-                                    <p className="mt-0.5 text-sm font-semibold text-gray-900 truncate max-w-[180px]">
-                                        {auth.user?.persona?.primer_nombre} {auth.user?.persona?.apellido_paterno}
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setSidebarOpen(false)}
-                                    className="p-2 text-gray-400 hover:text-gray-600"
-                                    aria-label="Cerrar menú"
-                                >
-                                    <FontAwesomeIcon icon={faXmark} className="w-6 h-6" />
-                                </button>
-                            </div>
-
-                            <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto overscroll-contain bg-white/50">
-                                {navigation.map((item) => {
-                                    const isActive = route().current(item.current);
-                                    return (
-                                        <Link
-                                            key={item.name}
-                                            href={item.href}
-                                            onClick={() => setSidebarOpen(false)}
-                                            className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all ${isActive
-                                                ? 'bg-green-700 text-white shadow-lg shadow-green-200'
-                                                : 'text-gray-600 hover:bg-green-50 hover:text-green-700'}`}
-                                        >
-                                            <div className={`flex items-center justify-center w-8 h-8 rounded-xl ${isActive ? 'bg-white/20' : 'bg-green-50 text-green-700'}`}>
-                                                <FontAwesomeIcon icon={item.icon} className="w-4 h-4" />
-                                            </div>
-                                            <span>{item.name}</span>
-                                        </Link>
-                                    );
-                                })}
-
-                                <div className="pt-6 mt-6 border-t border-gray-100">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSidebarOpen(false);
-                                            abrirNotificaciones();
-                                        }}
-                                        className="flex items-center justify-between w-full px-4 py-4 text-left border border-emerald-100 rounded-2xl bg-white shadow-sm hover:bg-green-50 transition-colors"
-                                    >
-                                        <span className="flex items-center gap-3">
-                                            <span className="inline-flex items-center justify-center w-8 h-8 text-green-700 bg-green-50 rounded-xl">
-                                                <FontAwesomeIcon icon={faBell} className="w-4 h-4" />
-                                            </span>
-                                            <span className="text-sm font-bold text-gray-900">Notificaciones</span>
-                                        </span>
-                                        {unreadNotifications > 0 && (
-                                            <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 text-[11px] font-bold text-white bg-red-600 rounded-full">
-                                                {unreadNotifications > 99 ? '99+' : unreadNotifications}
-                                            </span>
-                                        )}
-                                    </button>
-                                </div>
-                            </nav>
-
-                            <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-                                <Link
-                                    href={route('logout', {}, false)}
-                                    method="post"
-                                    as="button"
-                                    className="flex items-center justify-center w-full gap-2 py-4 text-sm font-bold text-red-600 bg-white border border-red-100 rounded-2xl hover:bg-red-50 transition-colors"
-                                >
-                                    <FontAwesomeIcon icon={faRightFromBracket} />
-                                    Cerrar sesión
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
 
             <NotificationCenter />
 
-            <div className="fin-mobile-toasts">
+            <div className="fixed bottom-4 right-4 z-50 space-y-2">
                 {toasts.map((toast) => (
-                    <div key={toast.id} className="w-full p-3 bg-white border border-gray-200 rounded-xl shadow-lg">
+                    <div key={toast.id} className="w-80 p-4 bg-white border border-gray-200 rounded-xl shadow-lg">
                         <p className="font-semibold text-gray-800">{toast.titulo}</p>
                         <p className="mt-1 text-sm text-gray-600">{toast.mensaje}</p>
                     </div>

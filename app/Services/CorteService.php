@@ -177,12 +177,24 @@ class CorteService
             ->count();
 
         foreach ($distribuidoras as $distribuidora) {
+            // LOG TEMPORAL: Inicio de procesamiento de distribuidora
+            \Log::info('[CORTE] Iniciando distribuidora', [
+                'corte_id' => $corte->id,
+                'distribuidora_id' => $distribuidora->id,
+                'distribuidora_numero' => $distribuidora->numero_distribuidora,
+                'distribuidora_estado' => $distribuidora->estado,
+            ]);
+
             // Idempotencia: si ya existe relación para (corte, distribuidora), saltar
             if (RelacionCorte::query()
                 ->where('corte_id', $corte->id)
                 ->where('distribuidora_id', $distribuidora->id)
                 ->exists()
             ) {
+                \Log::info('[CORTE] Saltando - ya existe relacion', [
+                    'corte_id' => $corte->id,
+                    'distribuidora_id' => $distribuidora->id,
+                ]);
                 continue;
             }
 
@@ -202,9 +214,20 @@ class CorteService
 
             $vales = $valesQuery->get();
 
+            // LOG TEMPORAL: Vales encontrados
+            \Log::info('[CORTE] Vales encontrados para distribuidora', [
+                'distribuidora_id' => $distribuidora->id,
+                'vales_count' => $vales->count(),
+                'vales_ids' => $vales->pluck('id')->toArray(),
+                'vales_estados' => $vales->pluck('estado')->toArray(),
+            ]);
+
             $relacionAnterior = $this->obtenerRelacionAnteriorAbierta($distribuidora, $corte);
 
             if ($vales->isEmpty() && $relacionAnterior === null) {
+                \Log::info('[CORTE] Saltando - sin vales y sin relacion anterior', [
+                    'distribuidora_id' => $distribuidora->id,
+                ]);
                 continue;
             }
 
@@ -345,10 +368,28 @@ class CorteService
                     'estado' => RelacionCorte::ESTADO_GENERADA,
                 ]);
 
+                // LOG TEMPORAL: Relacion creada
+                \Log::info('[CORTE] RelacionCorte creada', [
+                    'relacion_id' => $relacion->id,
+                    'numero_relacion' => $relacion->numero_relacion,
+                    'referencia_pago' => $relacion->referencia_pago,
+                    'total_a_pagar' => $relacion->total_a_pagar,
+                    'estado' => $relacion->estado,
+                ]);
+
                 foreach ($partidasData as $partida) {
                     $partida['relacion_corte_id'] = $relacion->id;
                     PartidaRelacionCorte::create($partida);
                 }
+
+                // LOG TEMPORAL: Partidas creadas
+                $partidasCreadas = PartidaRelacionCorte::where('relacion_corte_id', $relacion->id)->get();
+                \Log::info('[CORTE] PartidasRelacionCorte creadas', [
+                    'relacion_id' => $relacion->id,
+                    'partidas_count' => $partidasCreadas->count(),
+                    'partidas_ids' => $partidasCreadas->pluck('id')->toArray(),
+                    'total_monto_partidas' => $partidasCreadas->sum('monto_total_linea'),
+                ]);
 
                 if ($relacionAnterior !== null) {
                     $this->cerrarRelacionAnteriorPorArrastre($relacionAnterior);

@@ -795,7 +795,16 @@ class ConciliacionController extends Controller
 
     private function conciliarAutomaticoExacto(MovimientoBancario $movimiento): bool
     {
+        // LOG TEMPORAL: Inicio de conciliacion automatica
+        \Log::info('[CONCILIACION] Iniciando conciliacion automatica', [
+            'movimiento_id' => $movimiento->id,
+            'movimiento_referencia' => $movimiento->referencia,
+            'movimiento_monto' => $movimiento->monto,
+            'movimiento_fecha' => $movimiento->fecha_movimiento,
+        ]);
+
         if (!$movimiento->referencia) {
+            \Log::info('[CONCILIACION] Sin referencia, imposible conciliar', ['movimiento_id' => $movimiento->id]);
             return false;
         }
 
@@ -809,15 +818,38 @@ class ConciliacionController extends Controller
             ->orderByDesc('id')
             ->first();
 
+        // LOG TEMPORAL: Resultado de busqueda de relacion
+        \Log::info('[CONCILIACION] Busqueda de relacion por referencia', [
+            'movimiento_referencia' => $movimiento->referencia,
+            'relacion_encontrada' => $relacion ? [
+                'id' => $relacion->id,
+                'numero_relacion' => $relacion->numero_relacion,
+                'total_a_pagar' => $relacion->total_a_pagar,
+                'estado' => $relacion->estado,
+            ] : null,
+        ]);
+
         if (!$relacion) {
             return false;
         }
 
         if ($this->relacionYaTienePagoConciliado($relacion->id)) {
+            \Log::info('[CONCILIACION] Ya tiene pago conciliado', ['relacion_id' => $relacion->id]);
             return false;
         }
 
-        if (round((float) $relacion->total_a_pagar, 2) !== round((float) $movimiento->monto, 2)) {
+        $montoRelacion = round((float) $relacion->total_a_pagar, 2);
+        $montoMovimiento = round((float) $movimiento->monto, 2);
+        
+        // LOG TEMPORAL: Comparacion de montos
+        \Log::info('[CONCILIACION] Comparando montos', [
+            'relacion_id' => $relacion->id,
+            'monto_relacion' => $montoRelacion,
+            'monto_movimiento' => $montoMovimiento,
+            'monto_coincide' => $montoRelacion === $montoMovimiento,
+        ]);
+
+        if ($montoRelacion !== $montoMovimiento) {
             return false;
         }
 
@@ -963,10 +995,13 @@ class ConciliacionController extends Controller
             if ($montoAplicar > 0) {
                 // Determine logic of application
                 $vale->saldo_actual = max(0, $vale->saldo_actual - $montoAplicar);
-                $vale->pagos_realizados += $montoAplicar;
+                // pagos_realizados es un CONTADOR de quincenas, no un acumulador de montos
+                $vale->pagos_realizados += 1;
 
                 if ($vale->saldo_actual <= 0.009) {
                     $vale->estado = \App\Models\Vale::ESTADO_LIQUIDADO;
+                } elseif ($vale->estado === \App\Models\Vale::ESTADO_MOROSO) {
+                    $vale->estado = \App\Models\Vale::ESTADO_MOROSO;
                 } else {
                     $vale->estado = \App\Models\Vale::ESTADO_PAGO_PARCIAL;
                 }
